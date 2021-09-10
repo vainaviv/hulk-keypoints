@@ -49,6 +49,12 @@ def vis_gauss(gaussians):
     output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
     cv2.imwrite('test.png', output)
 
+def bimodal_gauss(G1, G2, normalize=False):
+    bimodal = torch.max(G1, G2)
+    if normalize:
+        return normalize(bimodal)
+    return bimodal
+
 class KeypointsDataset(Dataset):
     def __init__(self, img_folder, labels_folder, num_keypoints, img_height, img_width, transform, gauss_sigma=8):
         self.num_keypoints = num_keypoints
@@ -64,7 +70,7 @@ class KeypointsDataset(Dataset):
             label = np.load(os.path.join(labels_folder, '%05d.npy'%i)).reshape(num_keypoints, 2)
             label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
             label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
-            self.imgs.append(os.path.join(img_folder, '%05d.jpg'%i))
+            self.imgs.append(os.path.join(img_folder, '%05d.png'%i))
             self.labels.append(torch.from_numpy(label).cuda())
 
     def __getitem__(self, index):  
@@ -73,7 +79,11 @@ class KeypointsDataset(Dataset):
         U = labels[:,0]
         V = labels[:,1]
         gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, U, V)
-        return img, gaussians
+        mm_gauss = gaussians[0]
+        for i in range(1, len(gaussians)):
+            mm_gauss = bimodal_gauss(mm_gauss, gaussians[i])
+        mm_gauss.unsqueeze_(0)
+        return img, mm_gauss
     
     def __len__(self):
         return len(self.labels)

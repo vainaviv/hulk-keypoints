@@ -12,7 +12,7 @@ from datetime import datetime
 from PIL import Image
 import numpy as np
 
-model_ckpt = ""
+model_ckpt = "hulkL_loop/model_2_1_24.pth"
 
 # model
 keypoints = KeypointsGauss(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH)
@@ -30,10 +30,9 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-image_dir = ''
+image_dir = 'train_sets/hulkL_loop/test/images'
 for i, f in enumerate(sorted(os.listdir(image_dir))):
     img = cv2.imread(os.path.join(image_dir, f))
-    print(img.shape)
     img_t = transform(img)
     img_t = img_t.cuda()
     # GAUSS
