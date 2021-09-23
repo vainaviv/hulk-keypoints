@@ -37,18 +37,21 @@ class Prediction:
         exp_val = [int(np.dot(d_norm, x_indices)), int(np.dot(d_norm, y_indices))]
         return exp_val
     
-    def plot(self, img, heatmap, image_id=0, cls=None, classes=None):
+    def plot(self, input1, heatmap, image_id=0, cls=None, classes=None):
         print("Running inferences on image: %d"%image_id)
+        input1 = np.transpose(input1[0], (1,2,0))
+        img = input1[:, :, :3] * 255
+        img = img.astype(np.uint8)
         all_overlays = []
         h = heatmap[0][0]
         vis = cv2.normalize(h, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
         vis = cv2.applyColorMap(vis, cv2.COLORMAP_JET)
         overlay = cv2.addWeighted(img, 0.65, vis, 0.35, 0)
-        y, x = np.unravel_index(h.argmax(), h.shape)
-        heatmap_val = h[y,x]
-        while heatmap_val > 0.5:
-            overlay = cv2.circle(overlay, (x,y), 4, (255,255,255), -1)
-            h[max(0,y-15):min(y+15, len(h)), max(0,x-15):min(x+15, len(h[0]))] = 0
-            y, x = np.unravel_index(h.argmax(), h.shape)
-            heatmap_val = h[y,x]
+        #y, x = np.unravel_index(h.argmax(), h.shape)
+        #heatmap_val = h[y,x]
+        #while heatmap_val > 0.5:
+        #    overlay = cv2.circle(overlay, (x,y), 4, (255,255,255), -1)
+        #    h[max(0,y-15):min(y+15, len(h)), max(0,x-15):min(x+15, len(h[0]))] = 0
+        #    y, x = np.unravel_index(h.argmax(), h.shape)
+        #    heatmap_val = h[y,x]
         cv2.imwrite('preds/out%04d.png'%image_id, overlay)

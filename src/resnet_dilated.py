@@ -3,12 +3,13 @@ import torchvision.models as models
 from resnet import resnet34
 
 class Resnet34_8s(nn.Module):
-    def __init__(self, num_classes=1000):
+    def __init__(self, num_classes=1000, channels=4, pretrained=False):
         super(Resnet34_8s, self).__init__()
         # Load the pretrained weights, remove avg pool
         # layer and get the output stride of 8
         resnet34_8s = resnet34(fully_conv=True,
-                                       pretrained=True,
+                                       channels=channels,
+                                       pretrained=pretrained,
                                        output_stride=8,
                                        remove_avg_pool_layer=True)
         

@@ -8,13 +8,13 @@ sys.path.insert(0, '/host/src')
 from resnet_dilated import Resnet34_8s
 
 class KeypointsGauss(nn.Module):
-	def __init__(self, num_keypoints, img_height=480, img_width=640):
+	def __init__(self, num_keypoints, img_height=480, img_width=640, channels=4):
 		super(KeypointsGauss, self).__init__()
 		self.num_keypoints = num_keypoints
 		self.num_outputs = self.num_keypoints
 		self.img_height = img_height
 		self.img_width = img_width
-		self.resnet = Resnet34_8s()
+		self.resnet = Resnet34_8s(channels=channels, pretrained=False)
 		self.sigmoid = torch.nn.Sigmoid()
 	def forward(self, x):
 		output = self.resnet(x) 
