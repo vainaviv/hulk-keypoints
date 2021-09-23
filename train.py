@@ -49,7 +49,7 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
 
 # dataset
 workers=0
-dataset_dir = 'hulkL_loop'
+dataset_dir = 'cond_loop_detection'
 output_dir = 'checkpoints'
 save_dir = os.path.join(output_dir, dataset_dir)
 

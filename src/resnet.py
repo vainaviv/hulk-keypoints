@@ -118,6 +118,7 @@ class ResNet(nn.Module):
                  block,
                  layers,
                  num_classes=1000,
+                 channels=3,
                  fully_conv=False,
                  remove_avg_pool_layer=False,
                  output_stride=32):
@@ -134,7 +135,7 @@ class ResNet(nn.Module):
         self.inplanes = 64
         self.fully_conv = fully_conv
         super(ResNet, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
+        self.conv1 = nn.Conv2d(channels, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
