@@ -121,7 +121,8 @@ class ResNet(nn.Module):
                  channels=3,
                  fully_conv=False,
                  remove_avg_pool_layer=False,
-                 output_stride=32):
+                 output_stride=32,
+                 attention=False,):
         
         # Add additional variables to track
         # output stride. Necessary to achieve
@@ -142,6 +143,11 @@ class ResNet(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         
         self.layer1 = self._make_layer(block, 64, layers[0])
+
+        self.attention1 = None
+        if attention:
+            self.attention1 = nn.MultiheadAttention(64, 8)
+
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
@@ -203,6 +209,19 @@ class ResNet(nn.Module):
         x = self.maxpool(x)
 
         x = self.layer1(x)
+
+        if self.attention1:
+            print(x.shape)
+            # convert x to 7 x 7 x batch_size x 64
+            x = x.permute(1, 2, 0, 3)
+            # flatten first two dimensions
+            batch_size = x.size(2)
+            x = x.contiguous().view(x.size(0) * x.size(1), x.size(2), x.size(3))
+            # apply attention
+            x = self.attention1(x, x, x)
+            # convert x back to batch_size x 7 x 7 x 64 
+            x = x.contiguous().view(batch_size, 7, 7, 64)
+
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
