@@ -67,28 +67,49 @@ class KeypointsDataset(Dataset):
         self.imgs = []
         self.labels = []
         for i in range(len(os.listdir(labels_folder))-1):
-            label = np.load(os.path.join(labels_folder, '%05d.npy'%i))
-            if len(label) > 0:
-                label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
-                label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
+            label = np.load(os.path.join(labels_folder, '%05d.npy'%i), allow_pickle=True)
+            if len(label) > 2:
+                #label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
+                #label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
                 self.imgs.append(os.path.join(img_folder, '%05d.png'%i))
-                self.labels.append(torch.from_numpy(label).cuda())
+                self.labels.append(label)
 
     def __getitem__(self, index):  
         img = self.transform(cv2.imread(self.imgs[index]))
         labels = self.labels[index]
-        given = labels[0]
+
+        # parse labels
+        if 'e' in labels:
+            # get index of e
+            e_idx = np.where(labels == 'e')[0][0]
+            # coin flip to decide whether to use first or second endpoint
+            if random.random() > 0.5:
+                new_labels = labels[:e_idx]
+            else:
+                new_labels = labels[e_idx+1:]
+
+        # eliminate all letters from new_labels
+        new_labels = [x for x in labels if x not in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']]
+        endpoint = new_labels[0]
+        new_labels = new_labels[1:] 
+
+        given = torch.from_numpy(np.array(endpoint)).cuda()
         given_gauss = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, given[0], given[1], single=True)
         given_gauss = torch.unsqueeze(given_gauss, 0).cuda()
         combined = torch.cat((img.cuda().double(), given_gauss), dim=0).float()
-        U = labels[1:,0]
-        V = labels[1:,1]
-        gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, U, V)
-        mm_gauss = gaussians[0]
-        for i in range(1, len(gaussians)):
-            mm_gauss = bimodal_gauss(mm_gauss, gaussians[i])
-        mm_gauss.unsqueeze_(0)
-        return combined, mm_gauss
+        
+        combined_labels = None
+        for i in range(0, len(new_labels), 2):
+            pt1, pt2 = torch.from_numpy(np.array(new_labels[i])).cuda(), torch.from_numpy(np.array(new_labels[i+1])).cuda()
+            #print(pt1, pt2)
+            gauss1 = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, pt1[0], pt1[1], single=True)
+            gauss2 = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, pt2[0], pt2[1], single=True)
+            if combined_labels is None:
+                combined_labels = bimodal_gauss(gauss1, gauss2)
+            else:
+                combined_labels = torch.cat((combined_labels, bimodal_gauss(gauss1, gauss2)), dim=0)
+
+        return combined, combined_labels
     
     def __len__(self):
         return len(self.labels)
@@ -99,8 +120,8 @@ if __name__ == '__main__':
     IMG_HEIGHT = 480
     GAUSS_SIGMA = 10
     TEST_DIR = ""
-    test_dataset = KeypointsDataset('/host/data/%s/test/images'%TEST_DIR,
-                           '/host/data/%s/test/keypoints'%TEST_DIR, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+    test_dataset = KeypointsDataset('../mm_kpts/images',
+                           '../mm_kpts/annots', NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
     img, gaussians = test_dataset[0]
     vis_gauss(gaussians)
  
