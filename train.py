@@ -19,11 +19,15 @@ def forward(sample_batched, model):
     img, gt_gauss = sample_batched
     img = Variable(img.cuda() if use_cuda else img)
     pred_gauss = model.forward(img).double()
-    #pred_gauss = pred_gauss.view(pred_gauss.shape[0], 4, 640*480).double()
-    #gt_gauss += 1e-300
-    #loss = F.kl_div(gt_gauss.cuda().log(), pred_gauss, None, None, 'mean')
-    loss = nn.BCELoss()(pred_gauss, gt_gauss)
-    return loss
+
+    overall_loss = None
+    for i in range(pred_gauss.size(1)):
+        loss = nn.BCELoss()(pred_gauss[0, 0], gt_gauss[0, i])
+        if overall_loss is None:
+            overall_loss = loss
+        else:
+            overall_loss = torch.min(overall_loss, loss)
+    return overall_loss
 
 def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
     for epoch in range(epochs):

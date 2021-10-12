@@ -31,8 +31,8 @@ transform = transform = transforms.Compose([
 ])
 
 dataset_dir = 'cond_loop_detection'
-test_dataset = KeypointsDataset('train_sets/%s/test/images'%dataset_dir,
-                           'train_sets/%s/test/annots'%dataset_dir, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+test_dataset = KeypointsDataset('mm_kpts/images',
+                           'mm_kpts/annots', NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
 test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=0)
 
 for i, f in enumerate(test_data):

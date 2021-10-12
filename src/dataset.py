@@ -119,7 +119,7 @@ class KeypointsDataset(Dataset):
             label = new_labels[i]
             x, y = label[0], label[1]
             cv2.circle(orig_img, (int(x), int(y)), 3, (0, 0, 255), -1)
-        cv2.imwrite('keypoints.png', orig_img)
+        #cv2.imwrite('keypoints.png', orig_img)
 
         if len(new_labels) % 2:
             # something is wrong
