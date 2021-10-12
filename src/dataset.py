@@ -16,20 +16,18 @@ import matplotlib.pyplot as plt
 # No domain randomization
 transform = transforms.Compose([transforms.ToTensor()])
 
-# Domain randomization
-#transform = transforms.Compose([
-#    iaa.Sequential([
-#        iaa.AddToHueAndSaturation((-20, 20)),
-#        iaa.LinearContrast((0.85, 1.2), per_channel=0.25), 
-#        iaa.Add((-10, 30), per_channel=True),
-#        iaa.GammaContrast((0.85, 1.2)),
-#        iaa.GaussianBlur(sigma=(0.0, 0.6)),
-#        iaa.ChangeColorTemperature((5000,35000)),
-#        iaa.MultiplySaturation((0.95, 1.05)),
-#        iaa.AdditiveGaussianNoise(scale=(0, 0.0125*255)),
-#    ], random_order=True).augment_image,
-#    transforms.ToTensor()
-#])
+augment = iaa.Sequential([
+    iaa.Fliplr(0.5),
+    iaa.Flipud(0.5),
+    # # iaa.Affine(
+    # #     rotate=(-40, 40),
+    # #     shear=(-5, 5),
+    # #     scale=(1.0, 1.1),
+    # #     mode='constant'
+    # # ),
+    #iaa.TranslateX(px=(-2, 2)),
+    #iaa.TranslateY(px=(-2, 2)),
+])
 
 def normalize(x):
     return F.normalize(x, p=1)
@@ -46,14 +44,14 @@ def gauss_2d_batch(width, height, sigma, U, V, normalize_dist=False, single=Fals
     return G.double()
 
 def vis_gauss(image, gaussians):
-    print(gaussians.shape)
+    # pad gaussians with zeros on first axis until 3
     image = image.cpu().numpy()
     gaussians = gaussians.cpu().numpy()
     #print(gaussians.shape)
     h1 = gaussians #,h2,h3,h4 = gaussians
     #output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
     h1 = np.transpose(h1, (1, 2, 0))[:, :, :3]
-
+    h1 = cv2.merge([h1, h1, h1])[:, :, :3]
     plt.imsave('gaussian.png', h1)
     plt.imsave('image.png', np.transpose(image[:3], (1, 2, 0)))
     h2 = np.transpose(image[3:], (1, 2, 0))
@@ -84,8 +82,7 @@ class KeypointsDataset(Dataset):
                 self.labels.append(label)
 
     def __getitem__(self, index):  
-        #index = random.randint(0, len(self.labels)-1)
-        index = 1
+        index = random.randint(0, len(self.labels)-1)
 
         orig_img = cv2.imread(self.imgs[index])
         img = self.transform(cv2.imread(self.imgs[index]))
@@ -124,7 +121,9 @@ class KeypointsDataset(Dataset):
             cv2.circle(orig_img, (int(x), int(y)), 3, (0, 0, 255), -1)
         cv2.imwrite('keypoints.png', orig_img)
 
-        print(labels, new_labels)
+        if len(new_labels) % 2:
+            # something is wrong
+            return self.__getitem__(index)
 
         for i in range(0, len(new_labels), 2):
             pt1, pt2 = torch.from_numpy(np.array(new_labels[i])).cuda(), torch.from_numpy(np.array(new_labels[i+1])).cuda()

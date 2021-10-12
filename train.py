@@ -58,12 +58,12 @@ if not os.path.exists(output_dir):
 if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 
-train_dataset = KeypointsDataset('train_sets/%s/train/images'%dataset_dir,
-                           'train_sets/%s/train/annots'%dataset_dir, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+train_dataset = KeypointsDataset('mm_kpts/images',
+                           'mm_kpts/annots', NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
-test_dataset = KeypointsDataset('train_sets/%s/test/images'%dataset_dir,
-                           'train_sets/%s/test/annots'%dataset_dir, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+test_dataset = KeypointsDataset('mm_kpts/images',
+                           'mm_kpts/annots', NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
 test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 use_cuda = torch.cuda.is_available()
