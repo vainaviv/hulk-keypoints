@@ -17,16 +17,16 @@ import matplotlib.pyplot as plt
 transform = transforms.Compose([transforms.ToTensor()])
 
 augment = iaa.Sequential([
-    iaa.Fliplr(0.5),
-    iaa.Flipud(0.5),
-    # # iaa.Affine(
-    # #     rotate=(-40, 40),
-    # #     shear=(-5, 5),
-    # #     scale=(1.0, 1.1),
-    # #     mode='constant'
-    # # ),
-    #iaa.TranslateX(px=(-2, 2)),
-    #iaa.TranslateY(px=(-2, 2)),
+    #iaa.Fliplr(0.5),
+    #iaa.Flipud(0.5),
+    # iaa.Affine(
+    #     rotate=(-40, 40),
+    #     shear=(-5, 5),
+    #     scale=(1.0, 1.1),
+    #     mode='constant'
+    # ),
+    # iaa.TranslateX(px=(-15, 15)),
+    # iaa.TranslateY(px=(-15, 15)),
 ])
 
 def normalize(x):
@@ -64,7 +64,7 @@ def bimodal_gauss(G1, G2, normalize=False):
     return bimodal
 
 class KeypointsDataset(Dataset):
-    def __init__(self, img_folder, labels_folder, num_keypoints, img_height, img_width, transform, gauss_sigma=8):
+    def __init__(self, img_folder, labels_folder, num_keypoints, img_height, img_width, transform, gauss_sigma=8, augment=True):
         self.num_keypoints = num_keypoints
         self.img_height = img_height
         self.img_width = img_width
@@ -80,6 +80,8 @@ class KeypointsDataset(Dataset):
                 #label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
                 self.imgs.append(os.path.join(img_folder, '%05d.png'%i))
                 self.labels.append(label)
+        
+        self.augment = augment
 
     def __getitem__(self, index):  
         index = random.randint(0, len(self.labels)-1)
@@ -135,6 +137,27 @@ class KeypointsDataset(Dataset):
                 combined_labels = bmg
             else:
                 combined_labels = torch.cat((combined_labels, bmg), dim=0)
+
+        if self.augment:
+            # AUGMENT
+            # convert combined and combined_labels back to numpy for augmentation
+            combined = combined.cpu().numpy()
+            combined_channels = combined.shape[0]
+            combined_labels = combined_labels.cpu().numpy()
+
+            # concatenate combined with combined_labels and augment together
+            combine_all = np.transpose(np.concatenate((combined, combined_labels), axis=0), (1, 2, 0))
+            combined_all = augment(image=combine_all)#, heatmaps=combined_labels)
+            # transpose back
+            combined_all = np.transpose(combined_all, (2, 0, 1)).copy()
+
+            # separate combined_all into combined and combined_labels
+            combined = combined_all[:combined_channels]
+            combined_labels = combined_all[combined_channels:]
+
+            # convert back to torch
+            combined = torch.from_numpy(combined.copy()).cuda().float()
+            combined_labels = torch.from_numpy(combined_labels.copy()).cuda()
 
         return combined, combined_labels
     
