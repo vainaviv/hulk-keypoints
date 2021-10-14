@@ -6,13 +6,23 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 from config import *
 from src.model import KeypointsGauss
-from src.dataset import KeypointsDataset, transform
+from src.dataset import KeypointsDataset, transform, gauss_2d_batch
 from src.prediction import Prediction
 from datetime import datetime
 from PIL import Image
 import numpy as np
 
-model_ckpt = "cond_loop_detection/model_2_1_248.pth"
+model_ckpt = "cond_loop_detection/model_2_1_24.pth"
+
+def crop_around(img, pt, size=90):
+    result = img[pt[1] - size//2: pt[1] + size//2, pt[0] - size//2: pt[0] + size//2]
+    # pad result to 90 by 90
+    result = Image.fromarray(result)
+    result = result.resize((size, size))
+    return np.array(result)
+
+def model_heatmap(img, heatmap):
+    pass
 
 # model
 keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=4).cuda()
@@ -30,14 +40,9 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-dataset_dir = 'cond_loop_detection'
-test_dataset = KeypointsDataset('test_trace_crops_4/images',
-                           'test_trace_crops_4/annots', NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False)
-test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=0)
+input_image_name = 'test_input.png'
+start_point = [243, 174]
 
-for i, f in enumerate(test_data):
-    img_t = f[0]
-    # GAUSS
-    heatmap = prediction.predict(img_t)
-    heatmap = heatmap.detach().cpu().numpy()
-    prediction.plot(img_t.detach().cpu().numpy(), heatmap, image_id=i)
+start_img = 
+
+gauss_2d_batch()
