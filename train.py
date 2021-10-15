@@ -26,6 +26,7 @@ def forward(sample_batched, model):
     return loss
 
 def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
+    test_losses = []
     for epoch in range(epochs):
 
         train_loss = 0.0
@@ -45,11 +46,13 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
             test_loss += loss.item()
         print('test loss:', test_loss / i_batch)
         if epoch%2 == 0:
-            torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '.pth')
+            torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '_' + str(test_loss) + '.pth')
+            test_losses.append(test_loss)
+    np.save("losses.npy", test_losses)
 
 # dataset
 workers=0
-dataset_dir = 'cond_loop_detection'
+dataset_dir = 'hulkL_seg'
 output_dir = 'checkpoints'
 save_dir = os.path.join(output_dir, dataset_dir)
 
