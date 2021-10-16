@@ -11,24 +11,30 @@ import pickle
 import os
 from datetime import datetime
 import imgaug.augmenters as iaa
+from imgaug.augmentables import KeypointsOnImage 
 
 # No domain randomization
 transform = transforms.Compose([transforms.ToTensor()])
 
+sometimes = lambda aug: iaa.Sometimes(0.5, aug)
+
 # Domain randomization
-#transform = transforms.Compose([
-#    iaa.Sequential([
-#        iaa.AddToHueAndSaturation((-20, 20)),
-#        iaa.LinearContrast((0.85, 1.2), per_channel=0.25), 
-#        iaa.Add((-10, 30), per_channel=True),
-#        iaa.GammaContrast((0.85, 1.2)),
-#        iaa.GaussianBlur(sigma=(0.0, 0.6)),
-#        iaa.ChangeColorTemperature((5000,35000)),
-#        iaa.MultiplySaturation((0.95, 1.05)),
-#        iaa.AdditiveGaussianNoise(scale=(0, 0.0125*255)),
-#    ], random_order=True).augment_image,
-#    transforms.ToTensor()
-#])
+img_transform = iaa.Sequential([
+    iaa.LinearContrast((0.95, 1.05), per_channel=0.25),
+    iaa.Add((-10, 10), per_channel=False),
+    iaa.GammaContrast((0.95, 1.05)),
+    iaa.GaussianBlur(sigma=(0.0, 0.6)),
+    iaa.MultiplySaturation((0.95, 1.05)),
+    iaa.AdditiveGaussianNoise(scale=(0, 0.0125*255)),
+    iaa.flip.Flipud(0.5),
+    iaa.flip.Fliplr(0.5),
+    iaa.Rot90([0, 1, 2, 3]),
+    sometimes(iaa.Affine(
+        scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
+        rotate=(-30, 30),
+        shear=(-30, 30)
+        ))
+    ], random_order=True)
 
 def normalize(x):
     return F.normalize(x, p=1)
@@ -62,20 +68,30 @@ class KeypointsDataset(Dataset):
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
         self.transform = transform
+        self.img_transform = img_transform
 
         self.imgs = []
         self.labels = []
         for i in range(len(os.listdir(labels_folder))):
             #label = np.load(os.path.join(labels_folder, '%05d.npy'%i))[:-2].reshape(num_keypoints, 2)
-            label = np.load(os.path.join(labels_folder, '%05d.npy'%i)).reshape(num_keypoints, 2)
-            label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
-            label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
-            self.imgs.append(os.path.join(img_folder, '%05d.png'%i))
-            self.labels.append(torch.from_numpy(label).cuda())
+            label = np.load(os.path.join(labels_folder, '%05d.npy'%i))
+            if len(label) > 0:
+                label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
+                label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
+                self.imgs.append(os.path.join(img_folder, '%05d.png'%i))
+                self.labels.append(label)
 
-    def __getitem__(self, index):  
-        img = self.transform(cv2.imread(self.imgs[index]))
-        labels = self.labels[index]
+    def __getitem__(self, index):
+        keypoints = self.labels[index]
+        img = cv2.imread(self.imgs[index])
+        kpts = KeypointsOnImage.from_xy_array(keypoints, shape=img.shape)
+        img, labels = self.img_transform(image=img, keypoints=kpts)
+        img = img.copy()
+        img = self.transform(img).cuda()
+        labels_np = []
+        for l in labels:
+            labels_np.append([l.x,l.y])
+        labels = torch.from_numpy(np.array(labels_np, dtype=np.int32)).cuda()
         U = labels[:,0]
         V = labels[:,1]
         gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, U, V)
@@ -84,7 +100,7 @@ class KeypointsDataset(Dataset):
             mm_gauss = bimodal_gauss(mm_gauss, gaussians[i])
         mm_gauss.unsqueeze_(0)
         return img, mm_gauss
-    
+
     def __len__(self):
         return len(self.labels)
 
