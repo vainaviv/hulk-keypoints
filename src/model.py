@@ -8,7 +8,7 @@ sys.path.insert(0, '/host/src')
 from resnet_dilated import Resnet34_8s
 
 class KeypointsGauss(nn.Module):
-	def __init__(self, num_keypoints, img_height=480, img_width=640, channels=4):
+	def __init__(self, num_keypoints, img_height=480, img_width=640, channels=5):
 		super(KeypointsGauss, self).__init__()
 		self.num_keypoints = num_keypoints
 		self.num_outputs = self.num_keypoints

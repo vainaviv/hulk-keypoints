@@ -20,12 +20,12 @@ sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 
 # Domain randomization
 img_transform = iaa.Sequential([
-    iaa.LinearContrast((0.95, 1.05), per_channel=0.25), 
-    iaa.Add((-10, 10), per_channel=False),
-    iaa.GammaContrast((0.95, 1.05)),
-    iaa.GaussianBlur(sigma=(0.0, 0.6)),
-    iaa.MultiplySaturation((0.95, 1.05)),
-    iaa.AdditiveGaussianNoise(scale=(0, 0.0125*255)),
+    #iaa.LinearContrast((0.95, 1.05), per_channel=0.25), 
+    #iaa.Add((-10, 10), per_channel=False),
+    #iaa.GammaContrast((0.95, 1.05)),
+    #iaa.GaussianBlur(sigma=(0.0, 0.6)),
+    #iaa.MultiplySaturation((0.95, 1.05)),
+    #iaa.AdditiveGaussianNoise(scale=(0, 0.0125*255)),
     iaa.flip.Flipud(0.5),
     sometimes(iaa.Affine(
         scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
@@ -71,17 +71,18 @@ class KeypointsDataset(Dataset):
 
         self.imgs = []
         self.labels = []
-        for i in range(len(os.listdir(labels_folder))-2):
+        for i in range(len(os.listdir(labels_folder))):
             label = np.load(os.path.join(labels_folder, '%05d.npy'%i))
             if len(label) > 0:
                 label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
                 label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
-                self.imgs.append(os.path.join(img_folder, '%05d.png'%i))
+                self.imgs.append(os.path.join(img_folder, '%05d.npy'%i))
                 self.labels.append(label)
 
     def __getitem__(self, index):
         keypoints = self.labels[index]
-        img = cv2.imread(self.imgs[index])
+        img = np.load(self.imgs[index])
+        #img = cv2.imread(self.imgs[index])
         kpts = KeypointsOnImage.from_xy_array(keypoints, shape=img.shape)
         img, labels = self.img_transform(image=img, keypoints=kpts)
         img = img.copy()

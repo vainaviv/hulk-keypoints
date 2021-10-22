@@ -12,10 +12,10 @@ from datetime import datetime
 from PIL import Image
 import numpy as np
 
-model_ckpt = "hulkL_seg/model_2_1_498_0.7348379595579797.pth"
+model_ckpt = "bb_depth_masked/model_2_1_384_0.31457405360563806.pth"
 
 # model
-keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=4).cuda()
+keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=5).cuda()
 keypoints.load_state_dict(torch.load('checkpoints/%s'%model_ckpt))
 
 # cuda
@@ -30,7 +30,7 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-dataset_dir = 'hulkL_seg'
+dataset_dir = 'bb_depth_masked'
 test_dataset = KeypointsDataset('train_sets/%s/test/images'%dataset_dir,
                            'train_sets/%s/test/annots'%dataset_dir, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
 test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=0)
