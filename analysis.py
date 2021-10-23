@@ -30,7 +30,7 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-dataset_dir = 'bb_depth_masked'
+dataset_dir = 'bb_depth_test_RGBD'
 test_dataset = KeypointsDataset('train_sets/%s/test/images'%dataset_dir,
                            'train_sets/%s/test/annots'%dataset_dir, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
 test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=0)
