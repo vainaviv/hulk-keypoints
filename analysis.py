@@ -12,7 +12,7 @@ from datetime import datetime
 from PIL import Image
 import numpy as np
 
-model_ckpt = "bb_depth_masked/model_2_1_384_0.31457405360563806.pth"
+model_ckpt = "bb_depth_masked/model_2_1_86_0.36504490080156937.pth"
 
 # model
 keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=5).cuda()
@@ -30,7 +30,7 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-dataset_dir = 'bb_depth_test_RGBD'
+dataset_dir = 'bb_depth_masked'
 test_dataset = KeypointsDataset('train_sets/%s/test/images'%dataset_dir,
                            'train_sets/%s/test/annots'%dataset_dir, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
 test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=0)
