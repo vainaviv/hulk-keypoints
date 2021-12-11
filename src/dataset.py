@@ -131,3 +131,4 @@ if __name__ == '__main__':
     img, gaussians = test_dataset[0]
     vis_gauss(gaussians)
  
+

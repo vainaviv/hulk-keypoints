@@ -26,4 +26,3 @@ if __name__ == '__main__':
 	x = torch.rand((1,3,480,640)).cuda()
 	result = model.forward(x)
 	print(x.shape)
-	print(result.shape)

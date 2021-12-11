@@ -48,16 +48,21 @@ def gauss_2d_batch(width, height, sigma, U, V, normalize_dist=False, single=Fals
         return normalize(G).double()
     return G.double()
 
-def vis_gauss(img, gaussians):
+def vis_gauss(img, gaussians, i):
     gaussians = gaussians.cpu().numpy()
+    h1 = gaussians[0]
+    output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    cv2.imwrite('test/%05d_test_result.png'%i, output)
+
     img = img.cpu().numpy()
-    img = np.transpose(img, (1,2,0))
-    print(img.shape)
-    h1 = gaussians
-    output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
-    img = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX)
-    cv2.imwrite('test.png', output)
-    cv2.imwrite("test_img.png", img)
+    rgb = img[0:3, :, :] * 255
+    rgb = np.transpose(rgb, (1,2,0))
+    heatmap = img[3, :, :]
+    bfs = cv2.normalize(heatmap, None, 0, 255, cv2.NORM_MINMAX)
+    cv2.imwrite("test/%05d_test_bfs.png"%i, bfs)
+    cv2.imwrite("test/%05d_test_img.png"%i, rgb)
+    #add = cv2.vconcat([rgb, bfs, output])
+    #cv2.imwrite("test/test%05d.png"%i, add)
 
 def bimodal_gauss(G1, G2, normalize=False):
     bimodal = torch.max(G1, G2)
@@ -83,8 +88,8 @@ class KeypointsDataset(Dataset):
                 label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
                 bfs = np.load(os.path.join(bfs_folder, '%05d.npy'%i))
                 if len(bfs) > 0:
-                    bfs[:,0] = np.clip(bfs[:, 0], 0, self.img_width-1)
-                    bfs[:,1] = np.clip(bfs[:, 1], 0, self.img_height-1)
+                    bfs[:,0] = np.clip(bfs[:, 0], 0, self.img_height-1)
+                    bfs[:,1] = np.clip(bfs[:, 1], 0, self.img_width-1)
                     self.imgs.append(os.path.join(img_folder, '%05d.npy'%i))
                     self.labels.append(label)
                     self.bfs_result.append(bfs)
@@ -104,8 +109,8 @@ class KeypointsDataset(Dataset):
         labels = torch.from_numpy(np.array(labels_np, dtype=np.int32))
         #CHANGED
         given = torch.from_numpy(np.array(bfs, dtype=np.int32))
-        given_U = given[0: ,0]
-        given_V = given[0: ,1]
+        given_V = given[0: ,0]
+        given_U = given[0: ,1]
         given_gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, given_U, given_V)
         given_mm_gauss = given_gaussians[0]
         for i in range(1, len(given_gaussians)):
@@ -113,8 +118,8 @@ class KeypointsDataset(Dataset):
         given_mm_gauss.unsqueeze_(0)
         ###
         combined = torch.cat((img.double(), given_mm_gauss), dim=0).float()
-        U = labels[0:,0]
-        V = labels[0:,1]
+        U = labels[1:,0] #first one is endpoint so skip
+        V = labels[1:,1]
         gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, U, V)
         mm_gauss = gaussians[0]
         for i in range(1, len(gaussians)):
@@ -133,6 +138,9 @@ if __name__ == '__main__':
     test_dataset = KeypointsDataset('/host/train_sets/%s/test/images'%TEST_DIR,
                            '/host/train_sets/%s/test/annots'%TEST_DIR, '/host/train_sets/%s/test/bfs'%TEST_DIR, 
                            IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
-    img, gaussians = test_dataset[0]
-    vis_gauss(img, gaussians)
+    print(len(test_dataset))
+    for i in range(len(test_dataset)):
+        img, gauss = test_dataset[i]
+        vis_gauss(img, gauss, i)
  
+
