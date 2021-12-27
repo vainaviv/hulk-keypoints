@@ -7,13 +7,14 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
+import numpy as np
 from config import *
 from src.model import KeypointsGauss
-from src.dataset import KeypointsDataset, transform
+from src.dataset import TEST_DIR, KeypointsDataset, transform
 MSE = torch.nn.MSELoss()
 bceLoss = nn.BCELoss
 
-os.environ["CUDA_VISIBLE_DEVICES"]="4"
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
 def forward(sample_batched, model):
     img, gt_gauss = sample_batched
@@ -26,6 +27,7 @@ def forward(sample_batched, model):
     return loss
 
 def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
+    test_losses = []
     for epoch in range(epochs):
 
         train_loss = 0.0
@@ -45,11 +47,13 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
             test_loss += loss.item()
         print('test loss:', test_loss / i_batch)
         if epoch%2 == 0:
-            torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '.pth')
+            torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '_' + str(test_loss) + '.pth')
+            test_losses.append(test_loss)
+    np.save("losses.npy", test_losses)
 
 # dataset
 workers=0
-dataset_dir = 'cond_loop_detection'
+dataset_dir = 'hulkL_aug_cond'
 output_dir = 'checkpoints'
 save_dir = os.path.join(output_dir, dataset_dir)
 
@@ -58,12 +62,13 @@ if not os.path.exists(output_dir):
 if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 
-train_dataset = KeypointsDataset('train_sets/%s/train/images'%dataset_dir,
-                           'train_sets/%s/train/annots'%dataset_dir, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+# TEST_DIR = 'hulkL_seg'
+train_dataset = KeypointsDataset('/host/%s/train'%TEST_DIR,
+                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
-test_dataset = KeypointsDataset('train_sets/%s/test/images'%dataset_dir,
-                           'train_sets/%s/test/annots'%dataset_dir, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+test_dataset = KeypointsDataset('/host/%s/test'%TEST_DIR,
+                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
 test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 use_cuda = torch.cuda.is_available()
