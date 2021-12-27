@@ -55,3 +55,4 @@ class Prediction:
         #    y, x = np.unravel_index(h.argmax(), h.shape)
         #    heatmap_val = h[y,x]
         cv2.imwrite('preds/out%04d.png'%image_id, overlay)
+

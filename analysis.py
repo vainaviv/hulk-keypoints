@@ -12,10 +12,10 @@ from datetime import datetime
 from PIL import Image
 import numpy as np
 
-model_ckpt = "cond_loop_detection/model_2_1_24.pth"
+model_ckpt = "hulkL_aug/model_2_1_440_0.9691820135555778.pth"
 
 # model
-keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=4).cuda()
+keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=3).cuda()
 keypoints.load_state_dict(torch.load('checkpoints/%s'%model_ckpt))
 
 # cuda
@@ -30,9 +30,7 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-dataset_dir = 'cond_loop_detection'
-test_dataset = KeypointsDataset('train_sets/%s/test/images'%dataset_dir,
-                           'train_sets/%s/test/annots'%dataset_dir, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+test_dataset = KeypointsDataset('hulkL_seg/test/', IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
 test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=0)
 
 for i, f in enumerate(test_data):
