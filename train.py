@@ -14,7 +14,7 @@ from src.dataset import TEST_DIR, KeypointsDataset, transform
 MSE = torch.nn.MSELoss()
 bceLoss = nn.BCELoss
 
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 def forward(sample_batched, model):
     img, gt_gauss = sample_batched
@@ -53,7 +53,7 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
 
 # dataset
 workers=0
-dataset_dir = 'hulkL_aug_cond'
+dataset_dir = 'hulkL_aug_cond_3'
 output_dir = 'checkpoints'
 save_dir = os.path.join(output_dir, dataset_dir)
 
@@ -64,11 +64,11 @@ if not os.path.exists(save_dir):
 
 # TEST_DIR = 'hulkL_seg'
 train_dataset = KeypointsDataset('/host/%s/train'%TEST_DIR,
-                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True)
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 test_dataset = KeypointsDataset('/host/%s/test'%TEST_DIR,
-                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True)
 test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 use_cuda = torch.cuda.is_available()
