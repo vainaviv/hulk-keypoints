@@ -30,8 +30,11 @@ img_transform = iaa.Sequential([
         scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
         rotate=(-30, 30),
         shear=(-30, 30)
-        ))
+    ))
     ], random_order=True)
+
+# No randomization
+no_transform = iaa.Sequential([])
 
 # New domain randomization
 img_transform_new = iaa.Sequential([
@@ -75,12 +78,12 @@ def bimodal_gauss(G1, G2, normalize=False):
     return bimodal
 
 class KeypointsDataset(Dataset):
-    def __init__(self, folder, img_height, img_width, transform, gauss_sigma=8):
+    def __init__(self, folder, img_height, img_width, transform, gauss_sigma=8, augment=True, crop=True, only_full=False, condition=False):
         self.img_height = img_height
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
         self.transform = transform
-        self.img_transform = img_transform
+        self.img_transform = img_transform if augment else no_transform
 
         self.imgs = []
         self.labels = []
@@ -88,15 +91,21 @@ class KeypointsDataset(Dataset):
 
         labels_folder = os.path.join(folder, 'annots')
         img_folder = os.path.join(folder, 'images')
-        for i in range(len(os.listdir(labels_folder))):
-            label = np.load(os.path.join(labels_folder, '%05d.npy'%i))
-            if len(label) > 0:
-                label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
-                label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
 
-                self.imgs.append(os.path.join(img_folder, '%05d.png'%i))
-                self.labels.append(label)
-                self.new_versions.append(0)
+        self.crop = crop
+        self.only_full = only_full
+        self.condition = condition
+
+        if not only_full:
+            for i in range(len(os.listdir(labels_folder))):
+                label = np.load(os.path.join(labels_folder, '%05d.npy'%i))
+                if len(label) > 0:
+                    label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
+                    label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
+
+                    self.imgs.append(os.path.join(img_folder, '%05d.png'%i))
+                    self.labels.append(label)
+                    self.new_versions.append(0)
 
         more_folder = os.path.join(folder, 'more_knot_crops')
         if os.path.exists(more_folder):
@@ -166,19 +175,20 @@ class KeypointsDataset(Dataset):
             condition_with_cable = pull_with_cable_and_masked_img[:, :, 6:9].copy()
             # print(pull_with_cable.shape, masked_img.shape)
 
-            random_padding = np.random.randint(0, 30, size=(4,))
-            minx = max(int(min(bbox_corners.keypoints[0].x, bbox_corners.keypoints[1].x, bbox_corners.keypoints[2].x, bbox_corners.keypoints[3].x)) + random_padding[0], 0)
-            miny = max(int(min(bbox_corners.keypoints[0].y, bbox_corners.keypoints[1].y, bbox_corners.keypoints[2].y, bbox_corners.keypoints[3].y)) + random_padding[1], 0)
-            maxx = min(int(max(bbox_corners.keypoints[0].x, bbox_corners.keypoints[1].x, bbox_corners.keypoints[2].x, bbox_corners.keypoints[3].x)) + random_padding[2], img.shape[1]-1)
-            maxy = min(int(max(bbox_corners.keypoints[0].y, bbox_corners.keypoints[1].y, bbox_corners.keypoints[2].y, bbox_corners.keypoints[3].y)) + random_padding[3], img.shape[0]-1)
+            if self.crop:
+                random_padding = np.random.randint(0, 50, size=(4,))
+                minx = max(int(min(bbox_corners.keypoints[0].x, bbox_corners.keypoints[1].x, bbox_corners.keypoints[2].x, bbox_corners.keypoints[3].x)) - random_padding[0], 0)
+                miny = max(int(min(bbox_corners.keypoints[0].y, bbox_corners.keypoints[1].y, bbox_corners.keypoints[2].y, bbox_corners.keypoints[3].y)) - random_padding[1], 0)
+                maxx = min(int(max(bbox_corners.keypoints[0].x, bbox_corners.keypoints[1].x, bbox_corners.keypoints[2].x, bbox_corners.keypoints[3].x)) + random_padding[2], img.shape[1]-1)
+                maxy = min(int(max(bbox_corners.keypoints[0].y, bbox_corners.keypoints[1].y, bbox_corners.keypoints[2].y, bbox_corners.keypoints[3].y)) + random_padding[3], img.shape[0]-1)
 
-            # cv2.imwrite('masked_img.png', masked_img)
-            # cv2.imwrite('pull_with_cable.png', pull_with_cable)
-            # print(minx, miny, maxx, maxy)
+                # cv2.imwrite('masked_img.png', masked_img)
+                # cv2.imwrite('pull_with_cable.png', pull_with_cable)
+                # print(minx, miny, maxx, maxy)
 
-            combined = masked_img[miny:maxy, minx:maxx]
-            pull_with_cable_cropped = pull_with_cable[miny:maxy, minx:maxx]
-            condition_with_cable_cropped = condition_with_cable[miny:maxy, minx:maxx] * np.random.randint(0, 2) # on or off condition
+                combined = masked_img[miny:maxy, minx:maxx]
+                pull_with_cable_cropped = pull_with_cable[miny:maxy, minx:maxx]
+                condition_with_cable_cropped = condition_with_cable[miny:maxy, minx:maxx] * np.random.randint(0, 2) # on or off condition
 
             # cv2.imwrite('combined.png', combined)
             # cv2.imwrite('pull_with_cable_cropped.png', pull_with_cable_cropped)
@@ -191,7 +201,7 @@ class KeypointsDataset(Dataset):
             V, U = np.nonzero(pull_with_cable_cropped[:, :, 0])
             U, V = torch.from_numpy(np.array([U, V], dtype=np.int32)).cuda()
 
-        if condition_with_cable_cropped.sum() > 0:
+        if self.condition and condition_with_cable_cropped.sum() > 0:
             cond_V, cond_U = np.nonzero(condition_with_cable_cropped[:, :, 0])
             cond_U, cond_V = torch.from_numpy(np.array([cond_U, cond_V], dtype=np.int32)).cuda()
             gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, cond_U, cond_V)
@@ -209,7 +219,7 @@ class KeypointsDataset(Dataset):
         for i in range(1, len(gaussians)):
             mm_gauss = bimodal_gauss(mm_gauss, gaussians[i])
         mm_gauss.unsqueeze_(0)
-        #print(combined.shape, mm_gauss.shape)
+
         return combined, mm_gauss
     
     def __len__(self):
@@ -221,7 +231,7 @@ if __name__ == '__main__':
     IMG_HEIGHT = 200
     GAUSS_SIGMA = 8
     test_dataset = KeypointsDataset('/host/%s/train'%TEST_DIR,
-                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True)
     img, gaussians = test_dataset[-1] #[-1] #
     vis_gauss(img, gaussians)
  
