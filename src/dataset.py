@@ -61,7 +61,7 @@ def bimodal_gauss(G1, G2, normalize=False):
     return bimodal
 
 class KeypointsDataset(Dataset):
-    def __init__(self, img_folder, labels_folder, bfs_folder, img_height, img_width, transform, gauss_sigma=8):
+    def __init__(self, img_folder, labels_folder, img_height, img_width, transform, gauss_sigma=8):
         self.img_height = img_height
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
@@ -70,46 +70,32 @@ class KeypointsDataset(Dataset):
 
         self.imgs = []
         self.labels = []
-        self.bfs_result = []
         for i in range(len(os.listdir(labels_folder))):
             label = np.load(os.path.join(labels_folder, '%05d.npy'%i))
             if len(label) > 0:
                 label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
                 label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
-                bfs = np.load(os.path.join(bfs_folder, '%05d.npy'%i))
-                if len(bfs) > 0:
-                    bfs[:,0] = np.clip(bfs[:, 0], 0, self.img_width-1)
-                    bfs[:,1] = np.clip(bfs[:, 1], 0, self.img_height-1)
-                    self.imgs.append(os.path.join(img_folder, '%05d.npy'%i))
-                    self.labels.append(label)
-                    self.bfs_result.append(bfs)
+                self.imgs.append(os.path.join(img_folder, '%05d.png'%i))
+                self.labels.append(label)
 
     def __getitem__(self, index):
         keypoints = self.labels[index]
-        img = np.load(self.imgs[index])
-        bfs = self.bfs_result[index]
-        #img = cv2.imread(self.imgs[index])
+        #img = np.load(self.imgs[index])
+        img = cv2.imread(self.imgs[index])
         kpts = KeypointsOnImage.from_xy_array(keypoints, shape=img.shape)
         img, labels = self.img_transform(image=img, keypoints=kpts)
-        img = img[:, :, 0:3].copy() #ignore depth in the fourth channel
+        img = img.copy()
         img = self.transform(img).cuda()
         labels_np = []
         for l in labels:
             labels_np.append([l.x,l.y])
         labels = torch.from_numpy(np.array(labels_np, dtype=np.int32)).cuda()
-        #CHANGED
-        given = torch.from_numpy(np.array(bfs, dtype=np.int32)).cuda()
-        given_U = given[0: ,0]
-        given_V = given[0: ,1]
-        given_gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, given_U, given_V)
-        given_mm_gauss = given_gaussians[0]
-        for i in range(1, len(given_gaussians)):
-            given_mm_gauss = bimodal_gauss(given_mm_gauss, given_gaussians[i])
-        given_mm_gauss.unsqueeze_(0)
-        ###
-        combined = torch.cat((img.cuda().double(), given_mm_gauss), dim=0).float()
-        U = labels[0:,0]
-        V = labels[0:,1]
+        given = labels[0]
+        given_gauss = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, given[0], given[1], single=True)
+        given_gauss = torch.unsqueeze(given_gauss, 0).cuda()
+        combined = torch.cat((img.cuda().double(), given_gauss), dim=0).float()
+        U = labels[1:,0]
+        V = labels[1:,1]
         gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, U, V)
         mm_gauss = gaussians[0]
         for i in range(1, len(gaussians)):
