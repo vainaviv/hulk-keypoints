@@ -1,0 +1,6 @@
+{
+    "files.watcherExclude": {
+        "/home/vainavi/hulk-keypoints/preds": true,
+        "/home/vainavi/hulk-keypoints/train_sets": true
+    }
+}
