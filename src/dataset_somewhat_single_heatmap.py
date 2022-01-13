@@ -15,7 +15,7 @@ from imgaug.augmentables import KeypointsOnImage
 import matplotlib.pyplot as plt
 
 # set torch GPU to 3
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "4"
 
 # No domain randomization
 transform = transforms.Compose([transforms.ToTensor()])
@@ -68,7 +68,7 @@ def vis_gauss(img, gaussians):
     gaussians = np.tile(gaussians, (1, 1, 3))
     h1 = gaussians
     output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
-    # cv2.imwrite('test-gaussians.png', output)
+    cv2.imwrite('test-gaussians.png', output)
     cv2.imwrite('test-img.png', img)
 
 def bimodal_gauss(G1, G2, normalize=False):
@@ -76,16 +76,6 @@ def bimodal_gauss(G1, G2, normalize=False):
     if normalize:
         return normalize(bimodal)
     return bimodal
-
-def get_gauss(w, h, sigma, U, V):
-    gaussians = gauss_2d_batch(w, h, sigma, U, V)
-    if gaussians.shape[0] > 0:
-        mm_gauss = gaussians[0]
-        for i in range(1, len(gaussians)):
-            mm_gauss = bimodal_gauss(mm_gauss, gaussians[i])
-        mm_gauss.unsqueeze_(0)
-        return mm_gauss
-    return torch.zeros(1, h, w).cuda().double()
 
 class KeypointsDataset(Dataset):
     def __init__(self, folder, img_height, img_width, transform, gauss_sigma=8, augment=True, crop=True, only_full=False, condition=False):
@@ -129,6 +119,16 @@ class KeypointsDataset(Dataset):
 
         print('Loaded %d images'%len(self.imgs))
 
+    def get_gauss(self, U, V):
+        gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, U, V)
+        if gaussians.shape[0] > 0:
+            mm_gauss = gaussians[0]
+            for i in range(1, len(gaussians)):
+                mm_gauss = bimodal_gauss(mm_gauss, gaussians[i])
+            mm_gauss.unsqueeze_(0)
+            return mm_gauss
+        return torch.zeros(1, self.img_height, self.img_width).cuda().double()
+
     def __getitem__(self, index):
         new_version = self.new_versions[index]
         keypoints = self.labels[index]
@@ -150,7 +150,6 @@ class KeypointsDataset(Dataset):
             V = labels[0:,1]
 
             combined = torch.cat((img.cuda().double(),), dim=0).float()
-            mm_gauss = get_gauss(self.img_width, self.img_height, self.gauss_sigma, U, V)
         else:
             loaded_data = np.load(self.imgs[index], allow_pickle=True).item()
             img = loaded_data['img']
@@ -185,10 +184,9 @@ class KeypointsDataset(Dataset):
             pull_with_cable_and_masked_img, bbox_corners = self.img_transform(image=np.concatenate((pull_with_cable1, pull_with_cable2, masked_img, condition_with_cable), axis=2), keypoints=bbox_corner_kpts)
             
             # split into img and mask again
-            pull_with_cable1 = pull_with_cable_and_masked_img[:, :, 0:pull_with_cable1.shape[2]].copy()
-            pull_with_cable2 = pull_with_cable_and_masked_img[:, :, pull_with_cable1.shape[2]:pull_with_cable1.shape[2]*2].copy()
-            masked_img = pull_with_cable_and_masked_img[:, :, 6:9].copy()
-            condition_with_cable = pull_with_cable_and_masked_img[:, :, 9:12].copy()
+            pull_with_cable = pull_with_cable_and_masked_img[:, :, 0:pull_with_cable.shape[2]].copy()
+            masked_img = pull_with_cable_and_masked_img[:, :, 3:6].copy()
+            condition_with_cable = pull_with_cable_and_masked_img[:, :, 6:9].copy()
             # print(pull_with_cable.shape, masked_img.shape)
 
             if self.crop:
@@ -203,8 +201,7 @@ class KeypointsDataset(Dataset):
                 # print(minx, miny, maxx, maxy)
 
                 combined = masked_img[miny:maxy, minx:maxx]
-                pull_with_cable_cropped1 = pull_with_cable1[miny:maxy, minx:maxx]
-                pull_with_cable_cropped2 = pull_with_cable2[miny:maxy, minx:maxx]
+                pull_with_cable_cropped = pull_with_cable[miny:maxy, minx:maxx]
                 condition_with_cable_cropped = condition_with_cable[miny:maxy, minx:maxx] * 1 #np.random.randint(0, 2) # on or off condition
 
             # cv2.imwrite('combined.png', combined)
@@ -212,29 +209,20 @@ class KeypointsDataset(Dataset):
 
             combined = cv2.resize(combined, (self.img_width, self.img_height))
             combined = self.transform(combined).cuda().float()
-            pull_with_cable_cropped1 = cv2.resize(pull_with_cable_cropped1, (self.img_width, self.img_height))
-            pull_with_cable_cropped2 = cv2.resize(pull_with_cable_cropped2, (self.img_width, self.img_height))
+            pull_with_cable_cropped = cv2.resize(pull_with_cable_cropped, (self.img_width, self.img_height))
             condition_with_cable_cropped = cv2.resize(condition_with_cable_cropped, (self.img_width, self.img_height))
 
-            V, U = np.nonzero(pull_with_cable_cropped1[:, :, 0])
+            V, U = np.nonzero(pull_with_cable_cropped[:, :, 0])
             U, V = torch.from_numpy(np.array([U, V], dtype=np.int32)).cuda()
-
-            mm_gauss_1 = get_gauss(self.img_width, self.img_height, self.gauss_sigma, U, V)
-
-            V, U = np.nonzero(pull_with_cable_cropped2[:, :, 0])
-            U, V = torch.from_numpy(np.array([U, V], dtype=np.int32)).cuda()
-
-            mm_gauss_2 = get_gauss(self.img_width, self.img_height, self.gauss_sigma, U, V)
-
-            # now concat the gausses along first axis
-            mm_gauss = torch.cat((mm_gauss_1, mm_gauss_2), dim=0)
 
         if self.condition and condition_with_cable_cropped.sum() > 0:
             cond_V, cond_U = np.nonzero(condition_with_cable_cropped[:, :, 0])
             cond_U, cond_V = torch.from_numpy(np.array([cond_U, cond_V], dtype=np.int32)).cuda()
-            combined[0] = get_gauss(self.img_width, self.img_height, self.gauss_sigma, U, V)
+            combined[0] = self.get_gauss(cond_U, cond_V)
         else:
             combined[0] = 0
+
+        mm_gauss = self.get_gauss(U, V)
 
         return combined, mm_gauss
     
