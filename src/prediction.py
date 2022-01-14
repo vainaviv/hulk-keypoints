@@ -37,9 +37,9 @@ class Prediction:
         exp_val = [int(np.dot(d_norm, x_indices)), int(np.dot(d_norm, y_indices))]
         return exp_val
     
-    def plot(self, input1, heatmap, image_id=0, cls=None, classes=None, write_image=True, heatmap_id=0):
+    def plot(self, heatmap, image_id=0, cls=None, classes=None, write_image=True, heatmap_id=0):
         print("Running inferences on image: %d"%image_id)
-        input1 = np.transpose(input1[0], (1,2,0))
+        # input1 = np.transpose(input1[0], (1,2,0))
         img = input1[:, :, :3] * 255
         img = img.astype(np.uint8)
         all_overlays = []
