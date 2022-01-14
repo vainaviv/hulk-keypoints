@@ -43,11 +43,11 @@ class Prediction:
         img_copy = img.copy()
         category = np.argmax(prediction)
         if category == 0:
-            cv2.imwrite('non-trivial/%05d.png'%image_id, img_copy)
+            cv2.imwrite('knot/%05d.png'%image_id, img_copy)
         elif category == 1:
-            cv2.imwrite('trivial/%05d.png'%image_id, img_copy)
-        else:
             cv2.imwrite('endpoint/%05d.png'%image_id, img_copy)
+        else:
+            cv2.imwrite('keep_going/%05d.png'%image_id, img_copy)
 
     def plot(self, img, heatmap, image_id=0, cls=None, classes=None):
         print("Running inferences on image: %d"%image_id)

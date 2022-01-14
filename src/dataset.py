@@ -20,12 +20,12 @@ sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 
 # Domain randomization
 img_transform = iaa.Sequential([
-    #iaa.LinearContrast((0.95, 1.05), per_channel=0.25), 
-    #iaa.Add((-10, 10), per_channel=False),
+    iaa.LinearContrast((0.95, 1.05), per_channel=0.25), 
+    iaa.Add((-10, 10), per_channel=False),
     #iaa.GammaContrast((0.95, 1.05)),
     #iaa.GaussianBlur(sigma=(0.0, 0.6)),
     #iaa.MultiplySaturation((0.95, 1.05)),
-    #iaa.AdditiveGaussianNoise(scale=(0, 0.0125*255)),
+    iaa.AdditiveGaussianNoise(scale=(0, 0.0125*255)),
     iaa.flip.Flipud(0.5),
     sometimes(iaa.Affine(
         scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
@@ -54,7 +54,7 @@ def vis_gauss(gaussians):
     cv2.imwrite('test.png', output)
 
 class KeypointsDataset(Dataset):
-    def __init__(self, img_folder, labels_folder, num_keypoints, img_height, img_width, transform, gauss_sigma=8):
+    def __init__(self, img_folder, num_keypoints, img_height, img_width, transform, gauss_sigma=8):
         self.num_keypoints = num_keypoints
         self.img_height = img_height
         self.img_width = img_width
@@ -63,19 +63,22 @@ class KeypointsDataset(Dataset):
 
         self.imgs = []
         self.labels = []
-        for i in range(len(os.listdir(labels_folder))):
-            #label = np.load(os.path.join(labels_folder, '%05d.npy'%i))[:-2].reshape(num_keypoints, 2)
-            label = np.load(os.path.join(labels_folder, '%05d.npy'%i)).reshape(num_keypoints)
-           # label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
-           # label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
-            self.imgs.append(os.path.join(img_folder, '%05d.png'%i))
-            self.labels.append(torch.from_numpy(label).cuda())
+        for folder in os.listdir(img_folder):
+            label = folder 
+            for img in os.listdir(os.path.join(img_folder, folder)):
+                self.imgs.append(os.path.join(os.path.join(img_folder, folder), img))
+                if label == "knot":
+                    self.labels.append(torch.from_numpy(np.array([1, 0, 0])).cuda())
+                elif label == "endpoint":
+                    self.labels.append(torch.from_numpy(np.array([0, 1, 0])).cuda())
+                else:
+                    self.labels.append(torch.from_numpy(np.array([0, 0, 1])).cuda())
 
-    def __getitem__(self, index):  
-        img = self.transform(cv2.imread(self.imgs[index]))
+    def __getitem__(self, index):
+        img_load = np.load(self.imgs[index])
+        img = self.transform(image=img_load).copy()
         labels = self.labels[index]
-        label = labels[0]
-        return img, labels
+        return torch.as_tensor(img).cuda(), labels
     
     def __len__(self):
         return len(self.labels)
