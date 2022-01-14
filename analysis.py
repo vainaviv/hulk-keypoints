@@ -56,13 +56,13 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-# test_dataset = KeypointsDataset('hulkL_seg/test/', IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False, only_full=True, condition=True)
-# test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=0)
+test_dataset = KeypointsDataset('hulkL_seg/val/', IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False, only_full=True, condition=True)
+test_data = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
 custom_image = None
 
 ### OPTIONALLY LOAD CUSTOM IMAGE ###
 custom_img_name = "1640295787"
-custom_image = f"/host/data_bank/figure8_drop/{custom_img_name}/color_0.npy"
+# custom_image = f"/host/data_bank/figure8_drop/{custom_img_name}/color_0.npy"
 if custom_image:
     #img = cv2.imread(custom_image)
     img = np.load(custom_image)
@@ -107,14 +107,14 @@ for i, f in enumerate(test_data):
 
     if (not custom_image):
         custom_image = str(i)
-        cond_on = True
+        cond_on = False
         cond_min_x, cond_max_x = "na", "na"
         cond_min_y, cond_max_y = "na", "na"
 
     # display image and user will click on two points
     plt.clf()
     plt.imshow(img_t[0].squeeze().detach().cpu().numpy().transpose(1,2,0))
-    plt.savefig(f'preds_custom_LARGE_2heatmaps/test_full_img_{i}_{cond_on}_{cond_min_x}_{cond_max_x}_{cond_min_y}_{cond_max_y}' + custom_img_name + '.png')
+    plt.savefig(f'preds/test_full_img_{i}_{cond_on}_{cond_min_x}_{cond_max_x}_{cond_min_y}_{cond_max_y}' + custom_img_name + '.png')
 
     # # get the points the user clicked
     # points = plt.ginput(2)
@@ -139,7 +139,7 @@ for i, f in enumerate(test_data):
         plt.subplot(1, len(predictions), j+1)
         plt.imshow(horiz_concat)
         plt.title("Model %d"%(j+1))
-    plt.savefig(f'preds_custom_LARGE_2heatmaps/test_heatmaps_{i}_{cond_on}_{cond_min_x}_{cond_max_x}_{cond_min_y}_{cond_max_y}' + custom_img_name + '.png')
+    plt.savefig(f'preds/test_heatmaps_{i}_{cond_on}_{cond_min_x}_{cond_max_x}_{cond_min_y}_{cond_max_y}' + custom_img_name + '.png')
 
     # TODO: WHAT IS THE REGION THAT HULK_L SHOULD REALLY BE FOCUSING ON?
     # TODO: WHAT ARE ALL THE WAYS OF THINKING ABOUT HOW HUMANS DO FROM ENDPOINT UNTANGLING
