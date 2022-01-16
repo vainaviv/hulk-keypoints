@@ -12,6 +12,7 @@ import os
 from datetime import datetime
 import imgaug.augmenters as iaa
 from imgaug.augmentables import KeypointsOnImage
+import matplotlib.pyplot as plt
 
 # No domain randomization
 transform = transforms.Compose([transforms.ToTensor()])
@@ -25,12 +26,14 @@ img_transform = iaa.Sequential([
     #iaa.GammaContrast((0.95, 1.05)),
     #iaa.GaussianBlur(sigma=(0.0, 0.6)),
     #iaa.MultiplySaturation((0.95, 1.05)),
-    iaa.AdditiveGaussianNoise(scale=(0, 0.0125*255)),
-    iaa.flip.Flipud(0.5),
+    iaa.AdditiveGaussianNoise(scale=(0, 0.0125*255))
+    # iaa.flip.Flipud(0.5),
+    ], random_order=True)
+
+general_transform = iaa.Sequential([
     sometimes(iaa.Affine(
-        scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
-        rotate=(-30, 30),
-        shear=(-30, 30)
+        scale = {"x": (0.8, 1.2), "y": (0.8, 1.2)}, 
+        rotate = (-30, 30)
         ))
     ], random_order=True)
 
@@ -59,24 +62,32 @@ class KeypointsDataset(Dataset):
         self.img_height = img_height
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
-        self.transform = img_transform
-
+        self.img_transform = img_transform
+        self.general_transform = general_transform
         self.imgs = []
         self.labels = []
         for folder in os.listdir(img_folder):
             label = folder 
             for img in os.listdir(os.path.join(img_folder, folder)):
-                self.imgs.append(os.path.join(os.path.join(img_folder, folder), img))
-                if label == "knot":
-                    self.labels.append(torch.from_numpy(np.array([1, 0, 0])).cuda())
-                elif label == "endpoint":
-                    self.labels.append(torch.from_numpy(np.array([0, 1, 0])).cuda())
+                img_path = os.path.join(os.path.join(img_folder, folder), img)
+                img_save = np.load(img_path)
+                self.imgs.append(img_save)
+                if label == "endpoint":
+                    self.labels.append(torch.from_numpy(np.array([1, 0])).cuda())
+                # elif label == "endpoint":
+                #     self.labels.append(torch.from_numpy(np.array([0, 1, 0])).cuda())
                 else:
-                    self.labels.append(torch.from_numpy(np.array([0, 0, 1])).cuda())
+                    self.labels.append(torch.from_numpy(np.array([0, 1])).cuda())
 
     def __getitem__(self, index):
-        img_load = np.load(self.imgs[index])
-        img = self.transform(image=img_load).copy()
+        img_load = (self.imgs[index]).copy()
+        img_0 = self.img_transform(image=img_load[0,:,:]).copy()
+        img_0 = img_0/255.
+        img_load[0,:,:] = img_0
+        img = self.general_transform(image=img_load).copy()
+        # print(img.shape)
+        # cv2.imwrite('test_data/%05d_img.png'%index, img_load[0,:,:]*255)
+        # cv2.imwrite('test_data/%05d_depth.png'%index, img_load[1,:,:]*255)
         labels = self.labels[index]
         return torch.as_tensor(img).cuda(), labels
     
@@ -85,10 +96,9 @@ class KeypointsDataset(Dataset):
 
 if __name__ == '__main__':
     NUM_KEYPOINTS = 4
-    IMG_WIDTH = 640
-    IMG_HEIGHT = 480
+    IMG_WIDTH = 200
+    IMG_HEIGHT = 200
     GAUSS_SIGMA = 10
-    test_dataset = KeypointsDataset('/host/data/undo_reid_term/train/images',
-                           '/host/data/undo_reid_term/train/actions', NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+    test_dataset = KeypointsDataset('/host/train_sets/slide_stop_data_thresh/train', NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
     img, gaussians = test_dataset[0]
-    vis_gauss(gaussians)
+    # vis_gauss(gaussians)

@@ -20,7 +20,8 @@ class Prediction:
             imgs = imgs.view(-1, imgs.shape[1], imgs.shape[2], imgs.shape[3])    
         elif len(imgs.shape) == 3:
             imgs = imgs.view(-1, imgs.shape[0], imgs.shape[1], imgs.shape[2])
-            
+
+        self.model.eval() 
         val = self.model.forward(Variable(imgs))
         return val
 
@@ -43,11 +44,11 @@ class Prediction:
         img_copy = img.copy()
         category = np.argmax(prediction)
         if category == 0:
-            cv2.imwrite('knot/%05d.png'%image_id, img_copy)
-        elif category == 1:
-            cv2.imwrite('endpoint/%05d.png'%image_id, img_copy)
+            cv2.imwrite('endpoint/%05d.png'%image_id, img_copy[0,:,:])
+        # elif category == 1:
+        #     cv2.imwrite('endpoint/%05d.png'%image_id, img_copy[0,:,:])
         else:
-            cv2.imwrite('keep_going/%05d.png'%image_id, img_copy)
+            cv2.imwrite('not_endpoint/%05d.png'%image_id, img_copy[0,:,:])
 
     def plot(self, img, heatmap, image_id=0, cls=None, classes=None):
         print("Running inferences on image: %d"%image_id)

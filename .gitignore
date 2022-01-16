@@ -1,3 +1,5 @@
 preds
 train_sets
 checkpoints
+endpoint
+not_endpoint

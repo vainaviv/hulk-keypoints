@@ -33,6 +33,7 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
     for epoch in range(epochs):
 
         train_loss = 0.0
+        model.train()
         for i_batch, sample_batched in enumerate(train_data):
             optimizer.zero_grad()
             loss = forward(sample_batched, model)
@@ -42,19 +43,21 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
             print('[%d, %5d] loss: %.3f' % (epoch + 1, i_batch + 1, loss.item()), end='')
             print('\r', end='')
         print('train loss:', train_loss / i_batch)
+        train_loss = train_loss/ i_batch
         
         test_loss = 0.0
+        model.eval()
         for i_batch, sample_batched in enumerate(test_data):
             loss = forward(sample_batched, model)
             test_loss += loss.item()
         print('test loss:', test_loss / i_batch)
         if epoch%2 == 0:
-            torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '_' + str(test_loss/i_batch) + '.pth')
+            torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '_' + str(train_loss) + '_' + str(test_loss/i_batch) + '.pth')
 
 # dataset
 workers=0
 raid_dir = 'train_sets'
-dir_name = 'slide_stop_data_thresh'
+dir_name = 'detect_ep'
 dataset_dir = raid_dir + '/' + dir_name
 output_dir = 'checkpoints'
 save_dir = os.path.join(output_dir, dir_name)
@@ -65,6 +68,7 @@ if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 
 train_dataset = KeypointsDataset('%s/train'%dataset_dir, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+print(train_dataset.__len__())
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 test_dataset = KeypointsDataset('%s/test'%dataset_dir, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
@@ -77,7 +81,7 @@ if use_cuda:
     torch.cuda.set_device(0)
 
 # model
-keypoints = Model(NUM_KEYPOINTS, pretrained=False, channels=2, num_classes=3, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
+keypoints = Model(NUM_KEYPOINTS, pretrained=False, channels=2, num_classes=2, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, dropout=True).cuda()
 
 # optimizer
 optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-4, weight_decay=1.0e-4)

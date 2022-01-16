@@ -6,20 +6,21 @@ import time
 import sys
 sys.path.insert(0, '/host/src')
 from resnet_dilated import Resnet34_8s
-from resnet import resnet34
+from resnet import resnet34, resnet18, resnet9
 
 class Model(nn.Module):
-	def __init__(self, num_keypoints, pretrained=False, channels=2, num_classes=3, img_height=480, img_width=640):
+	def __init__(self, num_keypoints, pretrained=False, channels=2, num_classes=3, img_height=480, img_width=640, dropout=False):
 		super(Model, self).__init__()
 		self.num_keypoints = num_keypoints
 		self.num_outputs = self.num_keypoints
 		self.img_height = img_height
 		self.img_width = img_width
-		self.resnet = resnet34(fully_conv=False,
+		self.resnet = resnet9(fully_conv=False,
                                        channels=channels,
                                        pretrained=pretrained,
                                        output_stride=8,
 									   num_classes=num_classes, 
+									   dropout = dropout,
                                        remove_avg_pool_layer=False)
 
 	def forward(self, x):

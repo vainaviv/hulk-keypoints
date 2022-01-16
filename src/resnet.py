@@ -121,6 +121,7 @@ class ResNet(nn.Module):
                  channels=3,
                  fully_conv=False,
                  remove_avg_pool_layer=False,
+                 dropout = False,
                  output_stride=32):
         
         # Add additional variables to track
@@ -129,6 +130,7 @@ class ResNet(nn.Module):
         self.output_stride = output_stride
         self.current_stride = 4
         self.current_dilation = 1
+        self.do_dropout = dropout
         
         self.remove_avg_pool_layer = remove_avg_pool_layer
         
@@ -147,6 +149,9 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
         self.avgpool = nn.AvgPool2d(7)
         self.fc = nn.Linear(4608, num_classes)
+        self.dropout1 = nn.Dropout()
+        self.dropout2 = nn.Dropout()
+        self.dropout3 = nn.Dropout()
         
         if self.fully_conv:
             self.avgpool = nn.AvgPool2d(7, padding=3, stride=1)
@@ -203,17 +208,33 @@ class ResNet(nn.Module):
 
         x = self.layer1(x)
         x = self.layer2(x)
+        if self.do_dropout:
+            x = self.dropout1(x)
         x = self.layer3(x)
         x = self.layer4(x)
+        if self.do_dropout:
+            x = self.dropout2(x)
         if not self.remove_avg_pool_layer:
             x = self.avgpool(x)
         
         if not self.fully_conv:
             x = x.view(x.size(0), -1)
+        #drop
+        if self.do_dropout:
+            x = self.dropout3(x)
         x = self.fc(x)
 
         return x
 
+def resnet9(pretrained=False, **kwargs):
+    """Constructs a ResNet-9 model.
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+    """
+    model = ResNet(BasicBlock, [1, 1, 1, 1], **kwargs)
+    if pretrained:
+        model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
+    return model
 
 def resnet18(pretrained=False, **kwargs):
     """Constructs a ResNet-18 model.
