@@ -47,12 +47,10 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
         print('test loss:', test_loss / i_batch)
         if epoch%2 == 0:
             torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '_' + str(train_loss) + '_' + str(test_loss) + '.pth')
-            test_losses.append(test_loss)
-    np.save("losses.npy", test_losses)
 
 # dataset
 workers=0
-dataset_dir = 'loop_detector'
+dataset_dir = 'hulk_conditioned'
 output_dir = 'checkpoints'
 save_dir = os.path.join(output_dir, dataset_dir + "train_test_loss")
 

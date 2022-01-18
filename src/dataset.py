@@ -71,17 +71,23 @@ class KeypointsDataset(Dataset):
         self.imgs = []
         self.labels = []
         for i in range(len(os.listdir(labels_folder))):
-            label = np.load(os.path.join(labels_folder, '%05d.npy'%i))
+            label_path = os.path.join(labels_folder, '%05d.npy'%i)
+            if not  os.path.exists(label_path):
+                continue
+            label = np.load(label_path)
             if len(label) > 0:
                 label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
                 label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
-                self.imgs.append(os.path.join(img_folder, '%05d.png'%i))
+                img_path = os.path.join(img_folder, '%05d.png'%i)
+                img_save = cv2.imread(img_path)
+                self.imgs.append(img_save)
                 self.labels.append(label)
 
     def __getitem__(self, index):
         keypoints = self.labels[index]
         #img = np.load(self.imgs[index])
-        img = cv2.imread(self.imgs[index])
+        # img = cv2.imread(self.imgs[index])
+        img = (self.imgs[index]).copy()
         kpts = KeypointsOnImage.from_xy_array(keypoints, shape=img.shape)
         img, labels = self.img_transform(image=img, keypoints=kpts)
         img = img.copy()
