@@ -57,7 +57,7 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
 # dataset
 workers=0
 raid_dir = 'train_sets'
-dir_name = 'detect_ep'
+dir_name = 'slide_stop_data_raw'
 dataset_dir = raid_dir + '/' + dir_name
 output_dir = 'checkpoints'
 save_dir = os.path.join(output_dir, dir_name)
@@ -81,7 +81,7 @@ if use_cuda:
     torch.cuda.set_device(0)
 
 # model
-keypoints = Model(NUM_KEYPOINTS, pretrained=False, channels=2, num_classes=2, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, dropout=True).cuda()
+keypoints = Model(NUM_KEYPOINTS, pretrained=False, channels=2, num_classes=3, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, dropout=True).cuda()
 
 # optimizer
 optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-4, weight_decay=1.0e-4)

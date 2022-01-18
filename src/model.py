@@ -22,9 +22,11 @@ class Model(nn.Module):
 									   num_classes=num_classes, 
 									   dropout = dropout,
                                        remove_avg_pool_layer=False)
+		self.softmax = torch.nn.Softmax()
 
 	def forward(self, x):
 		output = self.resnet(x) 
+		output = self.softmax(output)
 		return output
 
 if __name__ == '__main__':
