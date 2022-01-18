@@ -72,12 +72,12 @@ class KeypointsDataset(Dataset):
                 img_path = os.path.join(os.path.join(img_folder, folder), img)
                 img_save = np.load(img_path)
                 self.imgs.append(img_save)
-                if label == "knot":
-                    self.labels.append(torch.from_numpy(np.array([1, 0, 0])).cuda())
-                elif label == "endpoint":
-                    self.labels.append(torch.from_numpy(np.array([0, 1, 0])).cuda())
+                if label == "endpoint":
+                    self.labels.append(torch.from_numpy(np.array([1, 0])).cuda())
+                # elif label == "endpoint":
+                #     self.labels.append(torch.from_numpy(np.array([0, 1, 0])).cuda())
                 else:
-                    self.labels.append(torch.from_numpy(np.array([0, 0, 1])).cuda())
+                    self.labels.append(torch.from_numpy(np.array([0, 1])).cuda())
 
     def __getitem__(self, index):
         img_load = (self.imgs[index]).copy()

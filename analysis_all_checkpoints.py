@@ -18,11 +18,10 @@ import pickle
 os.environ["CUDA_VISIBLE_DEVICES"]="2"
 
 # with thresh level around 65%, epoch 18 best
-train_set = "slide_stop_data_raw"
+train_set = "slide_img_thresh_2"
 image_dir = 'train_sets/' + train_set
 test_dir = image_dir + "/test"
 train_dir = image_dir + '/train'
-classes = {0: "trivial", 1:"non-trivial", 2:"endpoint"}
 test_accuracy = {}
 train_accuracy = {}
 idx = 0
@@ -47,12 +46,12 @@ for checkpoint in sorted(os.listdir("checkpoints/" + train_set)):
     for folder in sorted(os.listdir(test_dir)):
         image_folder = os.path.join(test_dir, folder)
         expected_label = None
-        if folder == "knot":
+        if folder == "endpoint":
             expected_label = 0
-        elif folder == "endpoint":
-            expected_label = 1
+        # elif folder == "endpoint":
+        #     expected_label = 1
         else:
-            expected_label = 2
+            expected_label = 1
 
         for i, f in enumerate(sorted(os.listdir(image_folder))):
             img = np.load(os.path.join(image_folder, f))
@@ -67,10 +66,10 @@ for checkpoint in sorted(os.listdir("checkpoints/" + train_set)):
     for folder in sorted(os.listdir(train_dir)):
         image_folder = os.path.join(train_dir, folder)
         expected_label = None
-        if folder == "knot":
+        if folder == "endpoint":
             expected_label = 0
-        elif folder == "endpoint":
-            expected_label = 1
+        # elif folder == "endpoint":
+        #     expected_label = 1
         else:
             expected_label = 1
 
@@ -85,9 +84,9 @@ for checkpoint in sorted(os.listdir("checkpoints/" + train_set)):
                 train_correct += 1
 
     check = (checkpoint.split("_"))[3]
-    test_acc = test_correct/45 #45 test, 300 train
+    test_acc = test_correct/30 #45 test, 300 train
     test_accuracy[check] = test_acc
-    train_acc = train_correct/300
+    train_acc = train_correct/367
     train_accuracy[check] = train_acc
 
     print(checkpoint)

@@ -19,10 +19,10 @@ os.environ["CUDA_VISIBLE_DEVICES"]="2"
 # model
 #keypoints = models.resnet34(pretrained=False, num_classes=1).cuda()
 #keypoints = Model(NUM_KEYPOINTS, pretrained=False, num_classes=1).cuda() 
-keypoints =  Model(NUM_KEYPOINTS, pretrained=False, channels=2, num_classes=2, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, dropout=False).cuda()
+keypoints =  Model(NUM_KEYPOINTS, pretrained=False, channels=2, num_classes=3, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, dropout=False).cuda()
 
 #keypoints = KeypointsGauss(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH)
-keypoints.load_state_dict(torch.load('checkpoints/detect_ep/model_2_1_74_0.3408295752513512_0.6872417581696136.pth'))
+keypoints.load_state_dict(torch.load('checkpoints/slide_img_thresh_3/model_2_1_62_0.7064775615761302_1.3471544282206227.pth'))
 
 # cuda
 use_cuda = torch.cuda.is_available()
@@ -36,9 +36,10 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-image_dir = 'train_sets/detect_ep/test'
+image_dir = 'train_sets/slide_img_thresh_3/test'
+os.mkdir('knot')
 os.mkdir('endpoint')
-os.mkdir('not_endpoint')
+os.mkdir('keep_going')
 idx = 0
 for folder in sorted(os.listdir(image_dir)):
     image_folder = os.path.join(image_dir, folder)
