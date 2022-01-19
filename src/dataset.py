@@ -61,12 +61,13 @@ def bimodal_gauss(G1, G2, normalize=False):
     return bimodal
 
 class KeypointsDataset(Dataset):
-    def __init__(self, img_folder, labels_folder, img_height, img_width, transform, gauss_sigma=8):
+    def __init__(self, img_folder, labels_folder, img_height, img_width, transform, gauss_sigma=8, augment=True):
         self.img_height = img_height
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
         self.transform = transform
         self.img_transform = img_transform
+        self.augment = augment
 
         self.imgs = []
         self.labels = []
@@ -91,7 +92,10 @@ class KeypointsDataset(Dataset):
         kpts = KeypointsOnImage.from_xy_array(keypoints, shape=img.shape)
         img, labels = self.img_transform(image=img, keypoints=kpts)
         img = img.copy()
-        img = self.transform(img).cuda()
+        if self.augment:
+            img = self.transform(img).cuda()
+        else:
+            img = img.cuda()
         labels_np = []
         for l in labels:
             labels_np.append([l.x,l.y])

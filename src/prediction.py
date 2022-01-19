@@ -47,6 +47,13 @@ class Prediction:
         vis = cv2.normalize(h, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
         vis = cv2.applyColorMap(vis, cv2.COLORMAP_JET)
         overlay = cv2.addWeighted(img, 0.65, vis, 0.35, 0)
+        point = input1[:, :, 3] * 255
+        tmp = self.expectation(h)
+        h = input1[:, :, 3] * 255
+        pred_y, pred_x = np.unravel_index(h.argmax(), h.shape)
+        vis = cv2.normalize(h, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        vis = cv2.applyColorMap(vis, cv2.COLORMAP_JET)
+        overlay = cv2.circle(overlay, (pred_x,pred_y), 4, (255,255,255), -1)
         #y, x = np.unravel_index(h.argmax(), h.shape)
         #heatmap_val = h[y,x]
         #while heatmap_val > 0.5:

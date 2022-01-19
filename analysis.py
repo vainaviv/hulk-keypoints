@@ -16,7 +16,7 @@ os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 print("running")
 
-model_ckpt = "loop_detectortrain_test_loss/model_2_1_164_1.3544122673336825_0.9428386548464311.pth" #"loop_detector/model_2_1_114_0.8913466039467413.pth"
+model_ckpt = "hulk_conditionedtrain_test_loss/model_2_1_160_1.1150198405831495_0.2470908434594407.pth" #"loop_detector/model_2_1_114_0.8913466039467413.pth"
 
 # model
 keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=4).cuda()
@@ -34,9 +34,9 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-dataset_dir = 'loop_detector'
+dataset_dir = 'hulk_conditioned'
 test_dataset = KeypointsDataset('train_sets/%s/test/images'%dataset_dir,
-                           'train_sets/%s/test/annots'%dataset_dir, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+                           'train_sets/%s/test/annots'%dataset_dir, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False)
 test_data = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
 
 for i, f in enumerate(test_data):

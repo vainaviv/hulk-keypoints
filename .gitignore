@@ -1,3 +1,7 @@
 preds
 train_sets
 checkpoints
+endpoint
+knot
+keep_going
+not_endpoint

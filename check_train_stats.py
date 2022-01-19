@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import os
 import pickle
 
-dir_to_inspect = "checkpoints/detect_ep"
+dir_to_inspect = "checkpoints/hulk_conditionedtrain_test_loss"
 files = os.listdir(dir_to_inspect)
 files.sort()
 
