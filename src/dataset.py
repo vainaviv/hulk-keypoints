@@ -20,8 +20,8 @@ sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 
 # Domain randomization
 img_transform = iaa.Sequential([
-    #iaa.LinearContrast((0.95, 1.05), per_channel=0.25), 
-    #iaa.Add((-10, 10), per_channel=False),
+    iaa.LinearContrast((0.95, 1.05), per_channel=0.25), 
+    iaa.Add((-10, 10), per_channel=False),
     #iaa.GammaContrast((0.95, 1.05)),
     #iaa.GaussianBlur(sigma=(0.0, 0.6)),
     #iaa.MultiplySaturation((0.95, 1.05)),
@@ -90,12 +90,12 @@ class KeypointsDataset(Dataset):
         # img = cv2.imread(self.imgs[index])
         img = (self.imgs[index]).copy()
         kpts = KeypointsOnImage.from_xy_array(keypoints, shape=img.shape)
-        img, labels = self.img_transform(image=img, keypoints=kpts)
-        img = img.copy()
         if self.augment:
-            img = self.transform(img).cuda()
+            img, labels = self.img_transform(image=img, keypoints=kpts)
         else:
-            img = img.cuda()
+            labels = kpts
+        img = img.copy()
+        img = self.transform(img).cuda()
         labels_np = []
         for l in labels:
             labels_np.append([l.x,l.y])
