@@ -20,15 +20,9 @@ sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 
 # Domain randomization
 img_transform = iaa.Sequential([
-    iaa.LinearContrast((0.95, 1.05), per_channel=0.25),
+    iaa.LinearContrast((0.95, 1.05), per_channel=0.25), 
     iaa.Add((-10, 10), per_channel=False),
-    iaa.GammaContrast((0.95, 1.05)),
-    iaa.GaussianBlur(sigma=(0.0, 0.6)),
-    iaa.MultiplySaturation((0.95, 1.05)),
-    iaa.AdditiveGaussianNoise(scale=(0, 0.0125*255)),
     iaa.flip.Flipud(0.5),
-    iaa.flip.Fliplr(0.5),
-    iaa.Rot90([0, 1, 2, 3]),
     sometimes(iaa.Affine(
         scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
         rotate=(-30, 30),
@@ -62,13 +56,14 @@ def bimodal_gauss(G1, G2, normalize=False):
     return bimodal
 
 class KeypointsDataset(Dataset):
-    def __init__(self, img_folder, labels_folder, num_keypoints, img_height, img_width, transform, gauss_sigma=8):
+    def __init__(self, img_folder, labels_folder, num_keypoints, img_height, img_width, transform, gauss_sigma=8, augment=True):
         self.num_keypoints = num_keypoints
         self.img_height = img_height
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
-        self.transform = transform
+        self.no_transform = transform
         self.img_transform = img_transform
+        self.augment = augment
 
         self.imgs = []
         self.labels = []
@@ -78,16 +73,22 @@ class KeypointsDataset(Dataset):
             if len(label) > 0:
                 label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
                 label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
-                self.imgs.append(os.path.join(img_folder, '%05d.png'%i))
+                img_path = os.path.join(img_folder, '%05d.png'%i)
+                img_save = cv2.imread(img_path)
+                self.imgs.append(img_save)
                 self.labels.append(label)
 
     def __getitem__(self, index):
         keypoints = self.labels[index]
-        img = cv2.imread(self.imgs[index])
+        # img = cv2.imread(self.imgs[index])
+        img = self.imgs[index]
         kpts = KeypointsOnImage.from_xy_array(keypoints, shape=img.shape)
-        img, labels = self.img_transform(image=img, keypoints=kpts)
+        if self.augment:
+            img, labels = self.img_transform(image=img, keypoints=kpts)
+        else:
+            labels = kpts
         img = img.copy()
-        img = self.transform(img).cuda()
+        img = self.no_transform(img).cuda()
         labels_np = []
         for l in labels:
             labels_np.append([l.x,l.y])
