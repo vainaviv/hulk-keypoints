@@ -12,7 +12,9 @@ from datetime import datetime
 from PIL import Image
 import numpy as np
 
-model_ckpt = "endpoints_new/model_2_1_198.pth"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
+
+model_ckpt = "hulk_cascade_step_1/model_2_1_122_1.7929086790566509_0.4343425222651126.pth"
 
 # model
 keypoints = KeypointsGauss(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH)
@@ -30,7 +32,7 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-image_dir = 'train_sets/endpoints_new/test/images'
+image_dir = 'train_sets/hulk_cascade_step_1/test/images'
 for i, f in enumerate(sorted(os.listdir(image_dir))):
     img = cv2.imread(os.path.join(image_dir, f))
     img_t = transform(img)

@@ -46,9 +46,9 @@ class Prediction:
         overlay = cv2.addWeighted(img, 0.65, vis, 0.35, 0)
         y, x = np.unravel_index(h.argmax(), h.shape)
         heatmap_val = h[y,x]
-        while heatmap_val > 0.5:
-            overlay = cv2.circle(overlay, (x,y), 4, (255,255,255), -1)
-            h[max(0,y-15):min(y+15, len(h)), max(0,x-15):min(x+15, len(h[0]))] = 0
-            y, x = np.unravel_index(h.argmax(), h.shape)
-            heatmap_val = h[y,x]
+        # while heatmap_val > 0.5:
+        #     overlay = cv2.circle(overlay, (x,y), 4, (255,255,255), -1)
+        #     h[max(0,y-15):min(y+15, len(h)), max(0,x-15):min(x+15, len(h[0]))] = 0
+        #     y, x = np.unravel_index(h.argmax(), h.shape)
+        #     heatmap_val = h[y,x]
         cv2.imwrite('preds/out%04d.png'%image_id, overlay)
