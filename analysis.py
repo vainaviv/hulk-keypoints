@@ -5,24 +5,18 @@ import torch
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from config import *
-from src.model import Model
-#from src.model_multi_headed import KeypointsGauss
+from src.model import KeypointsGauss
 from src.dataset import KeypointsDataset, transform
 from src.prediction import Prediction
 from datetime import datetime
 from PIL import Image
 import numpy as np
-import torchvision.models as models
 
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+model_ckpt = "endpoints_new/model_2_1_198.pth"
 
 # model
-#keypoints = models.resnet34(pretrained=False, num_classes=1).cuda()
-#keypoints = Model(NUM_KEYPOINTS, pretrained=False, num_classes=1).cuda() 
-keypoints =  Model(NUM_KEYPOINTS, pretrained=False, channels=2, num_classes=3, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, dropout=False).cuda()
-
-#keypoints = KeypointsGauss(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH)
-keypoints.load_state_dict(torch.load('checkpoints/slide_img_thresh_3/model_2_1_62_0.7064775615761302_1.3471544282206227.pth'))
+keypoints = KeypointsGauss(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH)
+keypoints.load_state_dict(torch.load('checkpoints/%s'%model_ckpt))
 
 # cuda
 use_cuda = torch.cuda.is_available()
@@ -36,23 +30,13 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-image_dir = 'train_sets/slide_img_thresh_3/test'
-os.mkdir('knot')
-os.mkdir('endpoint')
-os.mkdir('keep_going')
-idx = 0
-for folder in sorted(os.listdir(image_dir)):
-    image_folder = os.path.join(image_dir, folder)
-    for i, f in enumerate(sorted(os.listdir(image_folder))):
-        #print(f)
-        img = np.load(os.path.join(image_folder, f))
-        img[0,:,:] = img[0,:,:]/255
-        #print(img.shape)
-        #img_t = transform(img)
-        img_t = torch.tensor(img).cuda()
-        #print(img_t.shape)
-        value = prediction.predict(img_t)
-        value = value.detach().cpu().numpy()
-        img = img*255
-        prediction.sort(img, value, image_id=idx) #will need to edit this
-        idx += 1
+image_dir = 'train_sets/endpoints_new/test/images'
+for i, f in enumerate(sorted(os.listdir(image_dir))):
+    img = cv2.imread(os.path.join(image_dir, f))
+    img_t = transform(img)
+    img_t = img_t.cuda()
+    # GAUSS
+    heatmap = prediction.predict(img_t)
+    heatmap = heatmap.detach().cpu().numpy()
+    prediction.plot(img, heatmap, image_id=i)
+ 
