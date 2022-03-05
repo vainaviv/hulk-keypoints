@@ -61,26 +61,67 @@ transform = transform = transforms.Compose([
 custom_image = None
 
 ### OPTIONALLY LOAD CUSTOM IMAGE ###
-custom_img_name = "1640295787"
-custom_image = f"/host/data_bank/figure8_drop/{custom_img_name}/color_0.npy"
-if custom_image:
-    #img = cv2.imread(custom_image)
-    img = np.load(custom_image)
+# custom_img_name = "1640295787"
+# custom_image = f"/host/data_bank/figure8_drop/{custom_img_name}/color_0.npy"
+# if custom_image:
+#     #img = cv2.imread(custom_image)
+#     img = np.load(custom_image)
+#     # print(img.max(), img.min())
 
-    # FROM 0 to image size
-    crop_min_x, crop_max_x = 400, 570 #img.shape[1] #- 200
-    crop_min_y, crop_max_y = 100, 270 #img.shape[0]# - 200
+#     # FROM 0 to image size
+#     crop_min_x, crop_max_x = 400, 570 #img.shape[1] #- 200
+#     crop_min_y, crop_max_y = 100, 270 #img.shape[0]# - 200
+
+#     # From 0 to 200
+#     cond_on = True
+#     cond_min_x, cond_max_x = 0, 200 #img.shape[1]
+#     cond_min_y, cond_max_y = 190, 200 #img.shape[0]
+
+#     img[:, :, 0] = 0
+#     img = img[crop_min_y:crop_max_y, crop_min_x:crop_max_x, :]
+#     img = cv2.resize(img, (IMG_WIDTH, IMG_HEIGHT))
+
+#     img[cond_min_y:cond_max_y, cond_min_x:cond_max_x, 0] = img[cond_min_y:cond_max_y, cond_min_x:cond_max_x, 1] > 50
+
+#     V, U = np.nonzero(img[:, :, 0])
+
+#     # convert to torch tensor
+#     img = transforms.ToTensor()(img).cuda()
+
+#     # gauss = gauss_2d_batch(img.shape[2], img.shape[1], GAUSS_SIGMA, torch.as_tensor(U).cuda(), torch.as_tensor(V).cuda())
+#     # mm_gauss = gauss[0]
+#     # for i in range(1, len(gauss)):
+#     #     mm_gauss = bimodal_gauss(mm_gauss, gauss[i])
+#     # mm_gauss.unsqueeze_(0)
+#     img[0] = get_gauss(img.shape[2], img.shape[1], GAUSS_SIGMA, torch.as_tensor(U).cuda(), torch.as_tensor(V).cuda()) if cond_on else 0
+
+#     img = img.unsqueeze(0)
+    
+#     test_data = [img]
+
+# Load custom folder
+folder_name = 'detectron_pred_bb'
+test_data = []
+for file in os.listdir(folder_name):
+    if 'points' not in file:
+        continue
+    
+    #img = cv2.imread(custom_image)
+    img_cond = np.load(os.path.join(folder_name, file), allow_pickle=True).item()
+    img = img_cond['image']
+    cond = np.array(img_cond['points'])
+    if len(cond) == 0:
+        continue
+    # print(img.max(), img.min())
 
     # From 0 to 200
     cond_on = True
-    cond_min_x, cond_max_x = 0, 200 #img.shape[1]
-    cond_min_y, cond_max_y = 190, 200 #img.shape[0]
+    cond_min_x, cond_max_x = min(cond[:, 1]), max(cond[:, 1])
+    cond_min_y, cond_max_y = min(cond[:, 0]), max(cond[:, 0])
 
     img[:, :, 0] = 0
-    img = img[crop_min_y:crop_max_y, crop_min_x:crop_max_x, :]
+    img[cond_min_y:cond_max_y, cond_min_x:cond_max_x, 0] = 255*img[cond_min_y:cond_max_y, cond_min_x:cond_max_x, 1] > 50
     img = cv2.resize(img, (IMG_WIDTH, IMG_HEIGHT))
-
-    img[cond_min_y:cond_max_y, cond_min_x:cond_max_x, 0] = img[cond_min_y:cond_max_y, cond_min_x:cond_max_x, 1] > 50
 
     V, U = np.nonzero(img[:, :, 0])
 
@@ -96,25 +137,25 @@ if custom_image:
 
     img = img.unsqueeze(0)
     
-    test_data = [img]
+    test_data.append(img)
+    
 
 for i, f in enumerate(test_data):
     img_t = f
     if (len(img_t.shape) == 4):
         img_t = img_t.unsqueeze(0)
     # GAUSS
-    print(img_t.shape)
 
-    if (not custom_image):
-        custom_image = str(i)
-        cond_on = True
-        cond_min_x, cond_max_x = "na", "na"
-        cond_min_y, cond_max_y = "na", "na"
+    # if (not custom_image):
+    #     custom_image = str(i)
+    #     cond_on = True
+    #     cond_min_x, cond_max_x = "na", "na"
+    #     cond_min_y, cond_max_y = "na", "na"
 
     # display image and user will click on two points
     plt.clf()
     plt.imshow(img_t[0].squeeze().detach().cpu().numpy().transpose(1,2,0))
-    plt.savefig(f'preds_custom_LARGE_2heatmaps/test_full_img_{i}_{cond_on}_{cond_min_x}_{cond_max_x}_{cond_min_y}_{cond_max_y}' + custom_img_name + '.png')
+    plt.savefig(f'preds_custom_LARGE_2heatmaps_detectron/test_full_img_{i}_{cond_on}_{cond_min_x}_{cond_max_x}_{cond_min_y}_{cond_max_y}' + '.png')
 
     # # get the points the user clicked
     # points = plt.ginput(2)
@@ -139,7 +180,7 @@ for i, f in enumerate(test_data):
         plt.subplot(1, len(predictions), j+1)
         plt.imshow(horiz_concat)
         plt.title("Model %d"%(j+1))
-    plt.savefig(f'preds_custom_LARGE_2heatmaps/test_heatmaps_{i}_{cond_on}_{cond_min_x}_{cond_max_x}_{cond_min_y}_{cond_max_y}' + custom_img_name + '.png')
+    plt.savefig(f'preds_custom_LARGE_2heatmaps_detectron/test_heatmaps_{i}_{cond_on}_{cond_min_x}_{cond_max_x}_{cond_min_y}_{cond_max_y}' + '.png')
 
     # TODO: WHAT IS THE REGION THAT HULK_L SHOULD REALLY BE FOCUSING ON?
     # TODO: WHAT ARE ALL THE WAYS OF THINKING ABOUT HOW HUMANS DO FROM ENDPOINT UNTANGLING

@@ -247,7 +247,7 @@ if __name__ == '__main__':
     IMG_HEIGHT = 200
     GAUSS_SIGMA = 8
     test_dataset = KeypointsDataset('/host/%s/train'%TEST_DIR,
-                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True)
+                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, only_full=True, condition=True)
     img, gaussians = test_dataset[-1] #[-1] #
     vis_gauss(img, gaussians)
  
