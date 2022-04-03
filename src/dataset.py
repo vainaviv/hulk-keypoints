@@ -11,7 +11,7 @@ import pickle
 import os
 from datetime import datetime
 import imgaug.augmenters as iaa
-from imgaug.augmentables import KeypointsOnImage
+# from imgaug.augmentables import KeypointsOnImage
 import matplotlib.pyplot as plt
 
 # No domain randomization
@@ -22,20 +22,21 @@ sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 # Domain randomization
 img_transform = iaa.Sequential([
     iaa.LinearContrast((0.95, 1.05), per_channel=0.25), 
-    iaa.Add((-10, 10), per_channel=False),
-    #iaa.GammaContrast((0.95, 1.05)),
-    #iaa.GaussianBlur(sigma=(0.0, 0.6)),
+    iaa.GammaContrast((0.95, 1.05)),
+    iaa.GaussianBlur(sigma=(0.0, 0.2)),
     #iaa.MultiplySaturation((0.95, 1.05)),
-    iaa.AdditiveGaussianNoise(scale=(0, 0.0125*255))
-    # iaa.flip.Flipud(0.5),
-    ], random_order=True)
+    iaa.AdditiveGaussianNoise(scale=(0, 0.0125*255)),
+    iaa.Add((-10, 10), per_channel=False),
+    iaa.flip.Fliplr(0.5),
+    ], random_order=False)
 
 general_transform = iaa.Sequential([
     sometimes(iaa.Affine(
-        scale = {"x": (0.8, 1.2), "y": (0.8, 1.2)}, 
-        rotate = (-30, 30)
+        scale = {"x": (0.9, 1.1), "y": (0.9, 1.1)}, 
+        rotate = (-60, 60),
+        translate_percent={"x": (-.1, .1), "y": (-.1, .1)}, 
         ))
-    ], random_order=True)
+    ], random_order=False)
 
 def normalize(x):
     return F.normalize(x, p=1)
@@ -57,8 +58,9 @@ def vis_gauss(gaussians):
     cv2.imwrite('test.png', output)
 
 class KeypointsDataset(Dataset):
-    def __init__(self, img_folder, num_keypoints, img_height, img_width, transform, gauss_sigma=8):
+    def __init__(self, img_folder, num_keypoints, img_height, img_width, transform, gauss_sigma=8,do_aug=True):
         self.num_keypoints = num_keypoints
+        self.do_aug=do_aug
         self.img_height = img_height
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
@@ -72,19 +74,23 @@ class KeypointsDataset(Dataset):
                 img_path = os.path.join(os.path.join(img_folder, folder), img)
                 img_save = np.load(img_path)
                 self.imgs.append(img_save)
-                if label == "endpoint":
-                    self.labels.append(torch.from_numpy(np.array([1, 0])).cuda())
-                # elif label == "endpoint":
-                #     self.labels.append(torch.from_numpy(np.array([0, 1, 0])).cuda())
+                if label == "knot":
+                    self.labels.append(torch.from_numpy(np.array([1., 0.],dtype=np.float32)).cuda())
                 else:
-                    self.labels.append(torch.from_numpy(np.array([0, 1])).cuda())
+                    self.labels.append(torch.from_numpy(np.array([0., 1.],dtype=np.float32)).cuda())
 
     def __getitem__(self, index):
         img_load = (self.imgs[index]).copy()
-        img_0 = self.img_transform(image=img_load[0,:,:]).copy()
+        img_0=img_load[0,:,:]
+        if self.do_aug:
+            img_0 = self.img_transform(image=img_0)#this is the raw img
+            img_0 = self.general_transform(image=img_0)#TODO add this back @justin
         img_0 = img_0/255.
-        img_load[0,:,:] = img_0
-        img = self.general_transform(image=img_load).copy()
+        img=np.zeros((3,200,200),dtype=np.float32)
+        img[0,:,:]=img_0
+        img[1,:,:]=img_0
+        img[2,:,:]=img_0
+        # img_load[0,:,:] = img_0
         # print(img.shape)
         # cv2.imwrite('test_data/%05d_img.png'%index, img_load[0,:,:]*255)
         # cv2.imwrite('test_data/%05d_depth.png'%index, img_load[1,:,:]*255)

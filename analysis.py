@@ -1,42 +1,41 @@
 import pickle
-import cv2
+import time
 import os
 import torch
-from torchvision import transforms
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from config import *
-from src.model import KeypointsGauss
+# from src.model import Model
 from src.dataset import KeypointsDataset, transform
-from src.prediction import Prediction
-from datetime import datetime
-from PIL import Image
-import numpy as np
+# from src.resnet import resnet34
+import torchvision.models as models
 
-model_ckpt = "endpoints_new/model_2_1_198.pth"
+raid_dir = 'train_sets'
+dir_name = 'knot_or_not_thresh'
+dataset_dir = raid_dir + '/' + dir_name
 
-# model
-keypoints = KeypointsGauss(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH)
-keypoints.load_state_dict(torch.load('checkpoints/%s'%model_ckpt))
+model = models.resnet18()
+model.fc=nn.Sequential(nn.Dropout(p=.0),nn.Linear(512,2),nn.Softmax())
+model.load_state_dict(torch.load('model_justin/checkpoint_500.pth'))
+model=model.cuda()
+model.eval()
 
-# cuda
-use_cuda = torch.cuda.is_available()
-#use_cuda = False
-if use_cuda:
-    torch.cuda.set_device(0)
-    keypoints = keypoints.cuda()
-
-prediction = Prediction(keypoints, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, use_cuda)
-transform = transform = transforms.Compose([
-    transforms.ToTensor()
-])
-
-image_dir = 'train_sets/endpoints_new/test/images'
-for i, f in enumerate(sorted(os.listdir(image_dir))):
-    img = cv2.imread(os.path.join(image_dir, f))
-    img_t = transform(img)
-    img_t = img_t.cuda()
-    # GAUSS
-    heatmap = prediction.predict(img_t)
-    heatmap = heatmap.detach().cpu().numpy()
-    prediction.plot(img, heatmap, image_id=i)
- 
+test_dataset = KeypointsDataset('%s/test'%dataset_dir, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA,do_aug=False)
+print(test_dataset.__len__())
+test_data = DataLoader(test_dataset, batch_size=1, shuffle=True)
+tot=0
+corr=0
+with torch.no_grad():
+    for i_batch, sample_batched in enumerate(test_data):
+        tot+=1
+        img, gt_label = sample_batched
+        img = Variable(img.cuda())
+        pred_label = model(img)
+        cl=torch.argmax(pred_label).cpu()
+        if(gt_label.squeeze()[cl]==1):
+            corr+=1
+        print(pred_label,gt_label)
+print(corr/tot)
