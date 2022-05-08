@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torchvision.models as models
-from resnet import resnet34
+from resnet import resnet34, resnet50
 
 class Resnet34_8s(nn.Module):
     def __init__(self, num_classes=1000, channels=4, pretrained=False):

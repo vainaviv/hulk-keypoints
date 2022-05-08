@@ -50,9 +50,9 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
 
 # dataset
 workers=0
-dataset_dir = 'hulk_conditioned'
+dataset_dir = 'corresponding_segment_r50'
 output_dir = 'checkpoints'
-save_dir = os.path.join(output_dir, dataset_dir)
+save_dir = os.path.join(output_dir, dataset_dir + '_lr1e-5')
 
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
@@ -65,7 +65,7 @@ train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_
 
 test_dataset = KeypointsDataset('train_sets/%s/test/images'%dataset_dir,
                            'train_sets/%s/test/annots'%dataset_dir, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False)
-test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
+test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=workers)
 
 use_cuda = torch.cuda.is_available()
 
@@ -77,7 +77,7 @@ if use_cuda:
 keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
 
 # optimizer
-optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-4, weight_decay=1.0e-4)
+optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-5, weight_decay=1.0e-4)
 #optimizer = optim.Adam(keypoints.parameters(), lr=0.0001)
 
 fit(train_data, test_data, keypoints, epochs=epochs, checkpoint_path=save_dir)

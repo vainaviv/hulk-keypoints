@@ -37,23 +37,28 @@ class Prediction:
         exp_val = [int(np.dot(d_norm, x_indices)), int(np.dot(d_norm, y_indices))]
         return exp_val
     
-    def plot(self, input1, heatmap, image_id=0, cls=None, classes=None):
+    def plot(self, input1, heatmap, target, image_id=0, cls=None, classes=None):
         print("Running inferences on image: %d"%image_id)
         input1 = np.transpose(input1[0], (1,2,0))
         img = input1[:, :, :3] * 255
         img = img.astype(np.uint8)
+        t = (target*255).astype(np.uint8)
+        true_y, true_x = np.unravel_index(t.argmax(), t.shape)
         all_overlays = []
         h = heatmap[0][0]
-        vis = cv2.normalize(h, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-        vis = cv2.applyColorMap(vis, cv2.COLORMAP_JET)
-        overlay = cv2.addWeighted(img, 0.65, vis, 0.35, 0)
-        point = input1[:, :, 3] * 255
-        tmp = self.expectation(h)
-        h = input1[:, :, 3] * 255
         pred_y, pred_x = np.unravel_index(h.argmax(), h.shape)
         vis = cv2.normalize(h, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
         vis = cv2.applyColorMap(vis, cv2.COLORMAP_JET)
+        overlay = cv2.addWeighted(img, 0.65, vis, 0.35, 0)
         overlay = cv2.circle(overlay, (pred_x,pred_y), 4, (255,255,255), -1)
+        point = input1[:, :, 3] * 255
+        tmp = self.expectation(h)
+        h = input1[:, :, 3] * 255
+        given_y, given_x = np.unravel_index(h.argmax(), h.shape)
+        vis = cv2.normalize(h, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        vis = cv2.applyColorMap(vis, cv2.COLORMAP_JET)
+        overlay = cv2.circle(overlay, (given_x,given_y), 4, (0,0,255), -1)
+        overlay = cv2.circle(overlay, (true_x,true_y), 4, (0,255,0), -1)
         #y, x = np.unravel_index(h.argmax(), h.shape)
         #heatmap_val = h[y,x]
         #while heatmap_val > 0.5:
@@ -62,4 +67,6 @@ class Prediction:
         #    y, x = np.unravel_index(h.argmax(), h.shape)
         #    heatmap_val = h[y,x]
         cv2.imwrite('preds/out%04d.png'%image_id, overlay)
+        error = np.linalg.norm(np.array([pred_x - true_x,pred_y - true_y]))
+        return error
 

@@ -16,7 +16,7 @@ os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 print("running")
 
-model_ckpt = "hulk_conditionedtrain_test_loss/model_2_1_160_1.1150198405831495_0.2470908434594407.pth" #"loop_detector/model_2_1_114_0.8913466039467413.pth"
+model_ckpt = "corresponding_segment/model_2_1_160_1.6231906565435985_0.7111497808250088.pth"
 
 # model
 keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=4).cuda()
@@ -34,15 +34,20 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-dataset_dir = 'hulk_conditioned'
+dataset_dir = 'corresponding_segment_r50'
 test_dataset = KeypointsDataset('train_sets/%s/test/images'%dataset_dir,
                            'train_sets/%s/test/annots'%dataset_dir, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False)
 test_data = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
 
+total_error = 0
 for i, f in enumerate(test_data):
     img_t = f[0]
+    ground_truth = (f[1]).squeeze().detach().cpu().numpy()
+    print(ground_truth.shape)
     # GAUSS
     heatmap = prediction.predict(img_t)
     heatmap = heatmap.detach().cpu().numpy()
-    prediction.plot(img_t.detach().cpu().numpy(), heatmap, image_id=i)
+    total_error += prediction.plot(img_t.detach().cpu().numpy(), heatmap, ground_truth, image_id=i)
+
+print(total_error/len(test_data))
  
