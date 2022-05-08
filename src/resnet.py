@@ -172,6 +172,8 @@ class ResNet(nn.Module):
 
         self.attention1 = None
         if attention:
+            self.fc_att = nn.Linear(64, 64)
+            self.relu_att = nn.ReLU(inplace=True)
             self.attention1 = nn.MultiheadAttention(64, 8)
 
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
@@ -249,6 +251,8 @@ class ResNet(nn.Module):
 
             x = x.contiguous().view(x.size(0) * x.size(1), x.size(2), x.size(3))
             # apply attention
+            x = self.fc_att(x)
+            x = self.relu_att(x)
             x = self.attention1(x, x, x)
             # convert x back to batch_size x 7 x 7 x 64 
             x = x.contiguous().view(batch_size, 7, 7, 64)

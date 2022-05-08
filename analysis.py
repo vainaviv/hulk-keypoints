@@ -30,7 +30,7 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-dataset_dir = 'cond_loop_detection'
+dataset_dir = 'corresponding_segment_r50'
 test_dataset = KeypointsDataset('test_trace_crops_4/images',
                            'test_trace_crops_4/annots', NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False)
 test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=0)
