@@ -11,23 +11,28 @@ import pickle
 import os
 from datetime import datetime
 import imgaug.augmenters as iaa
-import matplotlib.pyplot as plt
+from imgaug.augmentables import KeypointsOnImage
 
 # No domain randomization
 transform = transforms.Compose([transforms.ToTensor()])
 
-augment = iaa.Sequential([
-    #iaa.Fliplr(0.5),
-    #iaa.Flipud(0.5),
-    # iaa.Affine(
-    #     rotate=(-40, 40),
-    #     shear=(-5, 5),
-    #     scale=(1.0, 1.1),
-    #     mode='constant'
-    # ),
-    # iaa.TranslateX(px=(-15, 15)),
-    # iaa.TranslateY(px=(-15, 15)),
-])
+sometimes = lambda aug: iaa.Sometimes(0.5, aug)
+
+# Domain randomization
+img_transform = iaa.Sequential([
+    iaa.LinearContrast((0.95, 1.05), per_channel=0.25), 
+    iaa.Add((-10, 10), per_channel=False),
+    #iaa.GammaContrast((0.95, 1.05)),
+    #iaa.GaussianBlur(sigma=(0.0, 0.6)),
+    #iaa.MultiplySaturation((0.95, 1.05)),
+    #iaa.AdditiveGaussianNoise(scale=(0, 0.0125*255)),
+    iaa.flip.Flipud(0.5),
+    sometimes(iaa.Affine(
+        scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
+        rotate=(-30, 30),
+        shear=(-30, 30)
+        ))
+    ], random_order=True)
 
 def normalize(x):
     return F.normalize(x, p=1)
@@ -43,19 +48,11 @@ def gauss_2d_batch(width, height, sigma, U, V, normalize_dist=False, single=Fals
         return normalize(G).double()
     return G.double()
 
-def vis_gauss(image, gaussians):
-    # pad gaussians with zeros on first axis until 3
-    image = image.cpu().numpy()
+def vis_gauss(gaussians):
     gaussians = gaussians.cpu().numpy()
-    #print(gaussians.shape)
-    h1 = gaussians #,h2,h3,h4 = gaussians
-    #output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
-    h1 = np.transpose(h1, (1, 2, 0))[:, :, :3]
-    h1 = cv2.merge([h1, h1, h1])[:, :, :3]
-    plt.imsave('gaussian.png', h1)
-    plt.imsave('image.png', np.transpose(image[:3], (1, 2, 0)))
-    h2 = np.transpose(image[3:], (1, 2, 0))
-    plt.imsave('given.png', cv2.merge([h2, h2, h2]))
+    h1 = gaussians
+    output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
+    cv2.imwrite('test.png', output)
 
 def bimodal_gauss(G1, G2, normalize=False):
     bimodal = torch.max(G1, G2)
@@ -64,114 +61,71 @@ def bimodal_gauss(G1, G2, normalize=False):
     return bimodal
 
 class KeypointsDataset(Dataset):
-    def __init__(self, img_folder, labels_folder, num_keypoints, img_height, img_width, transform, gauss_sigma=8, augment=True):
-        self.num_keypoints = num_keypoints
+    def __init__(self, img_folder, labels_folder, img_height, img_width, gauss_sigma=8, augment=True):
         self.img_height = img_height
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
         self.transform = transform
+        self.img_transform = img_transform
+        self.augment = augment
 
         self.imgs = []
         self.labels = []
-        for i in range(len(os.listdir(labels_folder))-1):
-            label = np.load(os.path.join(labels_folder, '%05d.npy'%i), allow_pickle=True)
-            if len(label) > 2:
-                #label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
-                #label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
-                self.imgs.append(os.path.join(img_folder, '%05d.png'%i))
+        for i in range(len(os.listdir(labels_folder))):
+            label_path = os.path.join(labels_folder, '%05d.npy'%i)
+            if not  os.path.exists(label_path):
+                continue
+            label = np.load(label_path)
+            if len(label) > 0:
+                label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
+                label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
+                img_path = os.path.join(img_folder, '%05d.png'%i)
+                img_save = cv2.imread(img_path)
+                self.imgs.append(img_save)
                 self.labels.append(label)
-        
-        self.augment = augment
 
-    def __getitem__(self, index):  
-        index = random.randint(0, len(self.labels)-1)
-
-        orig_img = cv2.imread(self.imgs[index])
-        img = self.transform(cv2.imread(self.imgs[index]))
-        labels = self.labels[index]
-
-        new_labels = list(labels)
-        # parse labels
-        if 'e' in labels:
-            # get last index of e
-            e_idx = np.where(labels == 'e')[0][-1]
-            # coin flip to decide whether to use first or second endpoint
-            if random.random() > 0.5:
-                new_labels = labels[:e_idx]
-            else:
-                new_labels = labels[e_idx+1:]
-            
-            #print(len(new_labels), len(labels))
-
-        # eliminate all letters from new_labels
-        new_labels = [x for x in new_labels if x not in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']]
-
-        endpoint = new_labels[0]
-        new_labels = new_labels[1:] 
-
-        given = torch.from_numpy(np.array(endpoint)).cuda()
+    def __getitem__(self, index):
+        keypoints = self.labels[index]
+        #img = np.load(self.imgs[index])
+        # img = cv2.imread(self.imgs[index])
+        img = (self.imgs[index]).copy()
+        kpts = KeypointsOnImage.from_xy_array(keypoints, shape=img.shape)
+        if self.augment:
+            img, labels = self.img_transform(image=img, keypoints=kpts)
+        else:
+            labels = kpts
+        img = img.copy()
+        img = self.transform(img).cuda()
+        labels_np = []
+        for l in labels:
+            labels_np.append([l.x,l.y])
+        labels = torch.from_numpy(np.array(labels_np, dtype=np.int32)).cuda()
+        given = labels[0]
         given_gauss = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, given[0], given[1], single=True)
         given_gauss = torch.unsqueeze(given_gauss, 0).cuda()
+        # img.cuda().double()[0] = given_gauss
         combined = torch.cat((img.cuda().double(), given_gauss), dim=0).float()
-        
-        combined_labels = None
-
-        # visualize keypoints on image
-        for i in range(len(new_labels)):
-            label = new_labels[i]
-            x, y = label[0], label[1]
-            cv2.circle(orig_img, (int(x), int(y)), 3, (0, 0, 255), -1)
-        #cv2.imwrite('keypoints.png', orig_img)
-
-        if len(new_labels) % 2:
-            # something is wrong
-            return self.__getitem__(index)
-
-        for i in range(0, len(new_labels), 2):
-            pt1, pt2 = torch.from_numpy(np.array(new_labels[i])).cuda(), torch.from_numpy(np.array(new_labels[i+1])).cuda()
-
-            gauss1 = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, pt1[0], pt1[1], single=True)
-            gauss2 = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, pt2[0], pt2[1], single=True)
-            bmg = torch.unsqueeze(bimodal_gauss(gauss1, gauss2), 0)
-            if combined_labels is None:
-                combined_labels = bmg
-            else:
-                combined_labels = torch.cat((combined_labels, bmg), dim=0)
-
-        if self.augment:
-            # AUGMENT
-            # convert combined and combined_labels back to numpy for augmentation
-            combined = combined.cpu().numpy()
-            combined_channels = combined.shape[0]
-            combined_labels = combined_labels.cpu().numpy()
-
-            # concatenate combined with combined_labels and augment together
-            combine_all = np.transpose(np.concatenate((combined, combined_labels), axis=0), (1, 2, 0))
-            combined_all = augment(image=combine_all)#, heatmaps=combined_labels)
-            # transpose back
-            combined_all = np.transpose(combined_all, (2, 0, 1)).copy()
-
-            # separate combined_all into combined and combined_labels
-            combined = combined_all[:combined_channels]
-            combined_labels = combined_all[combined_channels:]
-
-            # convert back to torch
-            combined = torch.from_numpy(combined.copy()).cuda().float()
-            combined_labels = torch.from_numpy(combined_labels.copy()).cuda()
-
-        return combined, combined_labels
+        U = labels[1:,0]
+        V = labels[1:,1]
+        gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, U, V)
+        mm_gauss = gaussians[0]
+        for i in range(1, len(gaussians)):
+            mm_gauss = bimodal_gauss(mm_gauss, gaussians[i])
+        mm_gauss.unsqueeze_(0)
+        return combined, mm_gauss
     
     def __len__(self):
         return len(self.labels)
 
 if __name__ == '__main__':
-    NUM_KEYPOINTS = 4
     IMG_WIDTH = 640
     IMG_HEIGHT = 480
-    GAUSS_SIGMA = 10
-    TEST_DIR = ""
-    test_dataset = KeypointsDataset('../mm_kpts/images',
-                           '../mm_kpts/annots', NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+    GAUSS_SIGMA = 8
+    TEST_DIR = "cond_bfs_data"
+    test_dataset = KeypointsDataset('/host/train_sets/%s/test/images'%TEST_DIR,
+                           '/host/train_sets/%s/test/annots'%TEST_DIR, '/host/train_sets/%s/test/bfs'%TEST_DIR, 
+                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
     img, gaussians = test_dataset[0]
-    vis_gauss(img, gaussians)
+    vis_gauss(gaussians)
  
+
