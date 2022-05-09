@@ -13,23 +13,20 @@ from src.dataset import KeypointsDataset, transform
 MSE = torch.nn.MSELoss()
 bceLoss = nn.BCELoss
 
-os.environ["CUDA_VISIBLE_DEVICES"]="4"
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
 def forward(sample_batched, model):
     img, gt_gauss = sample_batched
     img = Variable(img.cuda() if use_cuda else img)
     pred_gauss = model.forward(img).double()
-
-    overall_loss = None
-    for i in range(pred_gauss.size(1)):
-        loss = nn.BCELoss()(pred_gauss[0, 0], gt_gauss[0, i])
-        if overall_loss is None:
-            overall_loss = loss
-        else:
-            overall_loss = torch.min(overall_loss, loss)
-    return overall_loss
+    #pred_gauss = pred_gauss.view(pred_gauss.shape[0], 4, 640*480).double()
+    #gt_gauss += 1e-300
+    #loss = F.kl_div(gt_gauss.cuda().log(), pred_gauss, None, None, 'mean')
+    loss = nn.BCELoss()(pred_gauss, gt_gauss)
+    return loss
 
 def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
+    test_losses = []
     for epoch in range(epochs):
 
         train_loss = 0.0
@@ -49,26 +46,26 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
             test_loss += loss.item()
         print('test loss:', test_loss / i_batch)
         if epoch%2 == 0:
-            torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '.pth')
+            torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '_' + str(train_loss) + '_' + str(test_loss) + '.pth')
 
 # dataset
 workers=0
 dataset_dir = 'corresponding_segment_r50'
 output_dir = 'checkpoints'
-save_dir = os.path.join(output_dir, dataset_dir)
+save_dir = os.path.join(output_dir, dataset_dir + '_lr1e-5')
 
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 
-train_dataset = KeypointsDataset('mm_kpts/images',
-                           'mm_kpts/annots', NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+train_dataset = KeypointsDataset('train_sets/%s/train/images'%dataset_dir,
+                           'train_sets/%s/train/annots'%dataset_dir, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
-test_dataset = KeypointsDataset('mm_kpts/images',
-                           'mm_kpts/annots', NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
-test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
+test_dataset = KeypointsDataset('train_sets/%s/test/images'%dataset_dir,
+                           'train_sets/%s/test/annots'%dataset_dir, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False)
+test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=workers)
 
 use_cuda = torch.cuda.is_available()
 
@@ -80,7 +77,7 @@ if use_cuda:
 keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
 
 # optimizer
-optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-4, weight_decay=1.0e-4)
+optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-5, weight_decay=1.0e-4)
 #optimizer = optim.Adam(keypoints.parameters(), lr=0.0001)
 
 fit(train_data, test_data, keypoints, epochs=epochs, checkpoint_path=save_dir)
