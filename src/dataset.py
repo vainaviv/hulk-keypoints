@@ -12,6 +12,8 @@ import os
 from datetime import datetime
 import imgaug.augmenters as iaa
 from imgaug.augmentables import KeypointsOnImage
+from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
 
 # No domain randomization
 transform = transforms.Compose([transforms.ToTensor()])
@@ -61,7 +63,7 @@ def bimodal_gauss(G1, G2, normalize=False):
     return bimodal
 
 class KeypointsDataset(Dataset):
-    def __init__(self, img_folder, labels_folder, img_height, img_width, transform, gauss_sigma=8, augment=True, pretrain=False):
+    def __init__(self, img_folder, labels_folder, img_height, img_width, gauss_sigma=8, augment=True, pretrain=False):
         self.img_height = img_height
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
@@ -99,7 +101,10 @@ class KeypointsDataset(Dataset):
         img = self.transform(img).cuda()
         labels_np = []
         for l in labels:
-            labels_np.append([l.x,l.y])
+            if self.pretrain:
+                labels_np.append([l.y,l.x])
+            else:
+                labels_np.append([l.x,l.y])
         labels = torch.from_numpy(np.array(labels_np, dtype=np.int32)).cuda()
         if self.pretrain:
             given = labels[np.random.randint(len(labels))]
@@ -127,14 +132,22 @@ class KeypointsDataset(Dataset):
         return len(self.labels)
 
 if __name__ == '__main__':
-    IMG_WIDTH = 640
-    IMG_HEIGHT = 480
+    os.environ["CUDA_VISIBLE_DEVICES"]="1"
+    IMG_WIDTH = 100
+    IMG_HEIGHT = 100
     GAUSS_SIGMA = 8
-    TEST_DIR = "cond_bfs_data"
-    test_dataset = KeypointsDataset('/host/train_sets/%s/test/images'%TEST_DIR,
-                           '/host/train_sets/%s/test/annots'%TEST_DIR, '/host/train_sets/%s/test/bfs'%TEST_DIR, 
-                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
-    img, gaussians = test_dataset[0]
-    vis_gauss(gaussians)
- 
+    TEST_DIR = "random_crops"
+    test_dataset = KeypointsDataset('train_sets/%s/test/images'%TEST_DIR,
+                           'train_sets/%s/test/annots'%TEST_DIR, IMG_HEIGHT, IMG_WIDTH, gauss_sigma=GAUSS_SIGMA, augment=False, pretrain=True)
+    test_data = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0)
+    path = "./test_dataset"
+    if (os.path.exists(path)):
+        os.rmdir(path)
+    os.mkdir(path)
+    for i, f in enumerate(test_data):
+        img_t = f[0]
+        ground_truth = (f[1]).squeeze().detach().cpu().numpy().transpose((1,2,0))
+        plt.imsave('%s/out%04d.png'%(path, i), ground_truth)
+    print("done")
+    
 

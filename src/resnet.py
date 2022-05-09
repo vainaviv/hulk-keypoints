@@ -172,12 +172,12 @@ class ResNet(nn.Module):
 
         self.attention1 = None
         if attention:
-            self.fc_key = nn.Linear(64, 64)
-            self.fc_value = nn.Linear(64, 64)
-            self.fc_query = nn.Linear(64, 64)
-            self.relu_key = nn.ReLU(inplace=True)
-            self.relu_value = nn.ReLU(inplace=True)
-            self.relu_query = nn.ReLU(inplace=True)
+            # self.fc_key = nn.Linear(64, 64)
+            # self.fc_value = nn.Linear(64, 64)
+            # self.fc_query = nn.Linear(64, 64)
+            # self.relu_key = nn.ReLU(inplace=True)
+            # self.relu_value = nn.ReLU(inplace=True)
+            # self.relu_query = nn.ReLU(inplace=True)
             self.attention1 = nn.MultiheadAttention(64, 8)
 
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
