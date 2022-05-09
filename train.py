@@ -45,14 +45,14 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
             loss = forward(sample_batched, model)
             test_loss += loss.item()
         print('test loss:', test_loss / i_batch)
-        if epoch%2 == 0:
+        if epoch%10 == 0:
             torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '_' + str(train_loss) + '_' + str(test_loss) + '.pth')
 
 # dataset
 workers=0
-dataset_dir = 'corresponding_segment_r50'
+dataset_dir = 'random_crops'
 output_dir = 'checkpoints'
-save_dir = os.path.join(output_dir, dataset_dir + '_lr1e-5')
+save_dir = os.path.join(output_dir, dataset_dir + "_pretrain")
 
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
@@ -60,11 +60,11 @@ if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 
 train_dataset = KeypointsDataset('train_sets/%s/train/images'%dataset_dir,
-                           'train_sets/%s/train/annots'%dataset_dir, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA)
+                           'train_sets/%s/train/annots'%dataset_dir, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, pretrain=True)
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 test_dataset = KeypointsDataset('train_sets/%s/test/images'%dataset_dir,
-                           'train_sets/%s/test/annots'%dataset_dir, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False)
+                           'train_sets/%s/test/annots'%dataset_dir, IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False, pretrain=True)
 test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=workers)
 
 use_cuda = torch.cuda.is_available()
@@ -74,7 +74,7 @@ if use_cuda:
     torch.cuda.set_device(0)
 
 # model
-keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
+keypoints = KeypointsGauss(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, attention=False, channels=3).cuda()
 
 # optimizer
 optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-5, weight_decay=1.0e-4)

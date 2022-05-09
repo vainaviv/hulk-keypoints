@@ -1,6 +1,6 @@
-NUM_KEYPOINTS = 1
+NUM_KEYPOINTS = 3
 IMG_HEIGHT  = 100
 IMG_WIDTH   = 100
 GAUSS_SIGMA = 8
-epochs = 200
+epochs = 80
 batch_size = 16

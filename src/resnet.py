@@ -1,3 +1,4 @@
+import torch as torch
 import torch.nn as nn
 import math
 import torch.utils.model_zoo as model_zoo
@@ -35,6 +36,31 @@ def conv3x3(in_planes, out_planes, stride=1, dilation=1):
     
     return nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride,
                      padding=full_padding, dilation=dilation, bias=False)
+
+# taken from https://github.com/wzlxjtu/PositionalEncoding2D/blob/master/positionalembedding2d.py
+def positionalencoding2d(d_model, height, width):
+    """
+    :param d_model: dimension of the model
+    :param height: height of the positions
+    :param width: width of the positions
+    :return: d_model*height*width position matrix
+    """
+    if d_model % 4 != 0:
+        raise ValueError("Cannot use sin/cos positional encoding with "
+                         "odd dimension (got dim={:d})".format(d_model))
+    pe = torch.zeros(d_model, height, width)
+    # Each dimension use half of d_model
+    d_model = int(d_model / 2)
+    div_term = torch.exp(torch.arange(0., d_model, 2) *
+                         -(math.log(10000.0) / d_model))
+    pos_w = torch.arange(0., width).unsqueeze(1)
+    pos_h = torch.arange(0., height).unsqueeze(1)
+    pe[0:d_model:2, :, :] = torch.sin(pos_w * div_term).transpose(0, 1).unsqueeze(1).repeat(1, height, 1)
+    pe[1:d_model:2, :, :] = torch.cos(pos_w * div_term).transpose(0, 1).unsqueeze(1).repeat(1, height, 1)
+    pe[d_model::2, :, :] = torch.sin(pos_h * div_term).transpose(0, 1).unsqueeze(2).repeat(1, 1, width)
+    pe[d_model + 1::2, :, :] = torch.cos(pos_h * div_term).transpose(0, 1).unsqueeze(2).repeat(1, 1, width)
+
+    return pe
 
 
 class BasicBlock(nn.Module):
@@ -121,7 +147,8 @@ class ResNet(nn.Module):
                  channels=3,
                  fully_conv=False,
                  remove_avg_pool_layer=False,
-                 output_stride=32):
+                 output_stride=32,
+                 attention=False,):
         
         # Add additional variables to track
         # output stride. Necessary to achieve
@@ -142,6 +169,17 @@ class ResNet(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         
         self.layer1 = self._make_layer(block, 64, layers[0])
+
+        self.attention1 = None
+        if attention:
+            self.fc_key = nn.Linear(64, 64)
+            self.fc_value = nn.Linear(64, 64)
+            self.fc_query = nn.Linear(64, 64)
+            self.relu_key = nn.ReLU(inplace=True)
+            self.relu_value = nn.ReLU(inplace=True)
+            self.relu_query = nn.ReLU(inplace=True)
+            self.attention1 = nn.MultiheadAttention(64, 8)
+
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
@@ -203,6 +241,36 @@ class ResNet(nn.Module):
         x = self.maxpool(x)
 
         x = self.layer1(x)
+
+        if self.attention1:
+            # convert x to 7 x 7 x batch_size x 64
+            x = x.permute(2, 3, 0, 1)
+            # flatten first two dimensions
+            batch_size = x.size(2)
+
+            # add positional encoding
+            # for batch_x in range(batch_size):
+            #     print((x[:, :, batch_x, :]).shape)
+            #     pos_enc = positionalencoding2d(64, x.size(1), x.size(1)).cuda()
+            #     print(pos_enc.shape)
+            #     x[:, :, batch_x, :] = x[:, :, batch_x, :] + pos_enc
+
+            x = x.contiguous().view(x.size(0) * x.size(1), x.size(2), x.size(3))
+            # apply attention
+            # x_key = self.fc_key(x)
+            # x_key = self.relu_key(x_key)
+
+            # x_query = self.fc_query(x)
+            # x_query = self.relu_query(x_query)
+
+            # x_value = self.fc_value(x)
+            # x_value = self.relu_value(x_value)
+
+            x, _ = self.attention1(x, x, x, need_weights=False)
+            # x = x + add
+            # convert x back to batch_size x 7 x 7 x 64 
+            x = x.contiguous().view(batch_size, 25, 25, 64).permute(0, 3, 1, 2) #view(batch_size, 25, 25, 64)
+
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)

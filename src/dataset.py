@@ -61,13 +61,14 @@ def bimodal_gauss(G1, G2, normalize=False):
     return bimodal
 
 class KeypointsDataset(Dataset):
-    def __init__(self, img_folder, labels_folder, img_height, img_width, transform, gauss_sigma=8, augment=True):
+    def __init__(self, img_folder, labels_folder, img_height, img_width, transform, gauss_sigma=8, augment=True, pretrain=False):
         self.img_height = img_height
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
         self.transform = transform
         self.img_transform = img_transform
         self.augment = augment
+        self.pretrain = pretrain
 
         self.imgs = []
         self.labels = []
@@ -100,18 +101,27 @@ class KeypointsDataset(Dataset):
         for l in labels:
             labels_np.append([l.x,l.y])
         labels = torch.from_numpy(np.array(labels_np, dtype=np.int32)).cuda()
-        given = labels[0]
+        if self.pretrain:
+            given = labels[np.random.randint(len(labels))]
+        else:
+            given = labels[0]
+        # given = labels[0]
         given_gauss = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, given[0], given[1], single=True)
         given_gauss = torch.unsqueeze(given_gauss, 0).cuda()
-        combined = torch.cat((img.cuda().double(), given_gauss), dim=0).float()
+        img[0] = given_gauss
+        img = img.cuda().double()
+        # combined = torch.cat((img.cuda().double(), given_gauss), dim=0).float()
         U = labels[1:,0]
         V = labels[1:,1]
-        gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, U, V)
-        mm_gauss = gaussians[0]
-        for i in range(1, len(gaussians)):
-            mm_gauss = bimodal_gauss(mm_gauss, gaussians[i])
-        mm_gauss.unsqueeze_(0)
-        return combined, mm_gauss
+        if not self.pretrain:
+            gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, U, V)
+            mm_gauss = gaussians[0]
+            for i in range(1, len(gaussians)):
+                mm_gauss = bimodal_gauss(mm_gauss, gaussians[i])
+            mm_gauss.unsqueeze_(0)
+            return img, mm_gauss
+        else:
+            return img.float(), img
     
     def __len__(self):
         return len(self.labels)

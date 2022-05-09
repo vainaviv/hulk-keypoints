@@ -3,7 +3,7 @@ import torchvision.models as models
 from resnet import resnet34, resnet50
 
 class Resnet34_8s(nn.Module):
-    def __init__(self, num_classes=1000, channels=4, pretrained=False):
+    def __init__(self, num_classes=1000, channels=4, pretrained=False, attention=False):
         super(Resnet34_8s, self).__init__()
         # Load the pretrained weights, remove avg pool
         # layer and get the output stride of 8
@@ -11,7 +11,8 @@ class Resnet34_8s(nn.Module):
                                        channels=channels,
                                        pretrained=pretrained,
                                        output_stride=8,
-                                       remove_avg_pool_layer=True)
+                                       remove_avg_pool_layer=True,
+                                       attention=attention)
         
         # Randomly initialize the 1x1 Conv scoring layer
         resnet34_8s.fc = nn.Conv2d(resnet34_8s.inplanes, num_classes, 1)
