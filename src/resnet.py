@@ -172,8 +172,12 @@ class ResNet(nn.Module):
 
         self.attention1 = None
         if attention:
-            self.fc_att = nn.Linear(64, 64)
-            self.relu_att = nn.ReLU(inplace=True)
+            self.fc_key = nn.Linear(64, 64)
+            self.fc_value = nn.Linear(64, 64)
+            self.fc_query = nn.Linear(64, 64)
+            self.relu_key = nn.ReLU(inplace=True)
+            self.relu_value = nn.ReLU(inplace=True)
+            self.relu_query = nn.ReLU(inplace=True)
             self.attention1 = nn.MultiheadAttention(64, 8)
 
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
@@ -239,23 +243,24 @@ class ResNet(nn.Module):
         x = self.layer1(x)
 
         if self.attention1:
-            print(x.shape)
             # convert x to 7 x 7 x batch_size x 64
-            x = x.permute(1, 2, 0, 3)
+            x = x.permute(2, 3, 0, 1)
             # flatten first two dimensions
             batch_size = x.size(2)
 
             # add positional encoding
             for batch_x in range(batch_size):
-                x[:, :, batch_x, :] = x[:, :, batch_x, :] + positionalencoding2d(64, x.size(0), x.size(1)).permute(1, 2, 0)
+                print((x[:, :, batch_x, :]).shape)
+                pos_enc = positionalencoding2d(64, x.size(1), x.size(1)).cuda()
+                print(pos_enc.shape)
+                x[:, :, batch_x, :] = x[:, :, batch_x, :] + pos_enc
 
             x = x.contiguous().view(x.size(0) * x.size(1), x.size(2), x.size(3))
             # apply attention
-            x = self.fc_att(x)
-            x = self.relu_att(x)
-            x = self.attention1(x, x, x)
+            x, _ = self.attention1(x, x, x, need_weights=False)
+            x = x + add
             # convert x back to batch_size x 7 x 7 x 64 
-            x = x.contiguous().view(batch_size, 7, 7, 64)
+            x = x.contiguous().view(batch_size, 25, 25, 64).permute(0, 3, 1, 2) #view(batch_size, 25, 25, 64)
 
         x = self.layer2(x)
         x = self.layer3(x)
