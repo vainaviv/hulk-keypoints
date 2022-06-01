@@ -27,7 +27,7 @@ os.environ["CUDA_VISIBLE_DEVICES"]="1"
 # model_ckpts = ["hulkL_aug_cond_only_LARGE/model_2_1_498_0.40725811529030426.pth"]
 
 # WITH TWO HEATMAPS
-model_ckpts = ["hulkL_aug_cond_only_LARGE_2heatmaps/model_2_1_498_0.24552234291118114.pth"]
+model_ckpts = ["hulkL_aug_cond_only_LARGE_2heatmaps_RESUME_200_rand_padding/model_2_1_498_0.18728861864742946.pth"]
 
 # cuda
 use_cuda = torch.cuda.is_available()
@@ -155,7 +155,7 @@ for i, f in enumerate(test_data):
     # display image and user will click on two points
     plt.clf()
     plt.imshow(img_t[0].squeeze().detach().cpu().numpy().transpose(1,2,0))
-    plt.savefig(f'preds_custom_LARGE_2heatmaps_detectron/test_full_img_{i}_{cond_on}_{cond_min_x}_{cond_max_x}_{cond_min_y}_{cond_max_y}' + '.png')
+    plt.savefig(f'preds_custom_LARGE_2heatmaps_detectron_RESUME_200_rand_padding/test_full_img_{i}_{cond_on}_{cond_min_x}_{cond_max_x}_{cond_min_y}_{cond_max_y}' + '.png')
 
     # # get the points the user clicked
     # points = plt.ginput(2)
@@ -180,7 +180,7 @@ for i, f in enumerate(test_data):
         plt.subplot(1, len(predictions), j+1)
         plt.imshow(horiz_concat)
         plt.title("Model %d"%(j+1))
-    plt.savefig(f'preds_custom_LARGE_2heatmaps_detectron/test_heatmaps_{i}_{cond_on}_{cond_min_x}_{cond_max_x}_{cond_min_y}_{cond_max_y}' + '.png')
+    plt.savefig(f'preds_custom_LARGE_2heatmaps_detectron_RESUME_200_rand_padding/test_heatmaps_{i}_{cond_on}_{cond_min_x}_{cond_max_x}_{cond_min_y}_{cond_max_y}' + '.png')
 
     # TODO: WHAT IS THE REGION THAT HULK_L SHOULD REALLY BE FOCUSING ON?
     # TODO: WHAT ARE ALL THE WAYS OF THINKING ABOUT HOW HUMANS DO FROM ENDPOINT UNTANGLING

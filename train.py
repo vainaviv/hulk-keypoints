@@ -14,7 +14,7 @@ from src.dataset import TEST_DIR, KeypointsDataset, transform
 MSE = torch.nn.MSELoss()
 bceLoss = nn.BCELoss
 
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
 def forward(sample_batched, model):
     img, gt_gauss = sample_batched
@@ -53,7 +53,7 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
 
 # dataset
 workers=0
-dataset_dir = 'hulkL_aug_cond_only_LARGE_2heatmaps'
+dataset_dir = 'hulkL_aug_cond_only_LARGE_2heatmaps_RESUME_200_rand_padding'
 output_dir = 'checkpoints'
 save_dir = os.path.join(output_dir, dataset_dir)
 

@@ -65,10 +65,11 @@ def vis_gauss(img, gaussians):
     gaussians = gaussians.cpu().numpy().transpose(1, 2, 0)
     img = img.cpu().numpy().transpose(1, 2, 0) * 255.0
     # repeat last dimension 3 times
-    gaussians = np.tile(gaussians, (1, 1, 3))
+    # gaussians = np.tile(gaussians, (1, 1, 1))
+    gaussians = np.concatenate((gaussians, np.zeros_like(gaussians[:, :, :1])), axis=2)
     h1 = gaussians
     output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
-    # cv2.imwrite('test-gaussians.png', output)
+    cv2.imwrite('test-gaussians.png', output)
     cv2.imwrite('test-img.png', img)
 
 def bimodal_gauss(G1, G2, normalize=False):
@@ -190,9 +191,11 @@ class KeypointsDataset(Dataset):
             masked_img = pull_with_cable_and_masked_img[:, :, 6:9].copy()
             condition_with_cable = pull_with_cable_and_masked_img[:, :, 9:12].copy()
             # print(pull_with_cable.shape, masked_img.shape)
+            # plt.imshow(condition_with_cable)
+            # plt.savefig('condition_with_cable.png')
 
             if self.crop:
-                random_padding = np.random.randint(0, 50, size=(4,))
+                random_padding = np.random.randint(0, 200, size=(4,)) # used to be 50
                 minx = max(int(min(bbox_corners.keypoints[0].x, bbox_corners.keypoints[1].x, bbox_corners.keypoints[2].x, bbox_corners.keypoints[3].x)) - random_padding[0], 0)
                 miny = max(int(min(bbox_corners.keypoints[0].y, bbox_corners.keypoints[1].y, bbox_corners.keypoints[2].y, bbox_corners.keypoints[3].y)) - random_padding[1], 0)
                 maxx = min(int(max(bbox_corners.keypoints[0].x, bbox_corners.keypoints[1].x, bbox_corners.keypoints[2].x, bbox_corners.keypoints[3].x)) + random_padding[2], img.shape[1]-1)
@@ -206,6 +209,9 @@ class KeypointsDataset(Dataset):
                 pull_with_cable_cropped1 = pull_with_cable1[miny:maxy, minx:maxx]
                 pull_with_cable_cropped2 = pull_with_cable2[miny:maxy, minx:maxx]
                 condition_with_cable_cropped = condition_with_cable[miny:maxy, minx:maxx] * 1 #np.random.randint(0, 2) # on or off condition
+
+            # plt.imshow(condition_with_cable_cropped)
+            # plt.savefig('condition_with_cable_cropped.png')
 
             # cv2.imwrite('combined.png', combined)
             # cv2.imwrite('pull_with_cable_cropped.png', pull_with_cable_cropped)
@@ -232,7 +238,7 @@ class KeypointsDataset(Dataset):
         if self.condition and condition_with_cable_cropped.sum() > 0:
             cond_V, cond_U = np.nonzero(condition_with_cable_cropped[:, :, 0])
             cond_U, cond_V = torch.from_numpy(np.array([cond_U, cond_V], dtype=np.int32)).cuda()
-            combined[0] = get_gauss(self.img_width, self.img_height, self.gauss_sigma, U, V)
+            combined[0] = get_gauss(self.img_width, self.img_height, self.gauss_sigma, cond_U, cond_V)
         else:
             combined[0] = 0
 
@@ -248,7 +254,7 @@ if __name__ == '__main__':
     GAUSS_SIGMA = 8
     test_dataset = KeypointsDataset('/host/%s/train'%TEST_DIR,
                            IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, only_full=True, condition=True)
-    img, gaussians = test_dataset[-1] #[-1] #
+    img, gaussians = test_dataset[-3] #[-1] #
     vis_gauss(img, gaussians)
  
 
