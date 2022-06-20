@@ -74,7 +74,7 @@ if use_cuda:
     torch.cuda.set_device(0)
 
 # model
-keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
+keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, attention=True).cuda()
 
 # optimizer
 optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-5, weight_decay=1.0e-4)

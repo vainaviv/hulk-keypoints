@@ -4,6 +4,8 @@ import math
 import torch.utils.model_zoo as model_zoo
 import numpy as np
 
+torch.autograd.set_detect_anomaly(True)
+
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
            'resnet152']
@@ -172,12 +174,12 @@ class ResNet(nn.Module):
 
         self.attention1 = None
         if attention:
-            self.fc_key = nn.Linear(64, 64)
-            self.fc_value = nn.Linear(64, 64)
-            self.fc_query = nn.Linear(64, 64)
-            self.relu_key = nn.ReLU(inplace=True)
-            self.relu_value = nn.ReLU(inplace=True)
-            self.relu_query = nn.ReLU(inplace=True)
+            # self.fc_key = nn.Linear(64, 64)
+            # self.fc_value = nn.Linear(64, 64)
+            # self.fc_query = nn.Linear(64, 64)
+            # self.relu_key = nn.ReLU(inplace=True)
+            # self.relu_value = nn.ReLU(inplace=True)
+            # self.relu_query = nn.ReLU(inplace=True)
             self.attention1 = nn.MultiheadAttention(64, 8)
 
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
@@ -249,16 +251,12 @@ class ResNet(nn.Module):
             batch_size = x.size(2)
 
             # add positional encoding
-            for batch_x in range(batch_size):
-                print((x[:, :, batch_x, :]).shape)
-                pos_enc = positionalencoding2d(64, x.size(1), x.size(1)).cuda()
-                print(pos_enc.shape)
-                x[:, :, batch_x, :] = x[:, :, batch_x, :] + pos_enc
+            # pos_enc = positionalencoding2d(28, 28, 64).cuda()
+            # x = x + (pos_enc[:x.size(1), :x.size(1), :]).unsqueeze(2)
 
             x = x.contiguous().view(x.size(0) * x.size(1), x.size(2), x.size(3))
             # apply attention
             x, _ = self.attention1(x, x, x, need_weights=False)
-            x = x + add
             # convert x back to batch_size x 7 x 7 x 64 
             x = x.contiguous().view(batch_size, 25, 25, 64).permute(0, 3, 1, 2) #view(batch_size, 25, 25, 64)
 
