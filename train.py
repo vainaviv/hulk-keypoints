@@ -14,7 +14,7 @@ from src.dataset import TEST_DIR, KeypointsDataset, transform
 MSE = torch.nn.MSELoss()
 bceLoss = nn.BCELoss
 
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="4"
 
 def forward(sample_batched, model):
     img, gt_gauss = sample_batched
@@ -46,14 +46,14 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
             loss = forward(sample_batched, model)
             test_loss += loss.item()
         print('test loss:', test_loss / i_batch)
-        if epoch%2 == 0:
+        if epoch%20 == 0:
             torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '_' + str(test_loss) + '.pth')
             test_losses.append(test_loss)
     np.save("losses.npy", test_losses)
 
 # dataset
 workers=0
-dataset_dir = 'hulkL_aug_cond_only_LARGE_2heatmaps_RESUME_200_rand_padding'
+dataset_dir = 'hulkL_aug_cond_only_LARGE_2heatmaps_RESUME_sim'
 output_dir = 'checkpoints'
 save_dir = os.path.join(output_dir, dataset_dir)
 
@@ -64,7 +64,7 @@ if not os.path.exists(save_dir):
 
 # TEST_DIR = 'hulkL_seg'
 train_dataset = KeypointsDataset('/host/%s/train'%TEST_DIR,
-                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True)
+                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True, sim=True)
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 test_dataset = KeypointsDataset('/host/%s/test'%TEST_DIR,

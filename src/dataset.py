@@ -13,6 +13,7 @@ from datetime import datetime
 import imgaug.augmenters as iaa
 from imgaug.augmentables import KeypointsOnImage
 import matplotlib.pyplot as plt
+from config import *
 
 # set torch GPU to 3
 os.environ["CUDA_VISIBLE_DEVICES"] = "3"
@@ -89,7 +90,7 @@ def get_gauss(w, h, sigma, U, V):
     return torch.zeros(1, h, w).cuda().double()
 
 class KeypointsDataset(Dataset):
-    def __init__(self, folder, img_height, img_width, transform, gauss_sigma=8, augment=True, crop=True, only_full=False, condition=False):
+    def __init__(self, folder, img_height, img_width, transform, gauss_sigma=8, augment=True, crop=True, only_full=False, condition=False, sim=False):
         self.img_height = img_height
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
@@ -128,6 +129,31 @@ class KeypointsDataset(Dataset):
                 self.labels.append(img_and_annot['annots'])
                 self.new_versions.append(1)
 
+        def get_box_around_point(pt, size=2):
+            return [[pt[0]-size, pt[1]-size], [pt[0]+size, pt[1]+size]]
+
+        if sim:
+            sim_folder = os.path.join(folder, 'sim')
+            if os.path.exists(sim_folder):
+                for fname in os.listdir(sim_folder):
+                    img_and_annot = np.load(os.path.join(sim_folder, fname), allow_pickle=True).item()
+                    constructed_annots = [[0, 0], [IMG_HEIGHT - 1, IMG_WIDTH - 1]]
+                    pixels = img_and_annot['pixels']
+                    cond_point = get_box_around_point(pixels[img_and_annot['condition'][0]][0])
+                    pull_point = get_box_around_point(pixels[img_and_annot['condition'][1]][0])
+                    hold_point = get_box_around_point(pixels[img_and_annot['condition'][2]][0])
+                    constructed_annots += cond_point
+                    constructed_annots += pull_point
+                    constructed_annots += hold_point
+                    if np.min(constructed_annots) < 0 or np.max(constructed_annots) >= self.img_width:
+                        continue
+
+                    self.imgs.append(os.path.join(sim_folder, fname))
+                    # plt.imshow(img_and_annot['img'])
+                    # plt.savefig('test_load_img.png')
+                    self.labels.append(constructed_annots)
+                    self.new_versions.append(1)
+
         print('Loaded %d images'%len(self.imgs))
 
     def __getitem__(self, index):
@@ -154,7 +180,9 @@ class KeypointsDataset(Dataset):
             mm_gauss = get_gauss(self.img_width, self.img_height, self.gauss_sigma, U, V)
         else:
             loaded_data = np.load(self.imgs[index], allow_pickle=True).item()
-            img = loaded_data['img']
+            img = loaded_data['img'][:, :, :3]
+            # plt.imshow(img)
+            # plt.savefig('img.png')
             starting_idx = np.random.randint(0, len(keypoints)/8)*8
             bbox_corners = keypoints[starting_idx: starting_idx+2]
             condition_part = keypoints[starting_idx+2: starting_idx+4]
@@ -162,13 +190,28 @@ class KeypointsDataset(Dataset):
             pull2 = keypoints[starting_idx+6: starting_idx+8]
 
             # fill in rope between bbox corners
-            masked_img = np.where(img > 100, img, 0)
+            # print(img.max(), img.min())
+            if img.max() <= 1.0:
+                # sim images
+                img = (img * 255.0).astype(np.uint8)
+                masked_img = img
+            else:
+                masked_img = np.where(img > 100, img, 0)
+            # plt.clf()
+            # plt.imshow(masked_img)
+            # plt.savefig('masked_img.png')
 
             pull_mask1 = np.zeros(img.shape)
             pull_mask1[min(pull1[0][1], pull1[1][1]):max(pull1[0][1], pull1[1][1]), min(pull1[0][0], pull1[1][0]):max(pull1[0][0], pull1[1][0])] = 1
+            # plt.clf()
+            # plt.imshow(pull_mask1)
+            # plt.savefig('pull_mask1.png')
             
             pull_mask2 = np.zeros(img.shape)
             pull_mask2[min(pull2[0][1], pull2[1][1]):max(pull2[0][1], pull2[1][1]), min(pull2[0][0], pull2[1][0]):max(pull2[0][0], pull2[1][0])] = 1
+            # plt.clf()
+            # plt.imshow(pull_mask2)
+            # plt.savefig('pull_mask2.png')
             
             pull_with_cable1 = np.where(pull_mask1 > 0, masked_img, 0)
             pull_with_cable2 = np.where(pull_mask2 > 0, masked_img, 0)
@@ -176,8 +219,14 @@ class KeypointsDataset(Dataset):
 
             condition_mask = np.zeros(img.shape)
             condition_mask[min(condition_part[0][1], condition_part[1][1]):max(condition_part[0][1], condition_part[1][1]), min(condition_part[0][0], condition_part[1][0]):max(condition_part[0][0], condition_part[1][0])] = 1
+            # plt.clf()
+            # plt.imshow(condition_mask)
+            # plt.savefig("condition_mask.png")
+            # print(condition_mask.min(), condition_mask.max())
+            # print(condition_mask.shape)
+            # plt.imsave('condition_mask.png', condition_mask)
             condition_with_cable = np.where(condition_mask > 0, masked_img, 0)
-            
+
             # add opposite corners to bbox_corners
             bbox_corners_opp = np.array([[bbox_corners[0][0], bbox_corners[1][1]], [bbox_corners[1][0], bbox_corners[0][1]]])
             bbox_corners = np.concatenate((bbox_corners, bbox_corners_opp), axis=0)
@@ -190,7 +239,7 @@ class KeypointsDataset(Dataset):
             pull_with_cable2 = pull_with_cable_and_masked_img[:, :, pull_with_cable1.shape[2]:pull_with_cable1.shape[2]*2].copy()
             masked_img = pull_with_cable_and_masked_img[:, :, 6:9].copy()
             condition_with_cable = pull_with_cable_and_masked_img[:, :, 9:12].copy()
-            # print(pull_with_cable.shape, masked_img.shape)
+
             # plt.imshow(condition_with_cable)
             # plt.savefig('condition_with_cable.png')
 
@@ -253,7 +302,7 @@ if __name__ == '__main__':
     IMG_HEIGHT = 200
     GAUSS_SIGMA = 8
     test_dataset = KeypointsDataset('/host/%s/train'%TEST_DIR,
-                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, only_full=True, condition=True)
+                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, only_full=True, condition=True, sim=True)
     img, gaussians = test_dataset[-3] #[-1] #
     vis_gauss(img, gaussians)
  
