@@ -70,6 +70,7 @@ def vis_gauss(img, gaussians):
     gaussians = np.concatenate((gaussians, np.zeros_like(gaussians[:, :, :1])), axis=2)
     h1 = gaussians
     output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
+    print("writing images")
     cv2.imwrite('test-gaussians.png', output)
     cv2.imwrite('test-img.png', img)
 
@@ -119,15 +120,16 @@ class KeypointsDataset(Dataset):
                     self.labels.append(label)
                     self.new_versions.append(0)
 
-        more_folder = os.path.join(folder, 'more_knot_crops')
-        if os.path.exists(more_folder):
-            for fname in os.listdir(more_folder):
-                img_and_annot = np.load(os.path.join(more_folder, fname), allow_pickle=True).item()
-                if len(img_and_annot['annots']) == 0 or len(img_and_annot['annots']) % 8 != 0:
-                    continue
-                self.imgs.append(os.path.join(more_folder, fname))
-                self.labels.append(img_and_annot['annots'])
-                self.new_versions.append(1)
+        for extra_folder in ['more_knot_crops', 'hulkL_detectron_fail_anal_new_aug21']:
+            more_folder = os.path.join(folder, extra_folder)
+            if os.path.exists(more_folder):
+                for fname in os.listdir(more_folder):
+                    img_and_annot = np.load(os.path.join(more_folder, fname), allow_pickle=True).item()
+                    if len(img_and_annot['annots']) == 0 or len(img_and_annot['annots']) % 8 != 0:
+                        continue
+                    self.imgs.append(os.path.join(more_folder, fname))
+                    self.labels.append(img_and_annot['annots'])
+                    self.new_versions.append(1)
 
         def get_box_around_point(pt, size=2):
             return [[pt[0]-size, pt[1]-size], [pt[0]+size, pt[1]+size]]
@@ -196,7 +198,9 @@ class KeypointsDataset(Dataset):
                 img = (img * 255.0).astype(np.uint8)
                 masked_img = img
             else:
-                masked_img = np.where(img > 100, img, 0)
+                # pass
+                masked_img = img.copy()
+            img_mask = np.where(masked_img > 100, 255.0, 0.0)
             # plt.clf()
             # plt.imshow(masked_img)
             # plt.savefig('masked_img.png')
@@ -212,9 +216,9 @@ class KeypointsDataset(Dataset):
             # plt.clf()
             # plt.imshow(pull_mask2)
             # plt.savefig('pull_mask2.png')
-            
-            pull_with_cable1 = np.where(pull_mask1 > 0, masked_img, 0)
-            pull_with_cable2 = np.where(pull_mask2 > 0, masked_img, 0)
+
+            pull_with_cable1 = np.where(pull_mask1 > 0, img_mask, 0)
+            pull_with_cable2 = np.where(pull_mask2 > 0, img_mask, 0)
             # cv2.imwrite('pull_mask.png', pull_mask*255.0)
 
             condition_mask = np.zeros(img.shape)
@@ -225,7 +229,7 @@ class KeypointsDataset(Dataset):
             # print(condition_mask.min(), condition_mask.max())
             # print(condition_mask.shape)
             # plt.imsave('condition_mask.png', condition_mask)
-            condition_with_cable = np.where(condition_mask > 0, masked_img, 0)
+            condition_with_cable = np.where(condition_mask > 0, img_mask, 0)
 
             # add opposite corners to bbox_corners
             bbox_corners_opp = np.array([[bbox_corners[0][0], bbox_corners[1][1]], [bbox_corners[1][0], bbox_corners[0][1]]])
@@ -244,7 +248,7 @@ class KeypointsDataset(Dataset):
             # plt.savefig('condition_with_cable.png')
 
             if self.crop:
-                random_padding = np.random.randint(0, 200, size=(4,)) # used to be 50
+                random_padding = np.random.randint(1, 80, size=(4,)) # used to be 50
                 minx = max(int(min(bbox_corners.keypoints[0].x, bbox_corners.keypoints[1].x, bbox_corners.keypoints[2].x, bbox_corners.keypoints[3].x)) - random_padding[0], 0)
                 miny = max(int(min(bbox_corners.keypoints[0].y, bbox_corners.keypoints[1].y, bbox_corners.keypoints[2].y, bbox_corners.keypoints[3].y)) - random_padding[1], 0)
                 maxx = min(int(max(bbox_corners.keypoints[0].x, bbox_corners.keypoints[1].x, bbox_corners.keypoints[2].x, bbox_corners.keypoints[3].x)) + random_padding[2], img.shape[1]-1)
@@ -254,6 +258,10 @@ class KeypointsDataset(Dataset):
                 # cv2.imwrite('pull_with_cable.png', pull_with_cable)
                 # print(minx, miny, maxx, maxy)
 
+                # print("SIZE WARNING", maxx, minx, maxy, miny)
+                if maxx-minx <= 0 or maxy-miny <= 0:
+                    print("SIZE WARNING", index, maxx, minx, maxy, miny, random_padding, bbox_corners.keypoints)
+                    return self.__getitem__(index)
                 combined = masked_img[miny:maxy, minx:maxx]
                 pull_with_cable_cropped1 = pull_with_cable1[miny:maxy, minx:maxx]
                 pull_with_cable_cropped2 = pull_with_cable2[miny:maxy, minx:maxx]
@@ -265,6 +273,7 @@ class KeypointsDataset(Dataset):
             # cv2.imwrite('combined.png', combined)
             # cv2.imwrite('pull_with_cable_cropped.png', pull_with_cable_cropped)
 
+            print(combined.shape, self.img_width, self.img_height)
             combined = cv2.resize(combined, (self.img_width, self.img_height))
             combined = self.transform(combined).cuda().float()
             pull_with_cable_cropped1 = cv2.resize(pull_with_cable_cropped1, (self.img_width, self.img_height))
@@ -302,7 +311,7 @@ if __name__ == '__main__':
     IMG_HEIGHT = 200
     GAUSS_SIGMA = 8
     test_dataset = KeypointsDataset('/host/%s/train'%TEST_DIR,
-                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, only_full=True, condition=True, sim=True)
+                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, only_full=True, condition=True, sim=False)
     img, gaussians = test_dataset[-3] #[-1] #
     vis_gauss(img, gaussians)
  
