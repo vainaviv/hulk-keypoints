@@ -102,7 +102,7 @@ custom_image = None
 #     test_data = [img]
 
 # Load custom folder
-output_folder_name = f'preds_custom_ontrain_{folder_name}'
+output_folder_name = f'ppreds_custom_ontrain_{folder_name}'
 if not os.path.exists(output_folder_name):
     os.mkdir(output_folder_name)
 

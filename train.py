@@ -9,7 +9,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import numpy as np
 from config import *
-from src.model import KeypointsGauss
+from src.model import ClassificationModel
 from src.dataset import TEST_DIR, KeypointsDataset, transform
 import matplotlib.pyplot as plt
 MSE = torch.nn.MSELoss()
@@ -28,7 +28,10 @@ def forward(sample_batched, model):
     return loss
 
 def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
+    train_epochs = []
+    test_epochs = []
     test_losses = []
+    train_losses = []
     for epoch in range(epochs):
         train_loss = 0.0
         for i_batch, sample_batched in enumerate(train_data):
@@ -40,25 +43,35 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
             print('[%d, %5d] loss: %.3f' % (epoch + 1, i_batch + 1, loss.item()), end='')
             print('\r', end='')
         print('train loss:', train_loss / i_batch)
-        
-        test_loss = 0.0
-        for i_batch, sample_batched in enumerate(test_data):
-            loss = forward(sample_batched, model)
-            test_loss += loss.item()
-        print('test loss:', test_loss / i_batch)
+        train_epochs.append(epoch)
+        train_losses.append(train_loss / i_batch)
+
+        if epoch % 20 == 19:
+            test_loss = 0.0
+            for i_batch, sample_batched in enumerate(test_data):
+                loss = forward(sample_batched, model)
+                test_loss += loss.item()
+            print('test loss:', test_loss / i_batch)
+            test_epochs.append(epoch)
+            test_losses.append(test_loss)
+
+            np.save(f"logs/losses_{expt_name}.npy", test_losses)
+            np.save(f"logs/train_losses_{expt_name}.npy", train_losses)
+            plt.clf()
+            plt.title(f"losses {expt_name}")
+            plt.plot(test_epochs, test_losses, label='test loss')
+            plt.plot(train_epochs, train_losses, label='train loss')
+            plt.legend()
+            plt.savefig(f"logs/losses_{expt_name}_graph.png")
         if epoch%100 == 99:
             torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '_' + str(test_loss) + '.pth')
-        test_losses.append(test_loss)
-    np.save(f"losses_{dataset_dir}.npy", test_losses)
-    plt.title(f"test losses {dataset_dir}")
-    plt.plot(test_losses)
-    plt.savefig(f"test_losses_{dataset_dir}_graph.png")
 
 # dataset
 workers=0
-dataset_dir = 'hulkL_cond_aug21_icra_w_anal_NOMASK_lr2e-5_sigma2_3'
+dataset_dir ='processed_sim_data/under_over_crossings_dataset'
+expt_name = 'over_under_model_1'
 output_dir = 'checkpoints'
-save_dir = os.path.join(output_dir, dataset_dir)
+save_dir = os.path.join(output_dir, expt_name)
 
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
@@ -66,12 +79,12 @@ if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 
 # TEST_DIR = 'hulkL_seg'
-train_dataset = KeypointsDataset('/host/%s/train'%TEST_DIR,
-                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True, sim=False)
+train_dataset = KeypointsDataset(['/host/%s/train'%dataset_dir],
+                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True, sim=False, trace_imgs=True)
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
-test_dataset = KeypointsDataset('/host/%s/test'%TEST_DIR,
-                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True)
+test_dataset = KeypointsDataset('/host/%s/test'%dataset_dir,
+                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True, sim=False, trace_imgs=True)
 test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 use_cuda = torch.cuda.is_available()
@@ -81,7 +94,7 @@ if use_cuda:
     torch.cuda.set_device(0)
 
 # model
-keypoints = KeypointsGauss(num_keypoints=2, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
+keypoints = ClassificationModel(num_classes=1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
 
 # optimizer
 optimizer = optim.Adam(keypoints.parameters(), lr=2.0e-5, weight_decay=1.0e-4)
