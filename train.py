@@ -46,7 +46,7 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
         train_epochs.append(epoch)
         train_losses.append(train_loss / i_batch)
 
-        if epoch % 20 == 19:
+        if epoch % 10 == 19:
             test_loss = 0.0
             for i_batch, sample_batched in enumerate(test_data):
                 loss = forward(sample_batched, model)
@@ -97,7 +97,7 @@ if use_cuda:
 keypoints = ClassificationModel(num_classes=1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
 
 # optimizer
-optimizer = optim.Adam(keypoints.parameters(), lr=2.0e-5, weight_decay=1.0e-4)
+optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-5, weight_decay=1.0e-4)
 #optimizer = optim.Adam(keypoints.parameters(), lr=0.0001)
 
 fit(train_data, test_data, keypoints, epochs=epochs, checkpoint_path=save_dir)
