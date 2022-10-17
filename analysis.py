@@ -5,7 +5,7 @@ import torch
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from config import *
-from src.model import KeypointsGauss
+from src.model import KeypointsGauss, ClassificationModel
 from src.dataset import KeypointsDataset, transform, gauss_2d_batch, bimodal_gauss, get_gauss
 from src.prediction import Prediction
 from datetime import datetime, time
@@ -49,11 +49,9 @@ os.environ["CUDA_VISIBLE_DEVICES"]="1"
 #                'hulkL_cond_rnet34_wnotrace4_always_sep6_2/model_2_1_199_0.054455696754075314.pth',
 #                'hulkL_cond_rnet34_wnotrace4_always_sep6_3/model_2_1_199_0.056172625463381906.pth']
 # model_ckpts = ['hulkL_cond_rnet34_wtrace4_always_sep6/model_2_1_199_0.057852378280007.pth']
-model_ckpts = ['hulkL_cond_rnet34_wnotrace5/model_2_1_199_0.11578577275285896.pth', 
-'hulkL_cond_rnet34_wnotrace5-2/model_2_1_199_0.08690919075492234.pth',
-'hulkL_cond_rnet34_wnotrace5-3/model_2_1_199_0.07517632795884831.pth']
+model_ckpts = ['over_under_model_1/model_2_1_49_84.82333721031712.pth']
 
-folder_name = 'new_ensemble'
+folder_name = 'over_under'
 output_folder_name = f'preds_{folder_name}'
 if not os.path.exists(output_folder_name):
     os.mkdir(output_folder_name)
