@@ -49,7 +49,7 @@ os.environ["CUDA_VISIBLE_DEVICES"]="1"
 #                'hulkL_cond_rnet34_wnotrace4_always_sep6_2/model_2_1_199_0.054455696754075314.pth',
 #                'hulkL_cond_rnet34_wnotrace4_always_sep6_3/model_2_1_199_0.056172625463381906.pth']
 # model_ckpts = ['hulkL_cond_rnet34_wtrace4_always_sep6/model_2_1_199_0.057852378280007.pth']
-model_ckpts = ['over_under_model_1/model_2_1_49_84.82333721031712.pth']
+model_ckpts = ['over_under_model_1/model_2_1_49_77.80537156287424.pth']
 
 folder_name = 'over_under'
 output_folder_name = f'preds_{folder_name}'
@@ -65,7 +65,7 @@ if use_cuda:
 # model
 keypoints_models = []
 for model_ckpt in model_ckpts:
-    keypoints = KeypointsGauss(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=3).cuda()
+    keypoints = ClassificationModel(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=3).cuda()
     keypoints.load_state_dict(torch.load('checkpoints/%s'%model_ckpt))
     keypoints_models.append(keypoints)
 
@@ -83,12 +83,11 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-test_dataset = KeypointsDataset('hulkL_trace_4/test/', IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False, only_full=True, condition=True, sim=False, trace_imgs=True)
-# test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=0)
-custom_image = None
+test_dataset = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_crossings_dataset/test', IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False, only_full=True, condition=True, sim=False, trace_imgs=True)
 
+preds = []
+gts = []
 for i, f in enumerate(test_dataset):
-    print(i)
     img_t = f[0]
     if (len(img_t.shape) < 4):
         img_t = img_t.unsqueeze(0)
@@ -109,41 +108,22 @@ for i, f in enumerate(test_dataset):
     input_img_np = img_t.detach().cpu().numpy()[0, 0:3, ...]
     plt.clf()
     plt.imshow(input_img_np.transpose(1,2,0))
-    plt.savefig(f'{output_folder_name}/input_img_{i}.png')
 
     heatmaps = []
     # create len(predictions) subplots
     for j, prediction in enumerate(predictions):
-        heatmap = prediction.predict(img_t[0])
+        output = prediction.predict(img_t[0])
 
-        heatmap = heatmap.detach().cpu().numpy()
-        heatmap = heatmap * img_masked[None, :]
-        heatmaps.append(heatmap)
-        horiz_concat = None
-        for layer in range(NUM_KEYPOINTS):
-            overlay = prediction.plot(img_t.detach().cpu().numpy(), heatmap, image_id=i, write_image=False, heatmap_id=layer)
-            if (horiz_concat is None):
-                horiz_concat = overlay
-            else:
-                horiz_concat = np.hstack((horiz_concat, overlay))
-        plt.clf()
-        plt.subplot(1, len(predictions), j+1)
-        plt.imshow(horiz_concat)
-        plt.title("Model %d"%(j+1))
-    plt.savefig(f'{output_folder_name}/test_heatmaps_{i}.png')
+    print(output, f[1])
+    preds.append(output.detach().cpu().numpy().item())
+    gts.append(f[1].detach().cpu().numpy().item())
 
-    # create the min heatmap
-    min_heatmap = np.min(heatmaps, axis=0)
-    horiz_concat = None
-    for layer in range(NUM_KEYPOINTS):
-        plt.clf()
-        # print(min_heatmap.shape)
-        overlay = prediction.plot(img_t.detach().cpu().numpy(), min_heatmap, image_id=i, write_image=False, heatmap_id=layer)
-        if (horiz_concat is None):
-            horiz_concat = overlay
-        else:
-            horiz_concat = np.hstack((horiz_concat, overlay))
+    plt.title(f'Pred: {preds[-1]}, GT: {gts[-1]}')
+    plt.savefig(f'{output_folder_name}/input_img_{i}.png')
 
-    plt.imshow(horiz_concat)
-    plt.title(f"Min Model {j+1} Cage and Pinch, Max Values {min_heatmap[0, 0].max():.3f}, {min_heatmap[0, 1].max():.3f}")
-    plt.savefig(f'{output_folder_name}/test_min_heatmaps_{i}_{layer}.png')
+
+# calculate auc score
+import sklearn.metrics as metrics
+fpr, tpr, thresholds = metrics.roc_curve(gts, preds, pos_label=1)
+auc = metrics.auc(fpr, tpr)
+print(auc)

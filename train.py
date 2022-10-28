@@ -24,7 +24,7 @@ def forward(sample_batched, model):
     #pred_gauss = pred_gauss.view(pred_gauss.shape[0], 4, 640*480).double()
     #gt_gauss += 1e-300
     #loss = F.kl_div(gt_gauss.cuda().log(), pred_gauss, None, None, 'mean')
-    loss = nn.BCELoss()(pred_gauss, gt_gauss)
+    loss = nn.BCELoss()(pred_gauss.squeeze(), gt_gauss.squeeze())
     return loss
 
 def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
@@ -68,7 +68,7 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
 
 # dataset
 workers=0
-dataset_dir ='processed_sim_data/under_over_crossings_dataset'
+dataset_dir ='/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_crossings_dataset'
 expt_name = 'over_under_model_1'
 output_dir = 'checkpoints'
 save_dir = os.path.join(output_dir, expt_name)
@@ -79,11 +79,11 @@ if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 
 # TEST_DIR = 'hulkL_seg'
-train_dataset = KeypointsDataset(['/host/%s/train'%dataset_dir],
+train_dataset = KeypointsDataset(['%s/train'%dataset_dir],
                            IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True, sim=False, trace_imgs=True)
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
-test_dataset = KeypointsDataset('/host/%s/test'%dataset_dir,
+test_dataset = KeypointsDataset('%s/test'%dataset_dir,
                            IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True, sim=False, trace_imgs=True)
 test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 

@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from config import *
 
 # set torch GPU to 3
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 # No domain randomization
 transform = transforms.Compose([transforms.ToTensor()])
@@ -61,7 +61,8 @@ def gauss_2d_batch(width, height, sigma, U, V, normalize_dist=False, single=Fals
     X,Y = torch.transpose(X, 0, 1).cuda(), torch.transpose(Y, 0, 1).cuda()
     G=torch.exp(-((X-U.float())**2+(Y-V.float())**2)/(2.0*sigma**2))
     if normalize_dist:
-        return normalize(G).double()
+        # return normalize(G).double()
+        return (G/G.max()).double() * 2
     return G.double()
 
 def vis_gauss(img, gaussians, i):
@@ -74,7 +75,7 @@ def vis_gauss(img, gaussians, i):
     # output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
     # print("writing images")
     # cv2.imwrite(f'dataset_py_test/test-gaussians_{i:05d}.png', output)
-    cv2.imwrite(f'dataset_py_test/test-img_{i:05d}.png', img)
+    cv2.imwrite(f'dataset_py_test/test-img_{i:05d}.png', img[...,::-1])
 
 def bimodal_gauss(G1, G2, normalize=False):
     bimodal = torch.max(G1, G2)
@@ -160,31 +161,30 @@ class KeypointsDataset(Dataset):
         condition_with_cable = np.where(condition_mask > 0, 1, 0)
         # print("condition with cable sum", condition_with_cable.sum())
 
-        if self.augment:
-            pull_with_cable_and_masked_img = self.img_transform(image=np.concatenate((masked_img, condition_with_cable), axis=2))
-            # split into img and mask again
-            masked_img = pull_with_cable_and_masked_img[:, :, 0:3].copy()
-            condition_with_cable = pull_with_cable_and_masked_img[:, :, 3:6].copy()
-            # print("condition with cable sum 2", condition_with_cable.sum())
+        pull_with_cable_and_masked_img = self.img_transform(image=np.concatenate((masked_img, condition_with_cable), axis=2))
+        # split into img and mask again
+        masked_img = pull_with_cable_and_masked_img[:, :, 0:3].copy()
+        condition_with_cable = pull_with_cable_and_masked_img[:, :, 3:6].copy()
+        # print("condition with cable sum 2", condition_with_cable.sum())
 
-            # print(masked_img.shape, self.img_width, self.img_height)
-            # print(masked_img.shape)
-            # test_img = np.ones((100, 100, 3)) # * masked_img
-            # print(test_img.dtype)
-            # combined = cv2.resize(test_img, (self.img_width, self.img_height))
-            combined = cv2.resize(masked_img.astype(np.float64), (self.img_width, self.img_height))
-            combined = self.transform(combined).cuda().float()
-            condition_with_cable = cv2.resize(condition_with_cable.astype(np.float64), (self.img_width, self.img_height))
-            # print("condition with cable sum 3", condition_with_cable.sum())
+        # print(masked_img.shape, self.img_width, self.img_height)
+        # print(masked_img.shape)
+        # test_img = np.ones((100, 100, 3)) # * masked_img
+        # print(test_img.dtype)
+        # combined = cv2.resize(test_img, (self.img_width, self.img_height))
+        combined = cv2.resize(masked_img.astype(np.float64), (self.img_width, self.img_height))
+        combined = self.transform(combined).cuda().float()
+        condition_with_cable = cv2.resize(condition_with_cable.astype(np.float64), (self.img_width, self.img_height))
+        # print("condition with cable sum 3", condition_with_cable.sum())
 
         if condition_with_cable.sum() > 0:
             cond_V, cond_U = np.nonzero(condition_with_cable[:, :, 0])
             cond_U, cond_V = torch.from_numpy(np.array([cond_U, cond_V], dtype=np.int32)).cuda()
-            combined[0] = get_gauss(self.img_width, self.img_height, self.gauss_sigma, cond_U, cond_V)
+            combined[0] = 255.0 * get_gauss(self.img_width, self.img_height, self.gauss_sigma, cond_U, cond_V)
         else:
             raise Exception("No condition")
 
-        return combined, torch.as_tensor(loaded_data['under_over']).cuda().double()
+        return combined / 255.0, torch.as_tensor(loaded_data['under_over']).cuda().double()
     
     def __len__(self):
         return len(self.labels)
@@ -193,9 +193,9 @@ TEST_DIR = "hulkL_trace"
 if __name__ == '__main__':
     IMG_WIDTH = 200
     IMG_HEIGHT = 200
-    GAUSS_SIGMA = 8
-    test_dataset = KeypointsDataset('/host/processed_sim_data/under_over_crossings_dataset',
+    GAUSS_SIGMA = 20
+    test_dataset = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_crossings_dataset/train/',
                            IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, only_full=True, condition=True, sim=False, trace_imgs=True)
-    for i in range(10, 100):
+    for i in range(0, 1):
         img, overunder = test_dataset[i] #[-1] #
         vis_gauss(img, overunder, i)
