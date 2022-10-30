@@ -49,9 +49,9 @@ os.environ["CUDA_VISIBLE_DEVICES"]="1"
 #                'hulkL_cond_rnet34_wnotrace4_always_sep6_2/model_2_1_199_0.054455696754075314.pth',
 #                'hulkL_cond_rnet34_wnotrace4_always_sep6_3/model_2_1_199_0.056172625463381906.pth']
 # model_ckpts = ['hulkL_cond_rnet34_wtrace4_always_sep6/model_2_1_199_0.057852378280007.pth']
-model_ckpts = ['over_under_model_1/model_2_1_49_77.80537156287424.pth']
+model_ckpts = ['over_under_model_withtrace/model_2_1_49_26.02977597541978.pth']
 
-folder_name = 'over_under'
+folder_name = 'over_under_withtrace'
 output_folder_name = f'preds_{folder_name}'
 if not os.path.exists(output_folder_name):
     os.mkdir(output_folder_name)

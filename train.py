@@ -12,18 +12,28 @@ from config import *
 from src.model import ClassificationModel
 from src.dataset import TEST_DIR, KeypointsDataset, transform
 import matplotlib.pyplot as plt
-MSE = torch.nn.MSELoss()
-bceLoss = nn.BCELoss
+import argparse
 
 os.environ["CUDA_VISIBLE_DEVICES"]="1"
+
+# parse command line flags
+parser = argparse.ArgumentParser()
+parser.add_argument('--expt_name', type=str, default='default')
+parser.add_argument('--expt_type', type=str, default='default')
+
+flags = parser.parse_args()
+
+experiment_time = time.strftime("%Y%m%d-%H%M%S")
+expt_name = flags.expt_name
+expt_type = flags.expt_type
+
+if expt_type not in ALLOWED_EXPT_TYPES:
+    raise ValueError(f"expt_type must be one of {ALLOWED_EXPT_TYPES}")
 
 def forward(sample_batched, model):
     img, gt_gauss = sample_batched
     img = Variable(img.cuda() if use_cuda else img)
     pred_gauss = model.forward(img).double()
-    #pred_gauss = pred_gauss.view(pred_gauss.shape[0], 4, 640*480).double()
-    #gt_gauss += 1e-300
-    #loss = F.kl_div(gt_gauss.cuda().log(), pred_gauss, None, None, 'mean')
     loss = nn.BCELoss()(pred_gauss.squeeze(), gt_gauss.squeeze())
     return loss
 
@@ -69,7 +79,6 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
 # dataset
 workers=0
 dataset_dir ='/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_crossings_dataset'
-expt_name = 'over_under_model_1'
 output_dir = 'checkpoints'
 save_dir = os.path.join(output_dir, expt_name)
 
@@ -80,11 +89,11 @@ if not os.path.exists(save_dir):
 
 # TEST_DIR = 'hulkL_seg'
 train_dataset = KeypointsDataset(['%s/train'%dataset_dir],
-                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True, sim=False, trace_imgs=True)
+                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True, sim=False, trace_imgs=True, expt_type=expt_type)
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 test_dataset = KeypointsDataset('%s/test'%dataset_dir,
-                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True, sim=False, trace_imgs=True)
+                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True, sim=False, trace_imgs=True, expt_type=expt_type)
 test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 use_cuda = torch.cuda.is_available()
@@ -94,10 +103,11 @@ if use_cuda:
     torch.cuda.set_device(0)
 
 # model
-keypoints = ClassificationModel(num_classes=1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
+if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
+    keypoints = ClassificationModel(num_classes=1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
+elif expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
+    keypoints = KeypointsGauss(num_classes=2, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
 
 # optimizer
 optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-5, weight_decay=1.0e-4)
-#optimizer = optim.Adam(keypoints.parameters(), lr=0.0001)
-
 fit(train_data, test_data, keypoints, epochs=epochs, checkpoint_path=save_dir)
