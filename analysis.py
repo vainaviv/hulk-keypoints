@@ -14,8 +14,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 from scipy.signal import convolve2d
+import argparse
 
 GAUSS_SIGMA = 8
+
+# parse command line flags
+parser = argparse.ArgumentParser()
+parser.add_argument('--checkpoint_path', type=str, default='default')
+parser.add_argument('--expt_type', type=str, default='default')
+
+flags = parser.parse_args()
+
+experiment_time = time.strftime("%Y%m%d-%H%M%S")
+checkpoint_path = flags.checkpoint_path
+expt_type = flags.expt_type
+
+model_ckpts = [flags.checkpoint_path]
 
 def get_density_map(img, kernel=150):
     img = cv2.dilate((img).astype(np.uint8), np.ones((6, 6)), iterations=1)
@@ -32,27 +46,11 @@ def get_density_map(img, kernel=150):
     img = convolve2d(img, kernel, mode='same')
     return img
 
-
 os.environ["CUDA_VISIBLE_DEVICES"]="1"
 # torch.cuda.set_device(1)
 
-# model_ckpts = ["hulkL_cond_aug21_icra_w_anal_NOMASK_1/model_2_1_499_0.5222878034335012.pth",
-#                "hulkL_cond_aug21_icra_w_anal_NOMASK_2/model_2_1_499_0.5374186725368331.pth",
-#                "hulkL_cond_aug21_icra_w_anal_NOMASK_3/model_2_1_499_0.5009409086017771.pth"]
-# model_ckpts = ['hulkL_cond_aug21_icra_w_anal_NOMASK_lr2e-5_sigma_wpreRSS_2_3/model_2_1_299_0.16817463159559926.pth',
-#                'hulkL_cond_aug21_icra_w_anal_NOMASK_lr2e-5_sigma_wpreRSS_2_3/model_2_1_299_0.18750610115741131.pth',
-#                'hulkL_cond_aug21_icra_w_anal_NOMASK_lr2e-5_sigma_wpreRSS_2_2/model_2_1_299_0.15622884791929934.pth',
-#                'hulkL_cond_aug21_icra_w_anal_NOMASK_lr2e-5_sigma_wpreRSS_2_1/model_2_1_299_0.14870232070779832.pth',]
-# model_ckpts = ['hulkL_cond_rnet34_wnotrace3_always_sep5/model_2_1_99_0.08647923276907996.pth'] 
-# model_ckpts = ['hulkL_cond_rnet34_wtrace3_always_sep5/model_2_1_99_0.056361758567128994.pth']
-# model_ckpts = ['hulkL_cond_rnet34_wnotrace4_always_sep6/model_2_1_199_0.057098522507624754.pth',
-#                'hulkL_cond_rnet34_wnotrace4_always_sep6_2/model_2_1_199_0.054455696754075314.pth',
-#                'hulkL_cond_rnet34_wnotrace4_always_sep6_3/model_2_1_199_0.056172625463381906.pth']
-# model_ckpts = ['hulkL_cond_rnet34_wtrace4_always_sep6/model_2_1_199_0.057852378280007.pth']
-model_ckpts = ['over_under_model_withtrace/model_2_1_49_26.02977597541978.pth']
-
-folder_name = 'over_under_withtrace'
-output_folder_name = f'preds_{folder_name}'
+expt_name = os.path.normpath(checkpoint_path).split(os.sep)[-2]
+output_folder_name = f'preds/preds_{expt_name}'
 if not os.path.exists(output_folder_name):
     os.mkdir(output_folder_name)
 
@@ -65,7 +63,10 @@ if use_cuda:
 # model
 keypoints_models = []
 for model_ckpt in model_ckpts:
-    keypoints = ClassificationModel(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=3).cuda()
+    if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
+        keypoints = ClassificationModel(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=3).cuda()
+    elif expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
+        keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=3).cuda()
     keypoints.load_state_dict(torch.load('checkpoints/%s'%model_ckpt))
     keypoints_models.append(keypoints)
 
@@ -83,10 +84,12 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-test_dataset = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_crossings_dataset/test', IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False, only_full=True, condition=True, sim=False, trace_imgs=True)
+test_dataset = KeypointsDataset(os.path.join(dataset_dir, 'test'), IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False, only_full=True, condition=True, sim=False, trace_imgs=True, expt_type=expt_type)
 
 preds = []
 gts = []
+total_error = 0
+total = 0
 for i, f in enumerate(test_dataset):
     img_t = f[0]
     if (len(img_t.shape) < 4):
@@ -109,21 +112,37 @@ for i, f in enumerate(test_dataset):
     plt.clf()
     plt.imshow(input_img_np.transpose(1,2,0))
 
+
+    plt.savefig(f'{output_folder_name}/input_img_{i}.png')
+
     heatmaps = []
     # create len(predictions) subplots
     for j, prediction in enumerate(predictions):
         output = prediction.predict(img_t[0])
+    if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
+        preds.append(output.detach().cpu().numpy().item())
+        gts.append(f[1].detach().cpu().numpy().item())
+        plt.title(f'Pred: {preds[-1]}, GT: {gts[-1]}')
+    elif expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
+        pixelwise_diff = (output - f[1])**2
+        total_error += pixelwise_diff.sum().item()
+        output_heatmap = output.detach().cpu().numpy()[0, 0, ...]
+        output_image = f[0][0:3, ...].detach().cpu().numpy().transpose(1,2,0)
+        output_image[:, :, 2] = output_heatmap
+        plt.imshow(output_image)
+        plt.savefig(f'{output_folder_name}/output_img_{i}.png')
+    else:
+        argmax_yx = np.unravel_index(np.argmax(output.detach().cpu().numpy()[0, 0, ...]), output.detach().cpu().numpy()[0, 0, ...].shape)
+        # check if the gt at argmax is 1
+        if f[1].detach().cpu().numpy()[0, 0, argmax_yx[0], argmax_yx[1]] == 1: 
+            hits += 1
+    total += 1
 
-    print(output, f[1])
-    preds.append(output.detach().cpu().numpy().item())
-    gts.append(f[1].detach().cpu().numpy().item())
-
-    plt.title(f'Pred: {preds[-1]}, GT: {gts[-1]}')
-    plt.savefig(f'{output_folder_name}/input_img_{i}.png')
-
-
-# calculate auc score
-import sklearn.metrics as metrics
-fpr, tpr, thresholds = metrics.roc_curve(gts, preds, pos_label=1)
-auc = metrics.auc(fpr, tpr)
-print(auc)
+if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
+    # calculate auc score
+    import sklearn.metrics as metrics
+    fpr, tpr, thresholds = metrics.roc_curve(gts, preds, pos_label=1)
+    auc = metrics.auc(fpr, tpr)
+    print("Classification AUC:", auc)
+elif expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
+    print("Mean pixelwise error:", total_error/total)

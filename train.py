@@ -9,7 +9,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import numpy as np
 from config import *
-from src.model import ClassificationModel
+from src.model import KeypointsGauss, ClassificationModel
 from src.dataset import TEST_DIR, KeypointsDataset, transform
 import matplotlib.pyplot as plt
 import argparse
@@ -78,7 +78,6 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
 
 # dataset
 workers=0
-dataset_dir ='/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_crossings_dataset'
 output_dir = 'checkpoints'
 save_dir = os.path.join(output_dir, expt_name)
 
@@ -106,7 +105,7 @@ if use_cuda:
 if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
     keypoints = ClassificationModel(num_classes=1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
 elif expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
-    keypoints = KeypointsGauss(num_classes=2, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
+    keypoints = KeypointsGauss(num_keypoints=1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
 
 # optimizer
 optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-5, weight_decay=1.0e-4)

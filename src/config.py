@@ -1,6 +1,0 @@
-NUM_KEYPOINTS = 2
-IMG_HEIGHT  = 100
-IMG_WIDTH   = 100
-GAUSS_SIGMA = 2
-epochs = 50
-batch_size = 4
