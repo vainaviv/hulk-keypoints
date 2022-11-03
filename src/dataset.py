@@ -154,15 +154,17 @@ class KeypointsDataset(Dataset):
         # print(f"masked_img: {masked_img.shape}")
         img_mask = np.where(masked_img > 100, 255.0, 0.0)
 
-        condition_mask = np.zeros(img.shape)
-        for condition_pixel in condition_pixels[:len(condition_pixels)//2]:
-            condition_mask[int(condition_pixel[1]), int(condition_pixel[0])] = 1.0
-        # print("condition_mask sum", condition_mask.sum())
-        condition_with_cable = np.where(condition_mask > 0, 1, 0)
-        # print("condition with cable sum", condition_with_cable.sum())
+        if self.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or self.expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
+            # input processing
+            condition_mask = np.zeros(img.shape)
+            for condition_pixel in condition_pixels[:len(condition_pixels)//2]:
+                condition_mask[int(condition_pixel[1]), int(condition_pixel[0])] = 1.0
+            condition_with_cable = np.where(condition_mask > 0, 1, 0)
+        elif self.expt_type == ExperimentTypes.TRACE_PREDICTION:
+            # TODO(vainaviv): decide how we want to encode the input 
+            pass
 
         aug_input_concat_tuple = (masked_img, condition_with_cable)
-
         if self.expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
             end_mask = np.zeros(img.shape)
             for condition in condition_pixels[len(condition_pixels)//2:]:
@@ -188,7 +190,9 @@ class KeypointsDataset(Dataset):
         else:
             raise Exception("No condition")
 
-        if self.expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
+        if self.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
+            label = torch.as_tensor(annots['under_over']).double().cuda()
+        elif self.expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
             end_mask = cv2.resize(end_mask.astype(np.float64), (self.img_width, self.img_height))
             if end_mask.sum() > 0:
                 end_V, end_U = np.nonzero(end_mask[:, :, 0])
@@ -196,8 +200,9 @@ class KeypointsDataset(Dataset):
                 label = 1.0 * get_gauss(self.img_width, self.img_height, self.gauss_sigma, end_U, end_V)
             else:
                 raise Exception("No end")
-        else:
-            label = torch.as_tensor(annots['under_over']).double().cuda()
+        elif self.expt_type == ExperimentTypes.TRACE_PREDICTION:
+            # TODO(vainaviv): decide how we want to encode the output 
+            pass
 
         return combined / 255.0, label
     

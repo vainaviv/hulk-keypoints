@@ -87,11 +87,11 @@ if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 
 # TEST_DIR = 'hulkL_seg'
-train_dataset = KeypointsDataset(['%s/train'%dataset_dir],
+train_dataset = KeypointsDataset(['%s/train'%get_dataset_dir()],
                            IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True, sim=False, trace_imgs=True, expt_type=expt_type)
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
-test_dataset = KeypointsDataset('%s/test'%dataset_dir,
+test_dataset = KeypointsDataset('%s/test'%get_dataset_dir(),
                            IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True, sim=False, trace_imgs=True, expt_type=expt_type)
 test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 

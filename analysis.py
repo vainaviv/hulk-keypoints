@@ -34,7 +34,6 @@ model_ckpts = [flags.checkpoint_path]
 def get_density_map(img, kernel=150):
     img = cv2.dilate((img).astype(np.uint8), np.ones((6, 6)), iterations=1)
     img = img.squeeze()
-    print(img.shape)
     # padded convolution with kernel size 
     kernel = np.ones((kernel, kernel), np.uint8)
     # every pixel in the kernel within radius of kernel/2 is 1, else 0
@@ -111,7 +110,6 @@ for i, f in enumerate(test_dataset):
     input_img_np = img_t.detach().cpu().numpy()[0, 0:3, ...]
     plt.clf()
     plt.imshow(input_img_np.transpose(1,2,0))
-
 
     plt.savefig(f'{output_folder_name}/input_img_{i}.png')
 
