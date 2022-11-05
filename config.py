@@ -18,3 +18,9 @@ def get_dataset_dir(expt_type):
     if expt_type == ExperimentTypes.TRACE_PREDICTION:
         return '/home/kaushiks/rope-rendering/processed_sim_data/trace_dataset/train/'
     return '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_crossings_dataset'
+
+def is_crop_task(expt_type):
+    return expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION
+
+def is_point_pred(expt_type):
+    return expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION or expt_type == ExperimentTypes.TRACE_PREDICTION
