@@ -87,7 +87,7 @@ test_dataset = KeypointsDataset(os.path.join(dataset_dir, 'test'), IMG_HEIGHT, I
 
 preds = []
 gts = []
-total_error = 0
+hits = 0
 total = 0
 for i, f in enumerate(test_dataset):
     img_t = f[0]
@@ -101,11 +101,6 @@ for i, f in enumerate(test_dataset):
     plt.figure()
 
     img_masked = img_t.detach().cpu().numpy()[0, 2:3, ...] > 100/255
-    # density_map = get_density_map(img_masked)
-    # plt.clf()
-    # plt.imshow(np.hstack((img_masked.squeeze() * density_map,)))
-    # plt.colorbar()
-    # plt.savefig(f'{output_folder_name}/density_map_{i}.png')
 
     input_img_np = img_t.detach().cpu().numpy()[0, 0:3, ...]
     plt.clf()
@@ -117,23 +112,23 @@ for i, f in enumerate(test_dataset):
     # create len(predictions) subplots
     for j, prediction in enumerate(predictions):
         output = prediction.predict(img_t[0])
+
     if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
         preds.append(output.detach().cpu().numpy().item())
         gts.append(f[1].detach().cpu().numpy().item())
         plt.title(f'Pred: {preds[-1]}, GT: {gts[-1]}')
-    elif expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
-        pixelwise_diff = (output - f[1])**2
-        total_error += pixelwise_diff.sum().item()
+    elif is_point_pred(expt_type):
+        argmax_yx = np.unravel_index(np.argmax(output.detach().cpu().numpy()[0, 0, ...]), output.detach().cpu().numpy()[0, 0, ...].shape)
+        output_yx = np.unravel_index(np.argmax(f[1].detach().cpu().numpy()[0, 0, ...]), f[1].detach().cpu().numpy()[0, 0, ...].shape)
+        if np.linalg.norm((argmax_yx - output_yx), 2) < 4:
+            hits += 1
         output_heatmap = output.detach().cpu().numpy()[0, 0, ...]
         output_image = f[0][0:3, ...].detach().cpu().numpy().transpose(1,2,0)
         output_image[:, :, 2] = output_heatmap
         plt.imshow(output_image)
         plt.savefig(f'{output_folder_name}/output_img_{i}.png')
-    else:
-        argmax_yx = np.unravel_index(np.argmax(output.detach().cpu().numpy()[0, 0, ...]), output.detach().cpu().numpy()[0, 0, ...].shape)
-        # check if the gt at argmax is 1
-        if f[1].detach().cpu().numpy()[0, 0, argmax_yx[0], argmax_yx[1]] == 1: 
-            hits += 1
+
+    # check if the gt at argmax is 1
     total += 1
 
 if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
@@ -143,4 +138,4 @@ if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
     auc = metrics.auc(fpr, tpr)
     print("Classification AUC:", auc)
 elif expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
-    print("Mean pixelwise error:", total_error/total)
+    print("Mean within threshold accuracy:", hits/total)
