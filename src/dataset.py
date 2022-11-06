@@ -143,20 +143,15 @@ class KeypointsDataset(Dataset):
         #     img = (img * 255.0).astype(np.uint8)
 
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
-            # TODO(vainaviv): decide how we want to encode the input 
             kpts = KeypointsOnImage.from_xy_array(condition_pixels, shape=img.shape)
             img, kpts = self.img_transform(image=img, keypoints=kpts)
             points = []
             for k in kpts:
                 points.append([k.y,k.x])
             points = torch.from_numpy(np.array(points, dtype=np.int32)).cuda()
+            img = transform(img.copy()).cuda()
 
-            img = img.copy()
-            img = transform(img).cuda()
-
-            U = points[:-1,0]
-            V = points[:-1,1]
-            gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, U, V)
+            gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, points[:-1,0], points[:-1,1])
             mm_gauss = gaussians[-1]
             for i in range(len(gaussians)-2, -1, -1):
                 power = len(gaussians) - i - 1
