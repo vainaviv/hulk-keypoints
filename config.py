@@ -8,15 +8,16 @@ ALLOWED_EXPT_TYPES = [ExperimentTypes.CLASSIFY_OVER_UNDER,
                       ExperimentTypes.TRACE_PREDICTION]
 
 NUM_KEYPOINTS = 1
-IMG_HEIGHT  = 200
-IMG_WIDTH   = 200
+IMG_HEIGHT  = lambda expt_type: 200 if is_crop_task(expt_type) else 100 
+IMG_WIDTH   = lambda expt_type: 200 if is_crop_task(expt_type) else 100
 GAUSS_SIGMA = 5
 epochs = 50
 batch_size = 4
+COND_POINT_DIST_PX = 25
 
 def get_dataset_dir(expt_type):
     if expt_type == ExperimentTypes.TRACE_PREDICTION:
-        return '/home/kaushiks/rope-rendering/processed_sim_data/trace_dataset/train/'
+        return '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset'
     return '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_crossings_dataset'
 
 def is_crop_task(expt_type):

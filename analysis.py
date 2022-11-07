@@ -64,7 +64,7 @@ keypoints_models = []
 for model_ckpt in model_ckpts:
     if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
         keypoints = ClassificationModel(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=3).cuda()
-    elif expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
+    elif is_point_pred(expt_type):
         keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=3).cuda()
     keypoints.load_state_dict(torch.load('checkpoints/%s'%model_ckpt))
     keypoints_models.append(keypoints)
@@ -83,7 +83,7 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-test_dataset = KeypointsDataset(os.path.join(dataset_dir, 'test'), IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=False, only_full=True, condition=True, sim=False, trace_imgs=True, expt_type=expt_type)
+test_dataset = KeypointsDataset(os.path.join(get_dataset_dir(expt_type), 'test'), IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=True, expt_type=expt_type)
 
 preds = []
 gts = []
@@ -120,7 +120,7 @@ for i, f in enumerate(test_dataset):
     elif is_point_pred(expt_type):
         argmax_yx = np.unravel_index(np.argmax(output.detach().cpu().numpy()[0, 0, ...]), output.detach().cpu().numpy()[0, 0, ...].shape)
         output_yx = np.unravel_index(np.argmax(f[1].detach().cpu().numpy()[0, 0, ...]), f[1].detach().cpu().numpy()[0, 0, ...].shape)
-        if np.linalg.norm((argmax_yx - output_yx), 2) < 4:
+        if np.linalg.norm((np.array(argmax_yx) - np.array(output_yx)), 2) < 4:
             hits += 1
         output_heatmap = output.detach().cpu().numpy()[0, 0, ...]
         output_image = f[0][0:3, ...].detach().cpu().numpy().transpose(1,2,0)
@@ -137,5 +137,5 @@ if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
     fpr, tpr, thresholds = metrics.roc_curve(gts, preds, pos_label=1)
     auc = metrics.auc(fpr, tpr)
     print("Classification AUC:", auc)
-elif expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
+elif is_point_pred(expt_type):
     print("Mean within threshold accuracy:", hits/total)

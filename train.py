@@ -10,11 +10,11 @@ from torch.utils.data import DataLoader
 import numpy as np
 from config import *
 from src.model import KeypointsGauss, ClassificationModel
-from src.dataset import TEST_DIR, KeypointsDataset, transform
+from src.dataset import KeypointsDataset, transform
 import matplotlib.pyplot as plt
 import argparse
 
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 
 # parse command line flags
 parser = argparse.ArgumentParser()
@@ -86,13 +86,12 @@ if not os.path.exists(output_dir):
 if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 
-# TEST_DIR = 'hulkL_seg'
-train_dataset = KeypointsDataset(['%s/train'%get_dataset_dir()],
-                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True, sim=False, trace_imgs=True, expt_type=expt_type)
+train_dataset = KeypointsDataset(['%s/train'%get_dataset_dir(expt_type)],
+                           IMG_HEIGHT(expt_type), IMG_WIDTH(expt_type), transform, gauss_sigma=GAUSS_SIGMA, augment=True, expt_type=expt_type)
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
-test_dataset = KeypointsDataset('%s/test'%get_dataset_dir(),
-                           IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, condition=True, only_full=True, sim=False, trace_imgs=True, expt_type=expt_type)
+test_dataset = KeypointsDataset('%s/test'%get_dataset_dir(expt_type),
+                           IMG_HEIGHT(expt_type), IMG_WIDTH(expt_type), transform, gauss_sigma=GAUSS_SIGMA, augment=True, expt_type=expt_type)
 test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 use_cuda = torch.cuda.is_available()
@@ -102,9 +101,9 @@ if use_cuda:
     torch.cuda.set_device(0)
 
 # model
-if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
+if not is_point_pred(expt_type):
     keypoints = ClassificationModel(num_classes=1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
-elif expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
+else:
     keypoints = KeypointsGauss(num_keypoints=1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
 
 # optimizer
