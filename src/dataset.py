@@ -204,7 +204,7 @@ class KeypointsDataset(Dataset):
    
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             cond_pix_array = np.array(condition_pixels)[:, ::-1]
-            kpts = KeypointsOnImage.from_xy_array(cond_pix_array + np.random.uniform(-3, 3, size=cond_pix_array.shape), shape=img.shape)
+            kpts = KeypointsOnImage.from_xy_array(cond_pix_array + np.random.uniform(-4, 4, size=cond_pix_array.shape), shape=img.shape)
             img, kpts = self.img_transform(image=img, keypoints=kpts)
             points = []
             for k in kpts:
