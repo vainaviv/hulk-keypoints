@@ -176,7 +176,8 @@ class KeypointsDataset(Dataset):
         # if img.max() <= 1.0:
         #     img = (img * 255.0).astype(np.uint8)
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
-            kpts = KeypointsOnImage.from_xy_array(np.array(condition_pixels)[:, ::-1], shape=img.shape)
+            cond_pix_array = np.array(condition_pixels)[:, ::-1]
+            kpts = KeypointsOnImage.from_xy_array(cond_pix_array + np.random.uniform(-3, 3, size=cond_pix_array.shape), shape=img.shape)
             img, kpts = self.img_transform(image=img, keypoints=kpts)
             points = []
             for k in kpts:
