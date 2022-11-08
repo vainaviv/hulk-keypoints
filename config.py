@@ -13,7 +13,7 @@ IMG_WIDTH   = lambda expt_type: 200 if is_crop_task(expt_type) else 100
 GAUSS_SIGMA = 5
 epochs = 50
 batch_size = 4
-COND_POINT_DIST_PX = 25
+COND_POINT_DIST_PX = 8
 
 def get_dataset_dir(expt_type):
     if expt_type == ExperimentTypes.TRACE_PREDICTION:
