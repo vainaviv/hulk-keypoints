@@ -63,9 +63,9 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
                 test_loss += loss.item()
             print('test loss:', test_loss / i_batch)
             test_epochs.append(epoch)
-            test_losses.append(test_loss)
+            test_losses.append(test_loss / i_batch)
 
-            np.save(f"logs/losses_{expt_name}.npy", test_losses)
+            np.save(f"logs/test_losses_{expt_name}.npy", test_losses)
             np.save(f"logs/train_losses_{expt_name}.npy", train_losses)
             plt.clf()
             plt.title(f"losses {expt_name}")
@@ -74,7 +74,7 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
             plt.legend()
             plt.savefig(f"logs/losses_{expt_name}_graph.png")
         if epoch%10 == 9:
-            torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '_' + str(test_loss) + '.pth')
+            torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '.pth')
 
 # dataset
 workers=0
@@ -86,12 +86,14 @@ if not os.path.exists(output_dir):
 if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 
+# print(COND_POINT_DIST_PX)
+# raise Exception()
 train_dataset = KeypointsDataset(['%s/train'%get_dataset_dir(expt_type)],
-                           IMG_HEIGHT(expt_type), IMG_WIDTH(expt_type), transform, gauss_sigma=GAUSS_SIGMA, augment=True, expt_type=expt_type)
+                           IMG_HEIGHT(expt_type), IMG_WIDTH(expt_type), transform, gauss_sigma=GAUSS_SIGMA, augment=True, expt_type=expt_type, condition_len=6, crop_width=50, spacing=COND_POINT_DIST_PX)
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 test_dataset = KeypointsDataset('%s/test'%get_dataset_dir(expt_type),
-                           IMG_HEIGHT(expt_type), IMG_WIDTH(expt_type), transform, gauss_sigma=GAUSS_SIGMA, augment=True, expt_type=expt_type)
+                           IMG_HEIGHT(expt_type), IMG_WIDTH(expt_type), transform, gauss_sigma=GAUSS_SIGMA, augment=False, expt_type=expt_type, condition_len=6, crop_width=50, spacing=COND_POINT_DIST_PX)
 test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 use_cuda = torch.cuda.is_available()

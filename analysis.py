@@ -45,7 +45,7 @@ def get_density_map(img, kernel=150):
     img = convolve2d(img, kernel, mode='same')
     return img
 
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+# os.environ["CUDA_VISIBLE_DEVICES"]="1"
 # torch.cuda.set_device(1)
 
 expt_name = os.path.normpath(checkpoint_path).split(os.sep)[-2]

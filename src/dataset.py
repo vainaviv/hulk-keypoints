@@ -12,6 +12,7 @@ import os
 from datetime import datetime
 import imgaug.augmenters as iaa
 from imgaug.augmentables import KeypointsOnImage
+from scipy import interpolate
 import matplotlib.pyplot as plt
 import sys
 sys.path.insert(0, '/home/kaushiks/hulk-keypoints/')
@@ -107,7 +108,7 @@ def get_gauss(w, h, sigma, U, V):
 
 class KeypointsDataset(Dataset):
     def __init__(self, folder, img_height, img_width, transform, gauss_sigma=8, augment=True, crop=True, condition_len=4, crop_width=100, 
-                 expt_type=ExperimentTypes.CLASSIFY_OVER_UNDER):
+                 pred_len=1, spacing=15, expt_type=ExperimentTypes.CLASSIFY_OVER_UNDER):
         self.img_height = img_height
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
@@ -117,11 +118,14 @@ class KeypointsDataset(Dataset):
         self.condition_len = condition_len
         self.crop_width = crop_width
         self.crop_span = self.crop_width*2 + 1
+        self.pred_len = pred_len
+        self.spacing = spacing
 
         self.data = []
         self.expt_type = expt_type
 
-        self.weights = np.geomspace(0.5, 1, condition_len)
+        self.weights = np.geomspace(0.5, 1, self.condition_len)
+        self.label_weights = np.ones(self.pred_len) #np.geomspace(1, 0.5, self.pred_len)
 
         # if folder is a list, then iterate over folders
         if not isinstance(folder, list):
@@ -140,10 +144,33 @@ class KeypointsDataset(Dataset):
         points = [last_point]
         while len(points) < num_points and start_idx > 0:
             start_idx -= 1
-            if np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point) > COND_POINT_DIST_PX:
+            if np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point) > spacing:
                 last_point = np.array(pixels[start_idx]).squeeze()
                 points.append(last_point)
         return np.array(points)[..., ::-1]
+
+    def draw_spline(self, crop, x, y):
+        tck,u     = interpolate.splprep( [x,y] ,s = 0 )
+        xnew,ynew = interpolate.splev( np.linspace( 0, 1, 100 ), tck,der = 0)
+        xnew = np.array(xnew, dtype=int)
+        ynew = np.array(ynew, dtype=int)
+
+        x_in= np.where(xnew < crop.shape[0])
+        xnew = xnew[x_in[0]]
+        ynew = ynew[x_in[0]]
+        y_in = np.where(ynew < crop.shape[1])
+        xnew = xnew[y_in[0]]
+        ynew = ynew[y_in[0]]
+
+        spline = np.zeros(crop.shape[:2])
+        weights = np.geomspace(0.5, 1, len(xnew))
+
+        spline[xnew, ynew] = weights
+        spline = np.expand_dims(spline, axis=2)
+        spline = np.tile(spline, 3)
+        spline_dilated = cv2.dilate(spline, np.ones((7,7), np.uint8), iterations=1)
+        # cv2.imwrite("spline.png", spline_dilated * 255)
+        return spline_dilated[:, :, 0]
 
     def __getitem__(self, data_index):
         start_time = time.time()
@@ -158,11 +185,11 @@ class KeypointsDataset(Dataset):
             # plt.savefig(f'dataset_py_test/test_{data_index}.png')
             crop = np.zeros(1)
             while not np.array_equal(crop.shape, np.array([self.crop_span, self.crop_span, 3])):
-                start_idx = np.random.randint(0, len(pixels) - (self.condition_len + 1))
-                condition_pixels = self._get_evenly_spaced_points_backward(pixels, self.condition_len + 1, start_idx, COND_POINT_DIST_PX)   #[pixels[i][0][::-1] for i in range(start_idx, start_idx + (self.condition_len + 1))] #
-                if len(condition_pixels) < self.condition_len + 1:
+                start_idx = np.random.randint(0, len(pixels) - (self.condition_len + self.pred_len))
+                condition_pixels = self._get_evenly_spaced_points_backward(pixels, self.condition_len + self.pred_len, start_idx, self.spacing)
+                if len(condition_pixels) < self.condition_len + self.pred_len:
                     continue
-                center_of_crop = condition_pixels[-2]
+                center_of_crop = condition_pixels[-self.pred_len-1]
                 crop = img[max(0, center_of_crop[0] - self.crop_width): min(img.shape[0], center_of_crop[0] + self.crop_width + 1),
                            max(0, center_of_crop[1] - self.crop_width): min(img.shape[1], center_of_crop[1] + self.crop_width + 1)]
             # print(center_of_crop, crop.shape, img.shape)
@@ -172,9 +199,7 @@ class KeypointsDataset(Dataset):
         else:
             img = loaded_data['crop_img'][:, :, :3]
             condition_pixels = loaded_data['spline_pixels']
-        
-        # if img.max() <= 1.0:
-        #     img = (img * 255.0).astype(np.uint8)
+   
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             kpts = KeypointsOnImage.from_xy_array(np.array(condition_pixels)[:, ::-1], shape=img.shape)
             img, kpts = self.img_transform(image=img, keypoints=kpts)
@@ -182,18 +207,16 @@ class KeypointsDataset(Dataset):
             for k in kpts:
                 points.append([k.x,k.y])
             points = np.array(points)
-            # Slow way of doing it
-            # gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, points[:-1,0], points[:-1,1])
-            # print(f'Time to load data: {time.time() - start_time}')
-            # mm_gauss = gaussians[0]
-            # for i in range(1, len(gaussians) - 1):
-            #     mm_gauss = bimodal_gauss(mm_gauss * 0.9, gaussians[i])
 
-            # print(points[-1:, 0], points[-1:, 1])
-            img[:, :, 0] = gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, points[:-1,0], points[:-1,1], weights=self.weights)
+            cable_mask = np.ones(img.shape[:2])
+            cable_mask[img[:, :, 1] < 0.1] = 0
+        
+            img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len,1], points[:-self.pred_len,0]) * cable_mask
             combined = transform(img.copy()).cuda()
 
-            label = torch.as_tensor(gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, points[-1:, 0], points[-1:, 1], weights=[1])).unsqueeze_(0).cuda()
+            label = torch.as_tensor(gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
+            label = label * cable_mask
+            label = label.unsqueeze_(0).cuda()
         else:
             # input processing
             condition_mask = np.zeros(img.shape)
@@ -239,8 +262,8 @@ class KeypointsDataset(Dataset):
 
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    test_dataset = KeypointsDataset('/home/vainavi/hulk-keypoints/src/test_data',
-                           IMG_HEIGHT('trp'), IMG_WIDTH('trp'), transform, gauss_sigma=GAUSS_SIGMA, augment=True,expt_type=ExperimentTypes.TRACE_PREDICTION)
+    test_dataset = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_complex/test',
+                           IMG_HEIGHT('trp'), IMG_WIDTH('trp'), transform, gauss_sigma=GAUSS_SIGMA, augment=True, condition_len=6, crop_width=50, spacing=8, expt_type=ExperimentTypes.TRACE_PREDICTION)
     for i in range(0, 10):
         img, gauss = test_dataset[i] #[-1] #
         vis_gauss(img, gauss, i)
