@@ -36,7 +36,7 @@ img_transform = iaa.Sequential([
     ], random_order=True)
 
 # No randomization
-no_transform = iaa.Sequential([iaa.Resize({"height": 200, "width": 200})])
+no_transform = iaa.Sequential([])
 
 # New domain randomization
 img_transform_new = iaa.Sequential([
@@ -149,7 +149,7 @@ class KeypointsDataset(Dataset):
                 points.append(last_point)
         return np.array(points)[..., ::-1]
 
-    def draw_spline(self, crop, x, y):
+    def draw_spline(self, crop, x, y, label=False):
         tck,u     = interpolate.splprep( [x,y] ,s = 0 )
         xnew,ynew = interpolate.splev( np.linspace( 0, 1, 100 ), tck,der = 0)
         xnew = np.array(xnew, dtype=int)
@@ -163,13 +163,15 @@ class KeypointsDataset(Dataset):
         ynew = ynew[y_in[0]]
 
         spline = np.zeros(crop.shape[:2])
-        weights = np.geomspace(0.5, 1, len(xnew))
+        if label:
+            weights = np.ones(len(xnew))
+        else:
+            weights = np.geomspace(0.5, 1, len(xnew))
 
         spline[xnew, ynew] = weights
         spline = np.expand_dims(spline, axis=2)
         spline = np.tile(spline, 3)
-        spline_dilated = cv2.dilate(spline, np.ones((7,7), np.uint8), iterations=1)
-        # cv2.imwrite("spline.png", spline_dilated * 255)
+        spline_dilated = cv2.dilate(spline, np.ones((5,5), np.uint8), iterations=1)
         return spline_dilated[:, :, 0]
 
     def __getitem__(self, data_index):
@@ -265,5 +267,6 @@ if __name__ == '__main__':
     test_dataset = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_complex/test',
                            IMG_HEIGHT('trp'), IMG_WIDTH('trp'), transform, gauss_sigma=GAUSS_SIGMA, augment=True, condition_len=6, crop_width=50, spacing=8, expt_type=ExperimentTypes.TRACE_PREDICTION)
     for i in range(0, 10):
+        print(i)
         img, gauss = test_dataset[i] #[-1] #
         vis_gauss(img, gauss, i)
