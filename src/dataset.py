@@ -271,16 +271,16 @@ class KeypointsDataset(Dataset):
 
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    test_dataset = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_complex/test',
-                                    IMG_HEIGHT('trp'), 
-                                    IMG_WIDTH('trp'), 
+    test_dataset = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_crossings_dataset/test',
+                                    IMG_HEIGHT('oep'), 
+                                    IMG_WIDTH('oep'), 
                                     transform, 
                                     gauss_sigma=GAUSS_SIGMA, 
                                     augment=True, 
                                     condition_len=6, 
                                     crop_width=50, 
                                     spacing=8, 
-                                    expt_type=ExperimentTypes.TRACE_PREDICTION, 
+                                    expt_type=ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION, 
                                     pred_len=3)
     test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
     for i_batch, sample_batched in enumerate(test_data):
