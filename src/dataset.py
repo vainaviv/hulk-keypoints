@@ -4,6 +4,7 @@ import cv2
 import time
 import torch.nn.functional as F
 from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
 from torchvision import transforms, utils
 from PIL import Image
 import numpy as np
@@ -150,7 +151,10 @@ class KeypointsDataset(Dataset):
         return np.array(points)[..., ::-1]
 
     def draw_spline(self, crop, x, y, label=False):
-        tck,u     = interpolate.splprep( [x,y] ,s = 0 )
+        if len(x) < 2:
+            raise Exception("if drawing spline, must have 2 points minimum for label")
+        k = len(x) - 1 if len(x) < 4 else 3
+        tck,u     = interpolate.splprep( [x,y] ,s = 0, k=k)
         xnew,ynew = interpolate.splev( np.linspace( 0, 1, 100 ), tck,der = 0)
         xnew = np.array(xnew, dtype=int)
         ynew = np.array(ynew, dtype=int)
@@ -180,11 +184,6 @@ class KeypointsDataset(Dataset):
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             img = loaded_data['img'][:, :, :3]
             pixels = loaded_data['pixels']
-            # plt.clf()
-            # plt.imshow(img)
-            # for i in range(0, len(pixels), 10):
-            #     plt.scatter(pixels[i][0][0], pixels[i][0][1], s=1)
-            # plt.savefig(f'dataset_py_test/test_{data_index}.png')
             crop = np.zeros(1)
             while not np.array_equal(crop.shape, np.array([self.crop_span, self.crop_span, 3])):
                 start_idx = np.random.randint(0, len(pixels) - (self.condition_len + self.pred_len))
@@ -194,7 +193,6 @@ class KeypointsDataset(Dataset):
                 center_of_crop = condition_pixels[-self.pred_len-1]
                 crop = img[max(0, center_of_crop[0] - self.crop_width): min(img.shape[0], center_of_crop[0] + self.crop_width + 1),
                            max(0, center_of_crop[1] - self.crop_width): min(img.shape[1], center_of_crop[1] + self.crop_width + 1)]
-            # print(center_of_crop, crop.shape, img.shape)
             img = crop
             top_left = [center_of_crop[0] - self.crop_width, center_of_crop[1] - self.crop_width]
             condition_pixels = [[pixel[0] - top_left[0], pixel[1] - top_left[1]] for pixel in condition_pixels]
@@ -204,7 +202,10 @@ class KeypointsDataset(Dataset):
    
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             cond_pix_array = np.array(condition_pixels)[:, ::-1]
-            kpts = KeypointsOnImage.from_xy_array(cond_pix_array + np.random.uniform(-4, 4, size=cond_pix_array.shape), shape=img.shape)
+            jitter = np.random.uniform(-1, 1, size=cond_pix_array.shape)
+            jitter[-1] = 0
+            cond_pix_array = cond_pix_array + jitter
+            kpts = KeypointsOnImage.from_xy_array(cond_pix_array, shape=img.shape)
             img, kpts = self.img_transform(image=img, keypoints=kpts)
             points = []
             for k in kpts:
@@ -217,7 +218,13 @@ class KeypointsDataset(Dataset):
             img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len,1], points[:-self.pred_len,0]) * cable_mask
             combined = transform(img.copy()).cuda()
 
-            label = torch.as_tensor(gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
+            if PRED_LEN == 1:
+                label = torch.as_tensor(gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
+            else:
+                try:
+                    label = torch.as_tensor(self.draw_spline(img, points[-self.pred_len:,1], points[-self.pred_len:,0], label=True)) 
+                except:
+                    label = torch.as_tensor(gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
             label = label * cable_mask
             label = label.unsqueeze_(0).cuda()
         else:
@@ -257,7 +264,6 @@ class KeypointsDataset(Dataset):
                 end_U, end_V = torch.from_numpy(np.array([end_U, end_V], dtype=np.int32)).cuda()
                 label = 1.0 * get_gauss(self.img_width, self.img_height, self.gauss_sigma, end_U, end_V)
 
-        # print(f'load time: {time.time() - start_time}')
         return combined, label
     
     def __len__(self):
@@ -266,8 +272,20 @@ class KeypointsDataset(Dataset):
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     test_dataset = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_complex/test',
-                           IMG_HEIGHT('trp'), IMG_WIDTH('trp'), transform, gauss_sigma=GAUSS_SIGMA, augment=True, condition_len=6, crop_width=50, spacing=8, expt_type=ExperimentTypes.TRACE_PREDICTION)
-    for i in range(0, 10):
-        print(i)
-        img, gauss = test_dataset[i] #[-1] #
-        vis_gauss(img, gauss, i)
+                                    IMG_HEIGHT('trp'), 
+                                    IMG_WIDTH('trp'), 
+                                    transform, 
+                                    gauss_sigma=GAUSS_SIGMA, 
+                                    augment=True, 
+                                    condition_len=6, 
+                                    crop_width=50, 
+                                    spacing=8, 
+                                    expt_type=ExperimentTypes.TRACE_PREDICTION, 
+                                    pred_len=3)
+    test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
+    for i_batch, sample_batched in enumerate(test_data):
+        print(i_batch)
+        img, gauss = sample_batched
+        gauss = gauss.squeeze(0)
+        img = img.squeeze(0)
+        vis_gauss(img, gauss, i_batch)

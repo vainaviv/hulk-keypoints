@@ -21,7 +21,7 @@ GAUSS_SIGMA = 8
 # parse command line flags
 parser = argparse.ArgumentParser()
 parser.add_argument('--checkpoint_path', type=str, default='default')
-parser.add_argument('--expt_type', type=str, default='default')
+parser.add_argument('--expt_type', type=str, default='trp')
 
 flags = parser.parse_args()
 
@@ -29,7 +29,7 @@ experiment_time = time.strftime("%Y%m%d-%H%M%S")
 checkpoint_path = flags.checkpoint_path
 expt_type = flags.expt_type
 
-model_ckpts = [flags.checkpoint_path]
+model_ckpt = flags.checkpoint_path
 
 def get_density_map(img, kernel=150):
     img = cv2.dilate((img).astype(np.uint8), np.ones((6, 6)), iterations=1)
@@ -61,13 +61,13 @@ if use_cuda:
 
 # model
 keypoints_models = []
-for model_ckpt in model_ckpts:
-    if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
-        keypoints = ClassificationModel(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=3).cuda()
-    elif is_point_pred(expt_type):
-        keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=3).cuda()
-    keypoints.load_state_dict(torch.load('checkpoints/%s'%model_ckpt))
-    keypoints_models.append(keypoints)
+# for model_ckpt in model_ckpts:
+if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
+    keypoints = ClassificationModel(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=3).cuda()
+elif is_point_pred(expt_type):
+    keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=3).cuda()
+keypoints.load_state_dict(torch.load('checkpoints/%s'%model_ckpt))
+keypoints_models.append(keypoints)
 
 if use_cuda:
     for keypoints in keypoints_models:
@@ -83,13 +83,23 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-test_dataset = KeypointsDataset(os.path.join(get_dataset_dir(expt_type), 'test'), IMG_HEIGHT, IMG_WIDTH, transform, gauss_sigma=GAUSS_SIGMA, augment=True, expt_type=expt_type)
+test_dataset = KeypointsDataset(os.path.join(get_dataset_dir(expt_type), 'test'), 
+                                IMG_HEIGHT, 
+                                IMG_WIDTH, 
+                                transform,
+                                gauss_sigma=GAUSS_SIGMA, 
+                                augment=False, 
+                                expt_type=expt_type, 
+                                condition_len=CONDITION_LEN, 
+                                crop_width=CROP_WIDTH, 
+                                spacing=COND_POINT_DIST_PX)
 
 preds = []
 gts = []
 hits = 0
 total = 0
 for i, f in enumerate(test_dataset):
+    print(i)
     img_t = f[0]
     if (len(img_t.shape) < 4):
         img_t = img_t.unsqueeze(0)
@@ -103,10 +113,10 @@ for i, f in enumerate(test_dataset):
     img_masked = img_t.detach().cpu().numpy()[0, 2:3, ...] > 100/255
 
     input_img_np = img_t.detach().cpu().numpy()[0, 0:3, ...]
-    plt.clf()
-    plt.imshow(input_img_np.transpose(1,2,0))
+    # plt.clf()
+    # plt.imshow(input_img_np.transpose(1,2,0))
 
-    plt.savefig(f'{output_folder_name}/input_img_{i}.png')
+    # plt.savefig(f'{output_folder_name}/input_img_{i}.png')
 
     heatmaps = []
     # create len(predictions) subplots
@@ -125,7 +135,10 @@ for i, f in enumerate(test_dataset):
         output_heatmap = output.detach().cpu().numpy()[0, 0, ...]
         output_image = f[0][0:3, ...].detach().cpu().numpy().transpose(1,2,0)
         output_image[:, :, 2] = output_heatmap
-        plt.imshow(output_image)
+        output_image = output_image.copy()
+        output_image = (output_image * 255.0).astype(np.uint8)
+        overlay = output_image # cv2.circle(output_image, (argmax_yx[1], argmax_yx[0]), 2, (255, 255, 255), -1)
+        plt.imshow(overlay)
         plt.savefig(f'{output_folder_name}/output_img_{i}.png')
 
     # check if the gt at argmax is 1
