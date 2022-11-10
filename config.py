@@ -14,6 +14,9 @@ GAUSS_SIGMA = 5
 epochs = 50
 batch_size = 4
 COND_POINT_DIST_PX = 8
+CONDITION_LEN = 6
+CROP_WIDTH = 50
+PRED_LEN = 3
 
 def get_dataset_dir(expt_type):
     if expt_type == ExperimentTypes.TRACE_PREDICTION:

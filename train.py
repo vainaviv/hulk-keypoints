@@ -19,7 +19,7 @@ os.environ["CUDA_VISIBLE_DEVICES"]="1"
 # parse command line flags
 parser = argparse.ArgumentParser()
 parser.add_argument('--expt_name', type=str, default='default')
-parser.add_argument('--expt_type', type=str, default='default')
+parser.add_argument('--expt_type', type=str, default='trp')
 
 flags = parser.parse_args()
 
@@ -86,10 +86,17 @@ if not os.path.exists(output_dir):
 if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 
-# print(COND_POINT_DIST_PX)
-# raise Exception()
 train_dataset = KeypointsDataset(['%s/train'%get_dataset_dir(expt_type)],
-                           IMG_HEIGHT(expt_type), IMG_WIDTH(expt_type), transform, gauss_sigma=GAUSS_SIGMA, augment=True, expt_type=expt_type, condition_len=6, crop_width=50, spacing=COND_POINT_DIST_PX)
+                                IMG_HEIGHT(expt_type), 
+                                IMG_WIDTH(expt_type), 
+                                transform, 
+                                gauss_sigma=GAUSS_SIGMA, 
+                                augment=True, 
+                                expt_type=expt_type, 
+                                condition_len=CONDITION_LEN, 
+                                pred_len=PRED_LEN,
+                                crop_width=CROP_WIDTH, 
+                                spacing=COND_POINT_DIST_PX)
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 test_dataset = KeypointsDataset('%s/test'%get_dataset_dir(expt_type),
