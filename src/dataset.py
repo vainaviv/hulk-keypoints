@@ -245,6 +245,7 @@ class KeypointsDataset(Dataset):
                 cond_V, cond_U = np.nonzero(condition_with_cable[:, :, 0])
                 cond_U, cond_V = torch.from_numpy(np.array([cond_U, cond_V], dtype=np.int32)).cuda()
                 combined[0] = 255.0 * get_gauss(self.img_width, self.img_height, self.gauss_sigma, cond_U, cond_V)
+                combined[1] = 255.0 * (1 - get_gauss(self.img_width, self.img_height, self.gauss_sigma, cond_U, cond_V))
             else:
                 raise Exception("No condition")
         if self.expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:

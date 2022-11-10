@@ -119,8 +119,9 @@ for i, f in enumerate(test_dataset):
         plt.title(f'Pred: {preds[-1]}, GT: {gts[-1]}')
     elif is_point_pred(expt_type):
         argmax_yx = np.unravel_index(np.argmax(output.detach().cpu().numpy()[0, 0, ...]), output.detach().cpu().numpy()[0, 0, ...].shape)
-        output_yx = np.unravel_index(np.argmax(f[1].detach().cpu().numpy()[0, 0, ...]), f[1].detach().cpu().numpy()[0, 0, ...].shape)
-        if np.linalg.norm((np.array(argmax_yx) - np.array(output_yx)), 2) < 4:
+        output_yx = np.unravel_index(np.argmax(f[1][0].detach().cpu().numpy()), f[1][0].detach().cpu().numpy().shape)
+        # print(argmax_yx, output_yx)
+        if np.linalg.norm((np.array(argmax_yx) - np.array(output_yx)), 2) < 15:
             hits += 1
         output_heatmap = output.detach().cpu().numpy()[0, 0, ...]
         output_image = f[0][0:3, ...].detach().cpu().numpy().transpose(1,2,0)
