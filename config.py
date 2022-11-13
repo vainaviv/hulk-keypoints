@@ -3,6 +3,8 @@ class ExperimentTypes:
     OPPOSITE_ENDPOINT_PREDICTION = 'oep'
     TRACE_PREDICTION = 'trp'
 
+# TODO Jainil: add Experiment type for cage pinch predictions
+
 ALLOWED_EXPT_TYPES = [ExperimentTypes.CLASSIFY_OVER_UNDER,
                       ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION,
                       ExperimentTypes.TRACE_PREDICTION]
@@ -26,5 +28,6 @@ def get_dataset_dir(expt_type):
 def is_crop_task(expt_type):
     return expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION
 
+# TODO Jainil: add cage pinch as a point pred type
 def is_point_pred(expt_type):
     return expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION or expt_type == ExperimentTypes.TRACE_PREDICTION
