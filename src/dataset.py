@@ -139,12 +139,12 @@ class KeypointsDataset(Dataset):
                 for fname in sorted(os.listdir(folder)):
                     self.data.append(os.path.join(folder, fname))
 
-    def _get_evenly_spaced_points_backward(self, pixels, num_points, start_idx, spacing):
+    def _get_evenly_spaced_points(self, pixels, num_points, start_idx, spacing, backward=True):
         # get evenly spaced points
         last_point = np.array(pixels[start_idx]).squeeze()
         points = [last_point]
-        while len(points) < num_points and start_idx > 0:
-            start_idx -= 1
+        while len(points) < num_points and start_idx > 0 and start_idx < len(pixels):
+            start_idx -= (int(backward) * 2 - 1)
             if np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point) > spacing:
                 last_point = np.array(pixels[start_idx]).squeeze()
                 points.append(last_point)
@@ -187,7 +187,7 @@ class KeypointsDataset(Dataset):
             crop = np.zeros(1)
             while not np.array_equal(crop.shape, np.array([self.crop_span, self.crop_span, 3])):
                 start_idx = np.random.randint(0, len(pixels) - (self.condition_len + self.pred_len))
-                condition_pixels = self._get_evenly_spaced_points_backward(pixels, self.condition_len + self.pred_len, start_idx, self.spacing)
+                condition_pixels = self._get_evenly_spaced_points(pixels, self.condition_len + self.pred_len, start_idx, self.spacing, backward=True)
                 if len(condition_pixels) < self.condition_len + self.pred_len:
                     continue
                 center_of_crop = condition_pixels[-self.pred_len-1]
@@ -216,6 +216,7 @@ class KeypointsDataset(Dataset):
             cable_mask[img[:, :, 1] < 0.1] = 0
         
             img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len,1], points[:-self.pred_len,0]) * cable_mask
+            img[:, :, 1] = 1 - img[:, :, 0]
             combined = transform(img.copy()).cuda()
 
             if PRED_LEN == 1:
@@ -254,7 +255,7 @@ class KeypointsDataset(Dataset):
                 cond_V, cond_U = np.nonzero(condition_with_cable[:, :, 0])
                 cond_U, cond_V = torch.from_numpy(np.array([cond_U, cond_V], dtype=np.int32)).cuda()
                 combined[0] = 255.0 * get_gauss(self.img_width, self.img_height, self.gauss_sigma, cond_U, cond_V)
-                combined[1] = 255.0 * (1 - get_gauss(self.img_width, self.img_height, self.gauss_sigma, cond_U, cond_V))
+                # combined[1] = 255.0 * (1 - get_gauss(self.img_width, self.img_height, self.gauss_sigma, cond_U, cond_V))
             else:
                 raise Exception("No condition")
         if self.expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
