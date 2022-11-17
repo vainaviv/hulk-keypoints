@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import time
 import sys
-sys.path.insert(0, '/home/vainavi/hulk-keypoints/src')
+sys.path.insert(0, '/home/jainilajmera/hulk-keypoints/src')
 from resnet_dilated import Resnet34_8s, Resnet50_8s, Resnet34_Classifier
 
 class KeypointsGauss(nn.Module):

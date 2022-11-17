@@ -198,10 +198,14 @@ class KeypointsDataset(Dataset):
             img = crop
             top_left = [center_of_crop[0] - self.crop_width, center_of_crop[1] - self.crop_width]
             condition_pixels = [[pixel[0] - top_left[0], pixel[1] - top_left[1]] for pixel in condition_pixels]
+        else if self.expt_type == ExperimentTypes.CAGE_PREDICTION:
+            img = loaded_data['img'][:, :, :3]
+            cage_point = loaded_data['cage_point']
+            condition_pixels = loaded_data['spline_pixels']
         else:
             img = loaded_data['crop_img'][:, :, :3]
             condition_pixels = loaded_data['spline_pixels']
-   
+        
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             cond_pix_array = np.array(condition_pixels)[:, ::-1]
             jitter = np.random.uniform(-1, 1, size=cond_pix_array.shape)
@@ -229,7 +233,7 @@ class KeypointsDataset(Dataset):
                     label = torch.as_tensor(gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
             label = label * cable_mask
             label = label.unsqueeze_(0).cuda()
-        elif self.expt_type == ExperimentTypes.TRACE_PREDICTION:
+        elif self.expt_type == ExperimentTypes.CAGE_PINCH_PREDICTION:
             # TODO Jainil: change this to be check experiment type for cage pinch selection. 
             # Create code for adding the condition point into channel 0 of image. Generate the cage pinch label heatmaps. 
             # Use the code under "if self.expt_type == ExperimentTypes.TRACE_PREDICTION" to get an idea of how to do this
