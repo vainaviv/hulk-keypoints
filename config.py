@@ -2,10 +2,13 @@ class ExperimentTypes:
     CLASSIFY_OVER_UNDER = 'cou'
     OPPOSITE_ENDPOINT_PREDICTION = 'oep'
     TRACE_PREDICTION = 'trp'
+    CAGE_PREDICTION = 'cap'
 
+# TODO Jainil: add Experiment type for cage pinch predictions
 ALLOWED_EXPT_TYPES = [ExperimentTypes.CLASSIFY_OVER_UNDER,
                       ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION,
-                      ExperimentTypes.TRACE_PREDICTION]
+                      ExperimentTypes.TRACE_PREDICTION,
+                      ExperimentTypes.CAGE_PREDICTION]
 
 NUM_KEYPOINTS = 1
 IMG_HEIGHT  = lambda expt_type: 200 if is_crop_task(expt_type) else 100 
@@ -18,6 +21,7 @@ CONDITION_LEN = 6
 CROP_WIDTH = 50
 PRED_LEN = 3
 
+# TODO Jainil: add link to dataset
 def get_dataset_dir(expt_type):
     if expt_type == ExperimentTypes.TRACE_PREDICTION:
         return '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_complex'
@@ -26,5 +30,7 @@ def get_dataset_dir(expt_type):
 def is_crop_task(expt_type):
     return expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION
 
+# TODO Jainil: add cage pinch as a point pred type
 def is_point_pred(expt_type):
-    return expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION or expt_type == ExperimentTypes.TRACE_PREDICTION
+    return expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION or expt_type == ExperimentTypes.TRACE_PREDICTION or 
+    expt_type == ExperimentTypes.CAGE_PREDICTION
