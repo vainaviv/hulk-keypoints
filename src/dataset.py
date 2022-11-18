@@ -143,10 +143,12 @@ class KeypointsDataset(Dataset):
         # get evenly spaced points
         last_point = np.array(pixels[start_idx]).squeeze()
         points = [last_point]
+        rand_spacing = spacing * np.random.uniform(0.8, 1.2)
         while len(points) < num_points and start_idx > 0 and start_idx < len(pixels):
             start_idx -= (int(backward) * 2 - 1)
-            if np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point) > spacing:
+            if np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point) > rand_spacing:
                 last_point = np.array(pixels[start_idx]).squeeze()
+                rand_spacing = spacing * np.random.uniform(0.8, 1.2)
                 points.append(last_point)
         return np.array(points)[..., ::-1]
 
@@ -198,7 +200,7 @@ class KeypointsDataset(Dataset):
             img = crop
             top_left = [center_of_crop[0] - self.crop_width, center_of_crop[1] - self.crop_width]
             condition_pixels = [[pixel[0] - top_left[0], pixel[1] - top_left[1]] for pixel in condition_pixels]
-        else if self.expt_type == ExperimentTypes.CAGE_PREDICTION:
+        elif self.expt_type == ExperimentTypes.CAGE_PREDICTION:
             img = loaded_data['img'][:, :, :3]
             cage_point = loaded_data['cage_point']
             condition_pixels = loaded_data['spline_pixels']
@@ -222,7 +224,7 @@ class KeypointsDataset(Dataset):
             cable_mask[img[:, :, 1] < 0.1] = 0
         
             img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len,1], points[:-self.pred_len,0]) * cable_mask
-            img[:, :, 1] = 1 - img[:, :, 0]
+            # img[:, :, 1] = 1 - img[:, :, 0]
             combined = transform(img.copy()).cuda()
 
             if PRED_LEN == 1:
