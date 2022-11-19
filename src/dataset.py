@@ -144,12 +144,7 @@ class KeypointsDataset(Dataset):
         last_point = np.array(pixels[start_idx]).squeeze()
         # print("last point", last_point)
         points = [last_point]
-<<<<<<< HEAD
         rand_spacing = spacing * np.random.uniform(0.8, 1.2)
-=======
-        # print("num points", num_points)
-        # print("start_idx", start_idx)
->>>>>>> cd3b99fc8503659f6c8050c7f18bd490f20ca266
         while len(points) < num_points and start_idx > 0 and start_idx < len(pixels):
             start_idx -= (int(backward) * 2 - 1)
             if np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point) > rand_spacing:
