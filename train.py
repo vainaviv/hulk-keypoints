@@ -14,7 +14,7 @@ from src.dataset import KeypointsDataset, transform
 import matplotlib.pyplot as plt
 import argparse
 
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 
 # parse command line flags
 parser = argparse.ArgumentParser()
@@ -53,7 +53,7 @@ def fit(train_data, test_data, model, epochs, optimizer, checkpoint_path = ''):
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
-            print('[%d, %5d] loss: %.3f' % (epoch + 1, i_batch + 1, loss.item()))#, f"\t epoch est. time. left {((time.time() - start_time) * (num_iters) / (i_batch + 1)) * (epochs - epoch)}", end='')
+            print('[%d, %5d] loss: %.3f' % (epoch + 1, i_batch + 1, loss.item()), end='') #,f"\t epoch est. time. left {((time.time() - start_time) * (num_iters) / (i_batch + 1)) * (epochs - epoch)}", end='')
             print('\r', end='')
         print('train loss:', train_loss / (i_batch + 1))
         train_epochs.append(epoch)
@@ -78,8 +78,8 @@ def fit(train_data, test_data, model, epochs, optimizer, checkpoint_path = ''):
             plt.legend()
             plt.savefig(f"logs/losses_{expt_name}_graph.png")
 
-            if test_loss_per_batch < np.min(test_losses) or epoch - last_checkpoint_epoch >= MIN_CHECKPOINT_FREQ:
-                torch.save(keypoints.state_dict(), os.path.join(checkpoint_path, f'/model_2_1_{epoch}_{test_loss_per_batch:.3f}.pth'))
+            if len(test_losses) <= 1 or test_loss_per_batch < np.min(test_losses[:-1]) or epoch - last_checkpoint_epoch >= MIN_CHECKPOINT_FREQ:
+                torch.save(keypoints.state_dict(), os.path.join(checkpoint_path, f'model_2_1_{epoch}_{test_loss_per_batch:.3f}.pth'))
 
 # dataset
 workers=0

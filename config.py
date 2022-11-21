@@ -16,15 +16,18 @@ ALLOWED_EXPT_TYPES = [ExperimentTypes.CLASSIFY_OVER_UNDER,
 NUM_KEYPOINTS = 1
 IMG_HEIGHT  = lambda expt_type: 200 if is_crop_task(expt_type) else 100 
 IMG_WIDTH   = lambda expt_type: 200 if is_crop_task(expt_type) else 100
-GAUSS_SIGMA = 4
-epochs = 100
+GAUSS_SIGMA = 2
+epochs = 150
 batch_size = 4
-COND_POINT_DIST_PX = 25
-CONDITION_LEN = 3
-CROP_WIDTH = 80
-PRED_LEN = 1
+COND_POINT_DIST_PX = 20
+CONDITION_LEN = 5
+CROP_WIDTH = 120
+PRED_LEN = 2
 EVAL_CHECKPT_FREQ = 1
 MIN_CHECKPOINT_FREQ = 10
+MODEL_IMG_SIZE = 100
+RESNET_TYPE = '50'
+PRETRAINED = False
 
 # TODO Jainil: add link to dataset
 def get_dataset_dir(expt_type):
@@ -57,5 +60,3 @@ def save_config_params(path, expt_type):
     with open(os.path.join(path, 'config.json'), 'w') as f:
         json.dump(params_dict, f)
         f.close()
-    
-    # dump a copy of 

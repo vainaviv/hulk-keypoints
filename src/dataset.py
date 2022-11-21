@@ -25,7 +25,7 @@ sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 img_transform = iaa.Sequential([
     iaa.flip.Fliplr(0.5),
     iaa.flip.Flipud(0.5),
-    # iaa.Resize({"height": 200, "width": 200}),
+    iaa.Resize({"height": MODEL_IMG_SIZE, "width": MODEL_IMG_SIZE}),
     # sometimes(iaa.Affine(
     #     scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
     #     rotate=(-30, 30),
@@ -34,7 +34,7 @@ img_transform = iaa.Sequential([
     ], random_order=True)
 
 # No randomization
-no_transform = iaa.Sequential([])
+no_transform = iaa.Sequential([iaa.Resize({"height": MODEL_IMG_SIZE, "width": MODEL_IMG_SIZE})])
 
 # New domain randomization
 img_transform_new = iaa.Sequential([
@@ -142,7 +142,7 @@ class KeypointsDataset(Dataset):
         last_point = np.array(pixels[start_idx]).squeeze()
         # print("last point", last_point)
         points = [last_point]
-        rand_spacing = spacing * np.random.uniform(0.7, 1.3)
+        rand_spacing = spacing * np.random.uniform(0.8, 1.2)
         while len(points) < num_points and start_idx > 0 and start_idx < len(pixels):
             start_idx -= (int(backward) * 2 - 1)
             if np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point) > rand_spacing:
@@ -287,12 +287,12 @@ class KeypointsDataset(Dataset):
             combined = transform(img.copy()).cuda()
 
             if PRED_LEN == 1:
-                label = torch.as_tensor(gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
+                label = torch.as_tensor(gauss_2d_batch_efficient_np(MODEL_IMG_SIZE, MODEL_IMG_SIZE, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
             else:
                 try:
                     label = torch.as_tensor(self.draw_spline(img, points[-self.pred_len:,1], points[-self.pred_len:,0], label=True)) 
                 except:
-                    label = torch.as_tensor(gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
+                    label = torch.as_tensor(gauss_2d_batch_efficient_np(MODEL_IMG_SIZE, MODEL_IMG_SIZE, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
             label = label * cable_mask
             label = label.unsqueeze_(0).cuda()
 
