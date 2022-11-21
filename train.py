@@ -80,6 +80,7 @@ def fit(train_data, test_data, model, epochs, optimizer, checkpoint_path = ''):
 
             if len(test_losses) <= 1 or test_loss_per_batch < np.min(test_losses[:-1]) or epoch - last_checkpoint_epoch >= MIN_CHECKPOINT_FREQ:
                 torch.save(keypoints.state_dict(), os.path.join(checkpoint_path, f'model_2_1_{epoch}_{test_loss_per_batch:.3f}.pth'))
+                last_checkpoint_epoch = epoch
 
 # dataset
 workers=0
