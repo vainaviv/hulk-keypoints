@@ -4,7 +4,7 @@ import os
 import torch
 from torchvision import transforms
 from torch.utils.data import DataLoader
-from config import *
+# from config import *
 from src.model import KeypointsGauss, ClassificationModel
 from src.dataset import KeypointsDataset, transform, gauss_2d_batch, bimodal_gauss, get_gauss
 from src.prediction import Prediction
@@ -16,13 +16,12 @@ import time
 from scipy.signal import convolve2d
 import argparse
 
-GAUSS_SIGMA = 8
-
 # parse command line flags
 parser = argparse.ArgumentParser()
 parser.add_argument('--checkpoint_path', type=str, default='default')
 parser.add_argument('--expt_type', type=str, default='trp')
 parser.add_argument('--trace_if_trp', action='store_true', default=False)
+
 
 flags = parser.parse_args()
 
@@ -48,7 +47,7 @@ def get_density_map(img, kernel=150):
     return img
 
 def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_from_edge=False, timeout=30,
-          bboxes=[], termination_map=None, viz=True, exact_path_len=None, viz_iter=None, filter_bad=False, x_min=None, x_max=None, y_min=None, y_max=None, start_points=None, model=None):
+          bboxes=[], termination_map=None, viz=False, exact_path_len=None, viz_iter=None, filter_bad=False, x_min=None, x_max=None, y_min=None, y_max=None, start_points=None, model=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     transform = transforms.Compose([transforms.ToTensor()])
 
@@ -61,8 +60,10 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
     disp_img = image.copy()
 
     for iter in range(exact_path_len):
+        if iter < 1:
+            continue
         condition_pixels = [p[::-1] for p in path[-num_condition_points:]]
-        print(condition_pixels)
+        # print(condition_pixels)
         crop_center = condition_pixels[-1]
         xmin, xmax, ymin, ymax = max(0, crop_center[0] - crop_size), min(image.shape[1], crop_center[0] + crop_size), max(0, crop_center[1] - crop_size), min(image.shape[0], crop_center[1] + crop_size)
         crop = image.copy()[ymin:ymax, xmin:xmax]
@@ -72,8 +73,6 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
         # crop[:, :, 1] = 1 - spline
         crop_eroded = cv2.erode((crop > 0.1).astype(np.uint8), np.ones((8, 8)), iterations=1)
 
-        cv2.imshow('model input', crop)
-        cv2.waitKey(1000)
         if viz:
             plt.scatter(cond_pixels_in_crop[:, 0], cond_pixels_in_crop[:, 1], c='r')
             plt.imshow(crop)
@@ -85,16 +84,28 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
         model_input = transform(crop.copy()).unsqueeze(0).to(device)
         start_time = time.time()
         model_output = model(model_input).detach().cpu().numpy().squeeze()
-        if viz or iter > 11:
+        if viz:
             plt.imshow(model_output.squeeze())
             plt.show()
 
         model_output *= crop_eroded[:, :, 1]
-        print("Time taken for prediction: ", time.time() - start_time)
+        # print("Time taken for prediction: ", time.time() - start_time)
 
-        if viz or iter > 11:
+        if viz:
             plt.imshow(model_output.squeeze())
             plt.show()
+
+        # mask model output by disc of radius COND_POINT_DIST_PX around the last condition pixel
+        tolerance = 2
+        last_condition_pixel = cond_pixels_in_crop[-1]
+        outer_circle = np.zeros_like(model_output)
+        # now create circle of radius COND_POINT_DIST_PX + tolerance
+        X, Y = np.meshgrid(np.arange(outer_circle.shape[1]), np.arange(outer_circle.shape[0]))
+        outer_circle = (X - last_condition_pixel[0])**2 + (Y - last_condition_pixel[1])**2 < (COND_POINT_DIST_PX + tolerance)**2
+        inner_circle = (X - last_condition_pixel[0])**2 + (Y - last_condition_pixel[1])**2 < (COND_POINT_DIST_PX - tolerance)**2
+        disc = (outer_circle & ~inner_circle)
+
+        model_output *= disc
 
         argmax_yx = np.unravel_index(model_output.argmax(), model_output.shape)
         global_yx = np.array([argmax_yx[0] + ymin, argmax_yx[1] + xmin])
@@ -175,7 +186,9 @@ test_dataset = KeypointsDataset(os.path.join(get_dataset_dir(expt_type), 'test')
 if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
     image_folder = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset/test'
     images = os.listdir(image_folder)
-    for image in images:
+    for i, image in enumerate(images):
+        if i < 2:
+            continue
         # print(os.path.join(image_folder, image))
         loaded_img = np.load(os.path.join(image_folder, image), allow_pickle=True).item()
         img = loaded_img['img'][:, :, :3]
@@ -190,13 +203,15 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
                 break
 
         # print("HERE HERE HERE")
-        starting_points = test_dataset._get_evenly_spaced_points(pixels, CONDITION_LEN + 1, start_idx, COND_POINT_DIST_PX, backward=False)
-        spline = trace(img, None, None, exact_path_len=20, start_points=starting_points, model=keypoints_models[0])
+        starting_points = test_dataset._get_evenly_spaced_points(pixels, CONDITION_LEN, start_idx, COND_POINT_DIST_PX, backward=False)
+        if len(starting_points) < CONDITION_LEN:
+            continue
+        spline = trace(img, None, None, exact_path_len=100, start_points=starting_points, model=keypoints_models[0])
 
-        plt.imshow(img)
-        for pt in spline:
-            plt.scatter(pt[1], pt[0], c='r')
-        plt.show()
+        # plt.imshow(img)
+        # for pt in spline:
+        #     plt.scatter(pt[1], pt[0], c='r')
+        # plt.show()
 
 else:
     preds = []

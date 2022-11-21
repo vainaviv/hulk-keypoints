@@ -1,14 +1,11 @@
 import torch
-import random
 import cv2
 import time
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms, utils
-from PIL import Image
 import numpy as np
-import pickle
 import os
 from datetime import datetime
 import imgaug.augmenters as iaa
@@ -83,12 +80,13 @@ def gauss_2d_batch_efficient_np(width, height, sigma, U, V, weights):
 def vis_gauss(img, gaussians, i):
     gaussians = gaussians.cpu().detach().numpy().transpose(1, 2, 0)
     img = (img.cpu().detach().numpy().transpose(1, 2, 0) * 255)
-    gaussians = np.concatenate((gaussians, np.zeros_like(gaussians[:, :, :1]), np.zeros_like(gaussians[:, :, :1])), axis=2)
-    h1 = gaussians
-    output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
+    # gaussians = np.concatenate((gaussians, np.zeros_like(gaussians[:, :, :1]), np.zeros_like(gaussians[:, :, :1])), axis=2)
+    # h1 = gaussians
+    # output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
     if not os.path.exists('./dataset_py_test'):
         os.mkdir('./dataset_py_test')
-    cv2.imwrite(f'./dataset_py_test/test-gaussians_{i:05d}.png', output)
+    # cv2.imwrite(f'./dataset_py_test/test-gaussians_{i:05d}.png', output)
+    img[:, :, 2] = gaussians[:, :, 0] * 255
     cv2.imwrite(f'./dataset_py_test/test-img_{i:05d}.png', img[...,::-1])
 
 def bimodal_gauss(G1, G2, normalize=False):
@@ -144,7 +142,7 @@ class KeypointsDataset(Dataset):
         last_point = np.array(pixels[start_idx]).squeeze()
         # print("last point", last_point)
         points = [last_point]
-        rand_spacing = spacing * np.random.uniform(0.8, 1.2)
+        rand_spacing = spacing * np.random.uniform(0.7, 1.3)
         while len(points) < num_points and start_idx > 0 and start_idx < len(pixels):
             start_idx -= (int(backward) * 2 - 1)
             if np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point) > rand_spacing:
@@ -187,6 +185,7 @@ class KeypointsDataset(Dataset):
         loaded_data = np.load(self.data[data_index], allow_pickle=True).item()
         #TODO Jainil: this will be where most of your coding will happen. 
         # Lines 186-203 load the image and labels. you may need to add something to make this possible for your dataset.
+        dataset_start_time = time.time()
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             img = loaded_data['img'][:, :, :3]
             pixels = loaded_data['pixels']
@@ -219,8 +218,6 @@ class KeypointsDataset(Dataset):
                 if px not in range(img_dim_x) or py not in range(img_dim_y):
                     continue
                 within_bounds_pixels.append(pixel)
-
-
 
             #finding start point for condition_pixels (first in frame pixel in trace)
             start_idx = None
@@ -255,7 +252,7 @@ class KeypointsDataset(Dataset):
             cable_mask = np.ones(img.shape[:2])
             cable_mask[img[:, :, 1] < 0.1] = 0
         
-        # TODO : draw spline only works when label length is >= 2
+            # TODO : draw spline only works when label length is >= 2
             # img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len,1], points[:-self.pred_len,0]) * cable_mask
             # img[:, :, 1] = 1 - img[:, :, 0]
             combined = transform(img.copy()).cuda()
@@ -265,10 +262,10 @@ class KeypointsDataset(Dataset):
             label = label * cable_mask
             label = label.unsqueeze_(0).cuda()
             pass
-
         else:
             img = loaded_data['crop_img'][:, :, :3]
             condition_pixels = loaded_data['spline_pixels']
+        
         
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             cond_pix_array = np.array(condition_pixels)[:, ::-1]
@@ -344,7 +341,7 @@ class KeypointsDataset(Dataset):
 
 if __name__ == '__main__':
     # TODO Jainil: run dataset.py to test if your dataloader works. If it works, then you can move onto training
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     # test_dataset = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_crossings_dataset/test',
     #                                 IMG_HEIGHT('oep'), 
     #                                 IMG_WIDTH('oep'), 
@@ -367,42 +364,42 @@ if __name__ == '__main__':
 
 
     # TRACE PREDICTION
-    # test_dataset2 = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset/test',
-    #                                 IMG_HEIGHT('oep'), 
-    #                                 IMG_WIDTH('oep'), 
-    #                                 transform, 
-    #                                 gauss_sigma=GAUSS_SIGMA, 
-    #                                 augment=True, 
-    #                                 condition_len=6, 
-    #                                 crop_width=50, 
-    #                                 spacing=8, 
-    #                                 expt_type=ExperimentTypes.TRACE_PREDICTION, 
-    #                                 pred_len=3)
-    # test_data2 = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
-    # for i_batch, sample_batched in enumerate(test_data2):
-    #     print(i_batch)
-    #     img, gauss = sample_batched
-    #     gauss = gauss.squeeze(0)
-    #     img = img.squeeze(0)
-    #     vis_gauss(img, gauss, i_batch)
-
-
-    # CAGE PINCH PREDICTION
-    test_dataset3 = KeypointsDataset('/home/mkparu/cage_point_test_data/',
-                                    IMG_HEIGHT('oep'), 
-                                    IMG_WIDTH('oep'), 
+    test_dataset2 = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset/test',
+                                    IMG_HEIGHT('trp'), 
+                                    IMG_WIDTH('trp'), 
                                     transform, 
                                     gauss_sigma=GAUSS_SIGMA, 
                                     augment=True, 
-                                    condition_len=4, 
-                                    crop_width=50, 
-                                    spacing=8, 
-                                    expt_type=ExperimentTypes.CAGE_PREDICTION, 
-                                    pred_len=1)
-    test_data3 = DataLoader(test_dataset3, batch_size=1, shuffle=True, num_workers=1)
-    for i_batch, sample_batched in enumerate(test_data3):
+                                    condition_len=CONDITION_LEN, 
+                                    crop_width=CROP_WIDTH, 
+                                    spacing=COND_POINT_DIST_PX, 
+                                    expt_type=ExperimentTypes.TRACE_PREDICTION, 
+                                    pred_len=PRED_LEN)
+    test_data2 = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
+    for i_batch, sample_batched in enumerate(test_data2):
         print(i_batch)
         img, gauss = sample_batched
         gauss = gauss.squeeze(0)
         img = img.squeeze(0)
         vis_gauss(img, gauss, i_batch)
+
+
+    # CAGE PINCH PREDICTION
+    # test_dataset3 = KeypointsDataset('/home/mkparu/cage_point_test_data/',
+    #                                 IMG_HEIGHT('oep'), 
+    #                                 IMG_WIDTH('oep'), 
+    #                                 transform, 
+    #                                 gauss_sigma=GAUSS_SIGMA, 
+    #                                 augment=True, 
+    #                                 condition_len=4, 
+    #                                 crop_width=50, 
+    #                                 spacing=8, 
+    #                                 expt_type=ExperimentTypes.CAGE_PREDICTION, 
+    #                                 pred_len=1)
+    # test_data3 = DataLoader(test_dataset3, batch_size=1, shuffle=True, num_workers=1)
+    # for i_batch, sample_batched in enumerate(test_data3):
+    #     print(i_batch)
+    #     img, gauss = sample_batched
+    #     gauss = gauss.squeeze(0)
+    #     img = img.squeeze(0)
+    #     vis_gauss(img, gauss, i_batch)

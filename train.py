@@ -37,33 +37,37 @@ def forward(sample_batched, model):
     loss = nn.BCELoss()(pred_gauss.squeeze(), gt_gauss.squeeze())
     return loss
 
-def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
+def fit(train_data, test_data, model, epochs, optimizer, checkpoint_path = ''):
     train_epochs = []
     test_epochs = []
     test_losses = []
     train_losses = []
+    last_checkpoint_epoch = -1
     for epoch in range(epochs):
+        start_time = time.time()
         train_loss = 0.0
+        num_iters = len(train_data) / batch_size
         for i_batch, sample_batched in enumerate(train_data):
             optimizer.zero_grad()
             loss = forward(sample_batched, model)
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
-            print('[%d, %5d] loss: %.3f' % (epoch + 1, i_batch + 1, loss.item()), end='')
+            print('[%d, %5d] loss: %.3f' % (epoch + 1, i_batch + 1, loss.item()))#, f"\t epoch est. time. left {((time.time() - start_time) * (num_iters) / (i_batch + 1)) * (epochs - epoch)}", end='')
             print('\r', end='')
-        print('train loss:', train_loss / i_batch)
+        print('train loss:', train_loss / (i_batch + 1))
         train_epochs.append(epoch)
-        train_losses.append(train_loss / i_batch)
+        train_losses.append(train_loss / (i_batch + 1))
 
-        if epoch % 10 == 9:
+        if epoch % EVAL_CHECKPT_FREQ == (EVAL_CHECKPT_FREQ - 1):
             test_loss = 0.0
             for i_batch, sample_batched in enumerate(test_data):
                 loss = forward(sample_batched, model)
                 test_loss += loss.item()
-            print('test loss:', test_loss / i_batch)
+            test_loss_per_batch = test_loss / (i_batch + 1)
+            print('test loss:', test_loss_per_batch)
             test_epochs.append(epoch)
-            test_losses.append(test_loss / i_batch)
+            test_losses.append(test_loss_per_batch)
 
             np.save(f"logs/test_losses_{expt_name}.npy", test_losses)
             np.save(f"logs/train_losses_{expt_name}.npy", train_losses)
@@ -73,8 +77,9 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
             plt.plot(train_epochs, train_losses, label='train loss')
             plt.legend()
             plt.savefig(f"logs/losses_{expt_name}_graph.png")
-        if epoch%10 == 9:
-            torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '.pth')
+
+            if test_loss_per_batch < np.min(test_losses) or epoch - last_checkpoint_epoch >= MIN_CHECKPOINT_FREQ:
+                torch.save(keypoints.state_dict(), os.path.join(checkpoint_path, f'/model_2_1_{epoch}_{test_loss_per_batch:.3f}.pth'))
 
 # dataset
 workers=0
@@ -100,8 +105,9 @@ train_dataset = KeypointsDataset(['%s/train'%get_dataset_dir(expt_type)],
 train_data = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
 
 test_dataset = KeypointsDataset('%s/test'%get_dataset_dir(expt_type),
-                           IMG_HEIGHT(expt_type), IMG_WIDTH(expt_type), transform, gauss_sigma=GAUSS_SIGMA, augment=False, expt_type=expt_type, condition_len=6, crop_width=50, spacing=COND_POINT_DIST_PX)
+                           IMG_HEIGHT(expt_type), IMG_WIDTH(expt_type), transform, gauss_sigma=GAUSS_SIGMA, augment=False, expt_type=expt_type, condition_len=CONDITION_LEN, crop_width=CROP_WIDTH, spacing=COND_POINT_DIST_PX)
 test_data = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=workers)
+
 
 use_cuda = torch.cuda.is_available()
 
@@ -117,4 +123,7 @@ else:
 
 # optimizer
 optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-5, weight_decay=1.0e-4)
-fit(train_data, test_data, keypoints, epochs=epochs, checkpoint_path=save_dir)
+
+# save the config to a file
+save_config_params(save_dir, expt_type=expt_type)
+fit(train_data, test_data, keypoints, epochs=epochs, optimizer=optimizer, checkpoint_path=save_dir)
