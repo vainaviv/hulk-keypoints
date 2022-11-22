@@ -4,7 +4,7 @@ import os
 import torch
 from torchvision import transforms
 from torch.utils.data import DataLoader
-# from config import *
+from config import load_config_dict, ExperimentTypes
 from src.model import KeypointsGauss, ClassificationModel
 from src.dataset import KeypointsDataset, transform, gauss_2d_batch, bimodal_gauss, get_gauss
 from src.prediction import Prediction
@@ -15,36 +15,41 @@ import matplotlib.pyplot as plt
 import time
 from scipy.signal import convolve2d
 import argparse
+from config import load_config_class, is_point_pred, get_dataset_dir
 
 # parse command line flags
 parser = argparse.ArgumentParser()
-parser.add_argument('--checkpoint_path', type=str, default='default')
-parser.add_argument('--expt_type', type=str, default='trp')
+parser.add_argument('--checkpoint_folder', type=str, default='')
+parser.add_argument('--checkpoint_file_name', type=str, default='')
 parser.add_argument('--trace_if_trp', action='store_true', default=False)
-
 
 flags = parser.parse_args()
 
 experiment_time = time.strftime("%Y%m%d-%H%M%S")
 checkpoint_path = flags.checkpoint_path
-expt_type = flags.expt_type
+checkpoint_file_name = flags.checkpoint_file_name
 trace_if_trp = flags.trace_if_trp
 
-model_ckpt = flags.checkpoint_path
+if checkpoint_path == '':
+    raise ValueError("--checkpoint_path must be specified")
 
-def get_density_map(img, kernel=150):
-    img = cv2.dilate((img).astype(np.uint8), np.ones((6, 6)), iterations=1)
-    img = img.squeeze()
-    # padded convolution with kernel size 
-    kernel = np.ones((kernel, kernel), np.uint8)
-    # every pixel in the kernel within radius of kernel/2 is 1, else 0
-    for i in range(kernel.shape[0]):
-        for j in range(kernel.shape[1]):
-            if (i - kernel.shape[0]/2)**2 + (j - kernel.shape[1]/2)**2 > kernel.shape[0]/2**2:
-                kernel[i, j] = 0
+min_loss, min_checkpoint = 100000, None
+if checkpoint_file_name == '':
+    # choose the one with the lowest loss
+    for file in os.listdir(checkpoint_path):
+        if file.endswith(".pth"):
+            # file is structured as "..._loss.pth", extract loss
+            loss = float(file.split('_')[-1].split('.')[-2])
+            if loss < min_loss:
+                min_loss = loss
+                min_checkpoint = os.path.join(checkpoint_path, file)
+    checkpoint_file_name = min_checkpoint
+else:
+    checkpoint_file_name = os.path.join(checkpoint_path, checkpoint_file_name)
 
-    img = convolve2d(img, kernel, mode='same')
-    return img
+# laod up all the parameters from the checkpoint
+config = load_config_class(checkpoint_path)
+expt_type = config.expt_type
 
 def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_from_edge=False, timeout=30,
           bboxes=[], termination_map=None, viz=False, exact_path_len=None, viz_iter=None, filter_bad=False, x_min=None, x_max=None, y_min=None, y_max=None, start_points=None, model=None):
@@ -101,8 +106,8 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
         outer_circle = np.zeros_like(model_output)
         # now create circle of radius COND_POINT_DIST_PX + tolerance
         X, Y = np.meshgrid(np.arange(outer_circle.shape[1]), np.arange(outer_circle.shape[0]))
-        outer_circle = (X - last_condition_pixel[0])**2 + (Y - last_condition_pixel[1])**2 < (COND_POINT_DIST_PX + tolerance)**2
-        inner_circle = (X - last_condition_pixel[0])**2 + (Y - last_condition_pixel[1])**2 < (COND_POINT_DIST_PX - tolerance)**2
+        outer_circle = (X - last_condition_pixel[0])**2 + (Y - last_condition_pixel[1])**2 < (config.cond_point_dist_px + tolerance)**2
+        inner_circle = (X - last_condition_pixel[0])**2 + (Y - last_condition_pixel[1])**2 < (config.cond_point_dist_px - tolerance)**2
         disc = (outer_circle & ~inner_circle)
 
         model_output *= disc
@@ -152,10 +157,10 @@ if use_cuda:
 keypoints_models = []
 # for model_ckpt in model_ckpts:
 if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
-    keypoints = ClassificationModel(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=3).cuda()
+    keypoints = ClassificationModel(config.num_keypoints, img_height=config.img_height, img_width=config.img_width, channels=3).cuda()
 elif is_point_pred(expt_type):
-    keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH, channels=3).cuda()
-keypoints.load_state_dict(torch.load(model_ckpt))
+    keypoints = KeypointsGauss(1, img_height=config.img_height, img_width=config.img_width, channels=3).cuda()
+keypoints.load_state_dict(torch.load(checkpoint_file_name))
 keypoints_models.append(keypoints)
 
 if use_cuda:
@@ -165,7 +170,7 @@ if use_cuda:
 predictions = []
 
 for keypoints in keypoints_models:
-    prediction = Prediction(keypoints, NUM_KEYPOINTS, IMG_HEIGHT, IMG_WIDTH, use_cuda)
+    prediction = Prediction(keypoints, config.num_keypoints, config.img_height, config.img_width, use_cuda)
     predictions.append(prediction)
 
 transform = transform = transforms.Compose([
@@ -173,15 +178,15 @@ transform = transform = transforms.Compose([
 ])
 
 test_dataset = KeypointsDataset(os.path.join(get_dataset_dir(expt_type), 'test'), 
-                                    IMG_HEIGHT, 
-                                    IMG_WIDTH, 
+                                    config.img_height, 
+                                    config.img_width, 
                                     transform,
-                                    gauss_sigma=GAUSS_SIGMA, 
+                                    gauss_sigma=config.gauss_sigma, 
                                     augment=False, 
-                                    expt_type=expt_type, 
-                                    condition_len=CONDITION_LEN, 
-                                    crop_width=CROP_WIDTH, 
-                                    spacing=COND_POINT_DIST_PX)
+                                    expt_type=config.expt_type, 
+                                    condition_len=config.condition_len, 
+                                    crop_width=config.crop_width,
+                                    spacing=config.cond_point_dist_px)
 
 if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
     image_folder = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset/test'
@@ -203,8 +208,8 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
                 break
 
         # print("HERE HERE HERE")
-        starting_points = test_dataset._get_evenly_spaced_points(pixels, CONDITION_LEN, start_idx, COND_POINT_DIST_PX, backward=False)
-        if len(starting_points) < CONDITION_LEN:
+        starting_points = test_dataset._get_evenly_spaced_points(pixels, config.condition_len, start_idx, config.cond_point_dist_px, backward=False)
+        if len(starting_points) < config.condition_len:
             continue
         spline = trace(img, None, None, exact_path_len=100, start_points=starting_points, model=keypoints_models[0])
 

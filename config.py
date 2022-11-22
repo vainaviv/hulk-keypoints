@@ -1,5 +1,8 @@
 import json
 import os
+import dataclasses
+from dataclasses import dataclass
+# from dataclasses_json import dataclass_json
 
 class ExperimentTypes:
     CLASSIFY_OVER_UNDER = 'cou'
@@ -12,22 +15,6 @@ ALLOWED_EXPT_TYPES = [ExperimentTypes.CLASSIFY_OVER_UNDER,
                       ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION,
                       ExperimentTypes.TRACE_PREDICTION,
                       ExperimentTypes.CAGE_PREDICTION]
-
-NUM_KEYPOINTS = 1
-IMG_HEIGHT  = lambda expt_type: 200 if is_crop_task(expt_type) else 100 
-IMG_WIDTH   = lambda expt_type: 200 if is_crop_task(expt_type) else 100
-GAUSS_SIGMA = 2
-epochs = 150
-batch_size = 4
-COND_POINT_DIST_PX = 20
-CONDITION_LEN = 5
-CROP_WIDTH = 120
-PRED_LEN = 2
-EVAL_CHECKPT_FREQ = 1
-MIN_CHECKPOINT_FREQ = 10
-MODEL_IMG_SIZE = 100
-RESNET_TYPE = '50'
-PRETRAINED = False
 
 # TODO Jainil: add link to dataset
 def get_dataset_dir(expt_type):
@@ -42,21 +29,56 @@ def is_crop_task(expt_type):
 def is_point_pred(expt_type):
     return expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION or expt_type == ExperimentTypes.TRACE_PREDICTION or expt_type == ExperimentTypes.CAGE_PREDICTION
 
-def save_config_params(path, expt_type):
-    params_dict = {
-        'expt_type': expt_type,
-        'num_keypoints': NUM_KEYPOINTS,
-        'img_height': IMG_HEIGHT(expt_type),
-        'img_width': IMG_WIDTH(expt_type),
-        'gauss_sigma': GAUSS_SIGMA,
-        'epochs': epochs,
-        'batch_size': batch_size,
-        'cond_point_dist_px': COND_POINT_DIST_PX,
-        'condition_len': CONDITION_LEN,
-        'crop_width': CROP_WIDTH,
-        'pred_len': PRED_LEN
-    }
-
+def save_config_params(path, expt_config):
     with open(os.path.join(path, 'config.json'), 'w') as f:
-        json.dump(params_dict, f)
+        dct = {}
+        for k in dir(expt_config):
+            if k[0] != '_':
+                dct[k] = getattr(expt_config, k)
+        json.dump(dct, f, indent=4)
         f.close()
+    with open(os.path.join(path, 'expt_class.txt'), 'w') as f:
+        f.write(str(expt_config.__class__.__name__))
+        f.close()
+
+def load_config_class(path):
+    with open(os.path.join(path, 'config.json'), 'r') as f:
+        dct = json.load(f)
+        f.close()
+    return BaseTraceExperimentConfig(**dct)
+
+@dataclass
+class BaseTraceExperimentConfig:
+    expt_type = ExperimentTypes.TRACE_PREDICTION
+    img_height = 80
+    img_width = 80
+    crop_width = 80
+    num_keypoints = 1
+    gauss_sigma = 2
+    epochs = 150
+    batch_size = 4
+    cond_point_dist_px = 20
+    condition_len = 5
+    pred_len = 1
+    eval_checkpoint_freq = 1
+    min_checkpoint_freq = 10
+    resnet_type = '50'
+    pretrained = False
+
+@dataclass
+class TRCR80(BaseTraceExperimentConfig):
+    crop_width = 80
+
+@dataclass
+class TRCR100(BaseTraceExperimentConfig):
+    crop_width = 100
+
+@dataclass
+class TRCR120(BaseTraceExperimentConfig):
+    crop_width = 120
+
+def get_class_name(cls):
+    return cls.__name__
+
+ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120]
+ALL_EXPERIMENTS_CONFIG = {get_class_name(expt): expt for expt in ALL_EXPERIMENTS_LIST}

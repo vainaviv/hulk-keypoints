@@ -14,7 +14,7 @@ from scipy import interpolate
 import matplotlib.pyplot as plt
 import sys
 sys.path.insert(0, '/home/kaushiks/hulk-keypoints/')
-from config import *
+from config import ExperimentTypes, BaseTraceExperimentConfig
 
 # No domain randomization
 transform = transforms.Compose([transforms.ToTensor()])
@@ -22,32 +22,8 @@ transform = transforms.Compose([transforms.ToTensor()])
 sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 
 # Domain randomization
-img_transform = iaa.Sequential([
-    iaa.flip.Fliplr(0.5),
-    iaa.flip.Flipud(0.5),
-    iaa.Resize({"height": MODEL_IMG_SIZE, "width": MODEL_IMG_SIZE}),
-    # sometimes(iaa.Affine(
-    #     scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
-    #     rotate=(-30, 30),
-    #     shear=(-30, 30)
-    # ))
-    ], random_order=True)
-
-# No randomization
-no_transform = iaa.Sequential([iaa.Resize({"height": MODEL_IMG_SIZE, "width": MODEL_IMG_SIZE})])
-
-# New domain randomization
-img_transform_new = iaa.Sequential([
-    iaa.flip.Flipud(0.5),
-    iaa.flip.Fliplr(0.5),
-    # rotate 90, 180, or 270
-    iaa.Rot90([0, 1, 2, 3]),
-    sometimes(iaa.Affine(
-        scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
-        rotate=(-30, 30),
-        shear=(-30, 30)
-        ))
-    ], random_order=True)
+augmentation_list = [iaa.flip.Fliplr(0.5), iaa.flip.Flipud(0.5)]
+no_augmentation_list = []
 
 def normalize(x):
     return F.normalize(x, p=1)
@@ -112,7 +88,11 @@ class KeypointsDataset(Dataset):
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
         self.transform = transform
-        self.img_transform = img_transform if augment else no_transform
+
+        transform_list = augmentation_list if augment else no_augmentation_list
+        transform_list.append(iaa.Resize({"height": img_height, "width": img_width}))
+
+        self.img_transform = iaa.Sequential(transform_list, random_order=False)
         self.augment = augment
         self.condition_len = condition_len
         self.crop_width = crop_width
@@ -286,13 +266,13 @@ class KeypointsDataset(Dataset):
             # img[:, :, 1] = 1 - img[:, :, 0]
             combined = transform(img.copy()).cuda()
 
-            if PRED_LEN == 1:
-                label = torch.as_tensor(gauss_2d_batch_efficient_np(MODEL_IMG_SIZE, MODEL_IMG_SIZE, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
+            if self.pred_len == 1:
+                label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
             else:
                 try:
                     label = torch.as_tensor(self.draw_spline(img, points[-self.pred_len:,1], points[-self.pred_len:,0], label=True)) 
                 except:
-                    label = torch.as_tensor(gauss_2d_batch_efficient_np(MODEL_IMG_SIZE, MODEL_IMG_SIZE, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
+                    label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
             label = label * cable_mask
             label = label.unsqueeze_(0).cuda()
 
@@ -364,17 +344,18 @@ if __name__ == '__main__':
 
 
     # TRACE PREDICTION
+    test_config = BaseTraceExperimentConfig()
     test_dataset2 = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset/test',
-                                    IMG_HEIGHT('trp'), 
-                                    IMG_WIDTH('trp'), 
-                                    transform, 
-                                    gauss_sigma=GAUSS_SIGMA, 
+                                    test_config.img_height,
+                                    test_config.img_width,
+                                    transform,
+                                    gauss_sigma=test_config.gauss_sigma, 
                                     augment=True, 
-                                    condition_len=CONDITION_LEN, 
-                                    crop_width=CROP_WIDTH, 
-                                    spacing=COND_POINT_DIST_PX, 
-                                    expt_type=ExperimentTypes.TRACE_PREDICTION, 
-                                    pred_len=PRED_LEN)
+                                    condition_len=test_config.condition_len, 
+                                    crop_width=test_config.crop_width, 
+                                    spacing=test_config.cond_point_dist_px,
+                                    expt_type=test_config.expt_type, 
+                                    pred_len=test_config.pred_len)
     test_data2 = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
     for i_batch, sample_batched in enumerate(test_data2):
         print(i_batch)
