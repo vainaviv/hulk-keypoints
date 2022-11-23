@@ -5,4 +5,6 @@ hulkL_trace_5
 processed_sim_data
 src/dataset_py_test
 src/test_data
+dataset_py_test
+test_data
 logs
