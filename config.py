@@ -77,8 +77,16 @@ class TRCR100(BaseTraceExperimentConfig):
 class TRCR120(BaseTraceExperimentConfig):
     crop_width = 120
 
+@dataclass
+class CAP800(BaseTraceExperimentConfig):
+    expt_type = ExperimentTypes.CAGE_PREDICTION
+    img_height = 800
+    img_width = 800
+    gauss_sigma = 4
+    condition_len = 4
+
 def get_class_name(cls):
     return cls.__name__
 
-ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120]
+ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120, CAP800]
 ALL_EXPERIMENTS_CONFIG = {get_class_name(expt): expt for expt in ALL_EXPERIMENTS_LIST}
