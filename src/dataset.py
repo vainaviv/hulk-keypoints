@@ -196,7 +196,7 @@ class KeypointsDataset(Dataset):
             img_dim_x, img_dim_y = img.shape[0], img.shape[1]
             for i, pixel in enumerate(pixels):
                 px, py = int(pixel[0]), int(pixel[1]) 
-                # ignore off-frame pixels - adding the rest in.
+                # ignore off-frame pixels - adding the rest in
                 if px not in range(img_dim_x) or py not in range(img_dim_y):
                     continue
                 within_bounds_pixels.append(pixel)
