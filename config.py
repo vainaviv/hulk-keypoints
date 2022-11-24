@@ -119,11 +119,11 @@ class CL10_10_PL1(BaseTraceExperimentConfig):
 
 @dataclass
 class CAP800(BaseTraceExperimentConfig):
-    expt_type = ExperimentTypes.CAGE_PREDICTION
-    img_height = 800
-    img_width = 800
-    gauss_sigma = 4
-    condition_len = 4
+    expt_type: str = ExperimentTypes.CAGE_PREDICTION
+    img_height: int = 800
+    img_width: int = 800
+    gauss_sigma: int = 4
+    condition_len: int = 4
 
 def get_class_name(cls):
     return cls.__name__

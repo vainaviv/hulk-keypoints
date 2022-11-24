@@ -13,7 +13,7 @@ from imgaug.augmentables import KeypointsOnImage
 from scipy import interpolate
 import matplotlib.pyplot as plt
 import sys
-sys.path.insert(0, '/home/jainilajmera/hulk-keypoints/')
+sys.path.insert(0, '../hulk-keypoints/')
 from config import ExperimentTypes, BaseTraceExperimentConfig, CAP800
 
 # No domain randomization
