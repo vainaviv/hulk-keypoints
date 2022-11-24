@@ -6,3 +6,4 @@ processed_sim_data
 src/dataset_py_test
 src/test_data
 logs
+__pycache__
