@@ -4,7 +4,6 @@ import os
 import torch
 from torchvision import transforms
 from torch.utils.data import DataLoader
-from config import load_config_dict, ExperimentTypes
 from src.model import KeypointsGauss, ClassificationModel
 from src.dataset import KeypointsDataset, transform, gauss_2d_batch, bimodal_gauss, get_gauss
 from src.prediction import Prediction
@@ -15,13 +14,13 @@ import matplotlib.pyplot as plt
 import time
 from scipy.signal import convolve2d
 import argparse
-from config import load_config_class, is_point_pred, get_dataset_dir
+from config import load_config_class, is_point_pred, get_dataset_dir, ExperimentTypes
 
 # parse command line flags
 parser = argparse.ArgumentParser()
-parser.add_argument('--checkpoint_folder', type=str, default='')
+parser.add_argument('--checkpoint_path', type=str, default='')
 parser.add_argument('--checkpoint_file_name', type=str, default='')
-parser.add_argument('--trace_if_trp', action='store_true', default=False)
+parser.add_argument('--trace_if_trp', action='store_true', default=True)
 
 flags = parser.parse_args()
 
@@ -56,11 +55,11 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     transform = transforms.Compose([transforms.ToTensor()])
 
-    num_condition_points = 4
-    crop_size = 100
+    num_condition_points = config.condition_len
+    crop_size = config.crop_width
 
     if start_points is None or len(start_points) < num_condition_points:
-        raise ValueError(f"Need at least {len(start_points)} start points")
+        raise ValueError(f"Need at least {num_condition_points} start points")
     path = [start_point for start_point in start_points]
     disp_img = image.copy()
 
@@ -94,7 +93,7 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
             plt.show()
 
         model_output *= crop_eroded[:, :, 1]
-        # print("Time taken for prediction: ", time.time() - start_time)
+        print("Time taken for prediction: ", time.time() - start_time)
 
         if viz:
             plt.imshow(model_output.squeeze())
@@ -126,12 +125,12 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
             plt.imshow(image)
             plt.show()
         
-        disp_img = cv2.circle(disp_img, (global_yx[1], global_yx[0]), 1, (0, 0, 255), 2)
-        # add line from previous to current point
-        if len(path) > 1:
-            disp_img = cv2.line(disp_img, (path[-2][1], path[-2][0]), (global_yx[1], global_yx[0]), (0, 0, 255), 2)
-        cv2.imshow('image to display', disp_img)
-        cv2.waitKey(1)
+            disp_img = cv2.circle(disp_img, (global_yx[1], global_yx[0]), 1, (0, 0, 255), 2)
+            # add line from previous to current point
+            if len(path) > 1:
+                disp_img = cv2.line(disp_img, (path[-2][1], path[-2][0]), (global_yx[1], global_yx[0]), (0, 0, 255), 2)
+            cv2.imshow('image to display', disp_img)
+            cv2.waitKey(1)
 
 # os.environ["CUDA_VISIBLE_DEVICES"]="1"
 # torch.cuda.set_device(1)
@@ -159,7 +158,7 @@ keypoints_models = []
 if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
     keypoints = ClassificationModel(config.num_keypoints, img_height=config.img_height, img_width=config.img_width, channels=3).cuda()
 elif is_point_pred(expt_type):
-    keypoints = KeypointsGauss(1, img_height=config.img_height, img_width=config.img_width, channels=3).cuda()
+    keypoints = KeypointsGauss(1, img_height=config.img_height, img_width=config.img_width, channels=3, resnet_type=config.resnet_type, pretrained=config.pretrained).cuda()
 keypoints.load_state_dict(torch.load(checkpoint_file_name))
 keypoints_models.append(keypoints)
 

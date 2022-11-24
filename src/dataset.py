@@ -91,7 +91,6 @@ class KeypointsDataset(Dataset):
 
         transform_list = augmentation_list if augment else no_augmentation_list
         transform_list.append(iaa.Resize({"height": img_height, "width": img_width}))
-
         self.img_transform = iaa.Sequential(transform_list, random_order=False)
         self.augment = augment
         self.condition_len = condition_len

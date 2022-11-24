@@ -75,14 +75,8 @@ def fit(train_data, test_data, model, epochs, optimizer, checkpoint_path = ''):
             test_epochs.append(epoch)
             test_losses.append(test_loss_per_batch)
 
-            np.save(f"logs/test_losses_{expt_name}.npy", test_losses)
-            np.save(f"logs/train_losses_{expt_name}.npy", train_losses)
-            plt.clf()
-            plt.title(f"losses {expt_name}")
-            plt.plot(test_epochs, test_losses, label='test loss')
-            plt.plot(train_epochs, train_losses, label='train loss')
-            plt.legend()
-            plt.savefig(f"logs/losses_{expt_name}_graph.png")
+            np.save(os.path.join(checkpoint_path, "test_losses_{expt_name}.npy"), test_losses)
+            np.save(os.path.join(checkpoint_path, "train_losses_{expt_name}.npy"), train_losses)
 
             if len(test_losses) <= 1 or test_loss_per_batch < np.min(test_losses[:-1]) or epoch - last_checkpoint_epoch >= config.min_checkpoint_freq:
                 torch.save(keypoints.state_dict(), os.path.join(checkpoint_path, f'model_{epoch}_{test_loss_per_batch:.5f}.pth'))
@@ -126,7 +120,7 @@ if use_cuda:
 if not is_point_pred(config.expt_type):
     keypoints = ClassificationModel(num_classes=1, img_height=config.img_height, img_width=config.img_width).cuda()
 else:
-    keypoints = KeypointsGauss(num_keypoints=1, img_height=config.img_height, img_width=config.img_width).cuda()
+    keypoints = KeypointsGauss(num_keypoints=1, img_height=config.img_height, img_width=config.img_width, resnet_type=config.resnet_type, pretrained=config.pretrained).cuda()
 
 # optimizer
 optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-5, weight_decay=1.0e-4)

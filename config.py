@@ -49,36 +49,76 @@ def load_config_class(path):
 
 @dataclass
 class BaseTraceExperimentConfig:
-    expt_type = ExperimentTypes.TRACE_PREDICTION
-    img_height = 80
-    img_width = 80
-    crop_width = 80
-    num_keypoints = 1
-    gauss_sigma = 2
-    epochs = 150
-    batch_size = 4
-    cond_point_dist_px = 20
-    condition_len = 5
-    pred_len = 1
-    eval_checkpoint_freq = 1
-    min_checkpoint_freq = 10
-    resnet_type = '50'
-    pretrained = False
+    expt_type: str = ExperimentTypes.TRACE_PREDICTION
+    img_height: int = 100
+    img_width: int = 100
+    crop_width: int = 80
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 150
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 1
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '50'
+    pretrained: bool = False
 
 @dataclass
 class TRCR80(BaseTraceExperimentConfig):
-    crop_width = 80
+    crop_width: int = 80
 
 @dataclass
 class TRCR100(BaseTraceExperimentConfig):
-    crop_width = 100
+    crop_width: int = 100
 
 @dataclass
 class TRCR120(BaseTraceExperimentConfig):
-    crop_width = 120
+    crop_width: int = 120
+
+@dataclass
+class CL5_20_PL1(BaseTraceExperimentConfig):
+    crop_width: int = 100
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 1
+
+@dataclass
+class CL3_10_PL2(BaseTraceExperimentConfig):
+    crop_width: int = 100
+    cond_point_dist_px: int = 10
+    condition_len: int = 3
+    pred_len: int = 2
+    epochs: int = 75
+
+@dataclass
+class CL10_10_PL2(BaseTraceExperimentConfig):
+    crop_width: int = 100
+    cond_point_dist_px: int = 10
+    condition_len: int = 10
+    pred_len: int = 2
+    epochs: int = 75
+
+@dataclass
+class CL3_10_PL1(BaseTraceExperimentConfig):
+    crop_width: int = 100
+    cond_point_dist_px: int = 10
+    condition_len: int = 3
+    pred_len: int = 1
+    epochs: int = 75
+
+@dataclass
+class CL10_10_PL1(BaseTraceExperimentConfig):
+    crop_width: int = 100
+    cond_point_dist_px: int = 10
+    condition_len: int = 10
+    pred_len: int = 1
+    epochs: int = 75
+
 
 def get_class_name(cls):
     return cls.__name__
 
-ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120]
+ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120, CL5_20_PL1, CL3_10_PL2, CL10_10_PL2, CL3_10_PL1, CL10_10_PL1]
 ALL_EXPERIMENTS_CONFIG = {get_class_name(expt): expt for expt in ALL_EXPERIMENTS_LIST}
