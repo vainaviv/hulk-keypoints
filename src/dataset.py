@@ -13,8 +13,8 @@ from imgaug.augmentables import KeypointsOnImage
 from scipy import interpolate
 import matplotlib.pyplot as plt
 import sys
-sys.path.insert(0, '/home/kaushiks/hulk-keypoints/')
-from config import ExperimentTypes, BaseTraceExperimentConfig
+sys.path.insert(0, '/home/jainilajmera/hulk-keypoints/')
+from config import ExperimentTypes, BaseTraceExperimentConfig, CAP800
 
 # No domain randomization
 transform = transforms.Compose([transforms.ToTensor()])
@@ -56,12 +56,12 @@ def gauss_2d_batch_efficient_np(width, height, sigma, U, V, weights):
 def vis_gauss(img, gaussians, i):
     gaussians = gaussians.cpu().detach().numpy().transpose(1, 2, 0)
     img = (img.cpu().detach().numpy().transpose(1, 2, 0) * 255)
-    # gaussians = np.concatenate((gaussians, np.zeros_like(gaussians[:, :, :1]), np.zeros_like(gaussians[:, :, :1])), axis=2)
-    # h1 = gaussians
-    # output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
+    gaussians = np.concatenate((gaussians, np.zeros_like(gaussians[:, :, :1]), np.zeros_like(gaussians[:, :, :1])), axis=2)
+    h1 = gaussians
+    output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
     if not os.path.exists('./dataset_py_test'):
         os.mkdir('./dataset_py_test')
-    # cv2.imwrite(f'./dataset_py_test/test-gaussians_{i:05d}.png', output)
+    cv2.imwrite(f'./dataset_py_test/test-gaussians_{i:05d}.png', output)
     img[:, :, 2] = gaussians[:, :, 0] * 255
     cv2.imwrite(f'./dataset_py_test/test-img_{i:05d}.png', img[...,::-1])
 
@@ -103,7 +103,7 @@ class KeypointsDataset(Dataset):
         self.expt_type = expt_type
 
         self.weights = np.geomspace(0.5, 1, self.condition_len)
-        self.label_weights = np.ones(self.pred_len) #np.geomspace(1, 0.5, self.pred_len)
+        self.label_weights = np.ones(self.pred_len) # np.geomspace(1, 0.5, self.pred_len)
 
         # if folder is a list, then iterate over folders
         if not isinstance(folder, list):
@@ -119,7 +119,6 @@ class KeypointsDataset(Dataset):
     def _get_evenly_spaced_points(self, pixels, num_points, start_idx, spacing, backward=True):
         # get evenly spaced points
         last_point = np.array(pixels[start_idx]).squeeze()
-        # print("last point", last_point)
         points = [last_point]
         rand_spacing = spacing * np.random.uniform(0.8, 1.2)
         while len(points) < num_points and start_idx > 0 and start_idx < len(pixels):
@@ -135,12 +134,12 @@ class KeypointsDataset(Dataset):
         if len(x) < 2:
             raise Exception("if drawing spline, must have 2 points minimum for label")
         k = len(x) - 1 if len(x) < 4 else 3
-        tck,u     = interpolate.splprep( [x,y] ,s = 0, k=k)
-        xnew,ynew = interpolate.splev( np.linspace( 0, 1, 100 ), tck,der = 0)
+        tck, u = interpolate.splprep([x, y], s=0, k=k)
+        xnew, ynew = interpolate.splev(np.linspace(0, 1, 100), tck, der=0)
         xnew = np.array(xnew, dtype=int)
         ynew = np.array(ynew, dtype=int)
 
-        x_in= np.where(xnew < crop.shape[0])
+        x_in = np.where(xnew < crop.shape[0])
         xnew = xnew[x_in[0]]
         ynew = ynew[x_in[0]]
         y_in = np.where(ynew < crop.shape[1])
@@ -156,13 +155,13 @@ class KeypointsDataset(Dataset):
         spline[xnew, ynew] = weights
         spline = np.expand_dims(spline, axis=2)
         spline = np.tile(spline, 3)
-        spline_dilated = cv2.dilate(spline, np.ones((5,5), np.uint8), iterations=1)
+        spline_dilated = cv2.dilate(spline, np.ones((5, 5), np.uint8), iterations=1)
         return spline_dilated[:, :, 0]
 
     def __getitem__(self, data_index):
         start_time = time.time()
         loaded_data = np.load(self.data[data_index], allow_pickle=True).item()
-        #TODO Jainil: this will be where most of your coding will happen. 
+        # TODO Jainil: this will be where most of your coding will happen. 
         # Lines 186-203 load the image and labels. you may need to add something to make this possible for your dataset.
         dataset_start_time = time.time()
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
@@ -180,71 +179,70 @@ class KeypointsDataset(Dataset):
             img = crop
             top_left = [center_of_crop[0] - self.crop_width, center_of_crop[1] - self.crop_width]
             condition_pixels = [[pixel[0] - top_left[0], pixel[1] - top_left[1]] for pixel in condition_pixels]
+        
         elif self.expt_type == ExperimentTypes.CAGE_PREDICTION:
             # TODO Jainil: change this to be check experiment type for cage pinch selection. 
             # Create code for adding the condition point into channel 0 of image. Generate the cage pinch label heatmaps. 
             # Use the code under "if self.expt_type == ExperimentTypes.TRACE_PREDICTION" to get an idea of how to do this
+            
+            # getting img, pixels, and cage_point 
             img = loaded_data['img'][:, :, :3]
             pixels = loaded_data['pixels']
             cage_point = loaded_data['cage_point']
-            # print("cage_point", cage_point)
 
+            # finding pixels within img boundaries
             within_bounds_pixels = []
             img_dim_x, img_dim_y = img.shape[0], img.shape[1]
             for i, pixel in enumerate(pixels):
                 px, py = int(pixel[0]), int(pixel[1]) 
-                # ignore off-frame pixels - adding the rest in.
+                # ignore off-frame pixels - adding the rest in
                 if px not in range(img_dim_x) or py not in range(img_dim_y):
                     continue
                 within_bounds_pixels.append(pixel)
 
-            #finding start point for condition_pixels (first in frame pixel in trace)
-            start_idx = None
-            img_dim_x, img_dim_y = img.shape[0], img.shape[1]
-            for i, pixel in enumerate(within_bounds_pixels):
-                px, py = int(pixel[0]), int(pixel[1]) 
-                start_idx = i
-                break
-
-            #adding offset and cond_len since get_evenly_spaced_points goes backwards from start_idx
-            start_idx_offset = 5
-            start_idx += start_idx_offset
-            start_idx += self.condition_len
-
-            # print("cond len", self.condition_len)
-            condition_pixels = self._get_evenly_spaced_points(within_bounds_pixels, self.condition_len + self.pred_len, start_idx, self.spacing, backward=True)
-            # print("condition_pixels", condition_pixels)
-            cond_pix_array = np.array(condition_pixels)[:, ::-1]
-            # print("cond pix arr,", cond_pix_array )
-            jitter = np.random.uniform(-1, 1, size=cond_pix_array.shape)
+            # beginning conditioning at 6th pixel (0-indexed) within img boundaries 
+            start_idx = 5
+            condition_pixels = self._get_evenly_spaced_points(within_bounds_pixels, self.condition_len, start_idx, self.spacing, backward=False)            
+            
+            condition_pixels_array = np.array(condition_pixels)
+            # note: need to flip condition_pixels for augmentation
+            condition_pixels_array = condition_pixels_array[:, ::-1]
+            
+            # adding jitter to all condition_pixels
+            jitter = np.random.uniform(-1, 1, size=condition_pixels_array.shape)
             jitter[-1] = 0
-            cond_pix_array = cond_pix_array + jitter
-            kpts = KeypointsOnImage.from_xy_array(cond_pix_array, shape=img.shape)
-            img, kpts = self.img_transform(image=img, keypoints=kpts)
-            points = []
-            for k in kpts:
-                points.append([k.x,k.y])
-            points = np.array(points)
-            # print("points", points)
-            # print("seg", points[-self.pred_len:, 0])
+            condition_pixels_array = condition_pixels_array + jitter
 
+            # getting array of keypoints (kpts_array) = condition_pixels_array (flipped) + cage_point_array
+            cage_point_array = np.array([cage_point])
+            kpts_array = np.append(condition_pixels_array, cage_point_array, axis=0)
+
+            # getting final keypoints (final_kpts) post-transformation
+            kpts_on_image = KeypointsOnImage.from_xy_array(kpts_array, shape=img.shape)
+            img, transformed_kpts = self.img_transform(image=img, keypoints=kpts_on_image)
+            final_kpts = []
+            for k in transformed_kpts:
+                final_kpts.append([k.x, k.y])
+            final_kpts = np.array(final_kpts)
+
+            # getting cable mask (cable_mask)
             cable_mask = np.ones(img.shape[:2])
             cable_mask[img[:, :, 1] < 0.1] = 0
+
+            # print(final_kpts[:, 0], final_kpts[:, 1])
         
-            # TODO : draw spline only works when label length is >= 2
-            # img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len,1], points[:-self.pred_len,0]) * cable_mask
-            # img[:, :, 1] = 1 - img[:, :, 0]
+            # getting img / combined
+            img[:, :, 0] =  self.draw_spline(img, final_kpts[:-self.pred_len, 1], final_kpts[:-self.pred_len, 0])
             combined = transform(img.copy()).cuda()
 
-            #generate a label out of the cage point
-            label = torch.as_tensor(gauss_2d_batch_efficient_np(img_dim_x, img_dim_y, self.gauss_sigma, [cage_point[0]], [cage_point[1]], weights=self.label_weights))
-            label = label * cable_mask
+            # generating the gauss / label out of the cage point
+            label = torch.as_tensor(gauss_2d_batch_efficient_np(img_dim_x, img_dim_y, self.gauss_sigma, final_kpts[-self.pred_len:, 0], final_kpts[-self.pred_len:, 1], weights=self.label_weights))
+            label = label
             label = label.unsqueeze_(0).cuda()
-            pass
+        
         else:
             img = loaded_data['crop_img'][:, :, :3]
             condition_pixels = loaded_data['spline_pixels']
-        
         
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             cond_pix_array = np.array(condition_pixels)[:, ::-1]
@@ -343,8 +341,30 @@ if __name__ == '__main__':
 
 
     # TRACE PREDICTION
-    test_config = BaseTraceExperimentConfig()
-    test_dataset2 = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset/test',
+    # test_config = BaseTraceExperimentConfig()
+    # test_dataset2 = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset/test',
+    #                                 test_config.img_height,
+    #                                 test_config.img_width,
+    #                                 transform,
+    #                                 gauss_sigma=test_config.gauss_sigma, 
+    #                                 augment=True, 
+    #                                 condition_len=test_config.condition_len, 
+    #                                 crop_width=test_config.crop_width, 
+    #                                 spacing=test_config.cond_point_dist_px,
+    #                                 expt_type=test_config.expt_type, 
+    #                                 pred_len=test_config.pred_len)
+    # test_data2 = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
+    # for i_batch, sample_batched in enumerate(test_data2):
+    #     print(i_batch)
+    #     img, gauss = sample_batched
+    #     gauss = gauss.squeeze(0)
+    #     img = img.squeeze(0)
+    #     vis_gauss(img, gauss, i_batch)
+
+
+    # CAGE PINCH PREDICTION
+    test_config = CAP800()
+    test_dataset3 = KeypointsDataset('/home/jainilajmera/cage_point_test_data/',
                                     test_config.img_height,
                                     test_config.img_width,
                                     transform,
@@ -355,31 +375,10 @@ if __name__ == '__main__':
                                     spacing=test_config.cond_point_dist_px,
                                     expt_type=test_config.expt_type, 
                                     pred_len=test_config.pred_len)
-    test_data2 = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
-    for i_batch, sample_batched in enumerate(test_data2):
+    test_data3 = DataLoader(test_dataset3, batch_size=1, shuffle=True, num_workers=1)
+    for i_batch, sample_batched in enumerate(test_data3):
         print(i_batch)
         img, gauss = sample_batched
         gauss = gauss.squeeze(0)
         img = img.squeeze(0)
         vis_gauss(img, gauss, i_batch)
-
-
-    # CAGE PINCH PREDICTION
-    # test_dataset3 = KeypointsDataset('/home/mkparu/cage_point_test_data/',
-    #                                 IMG_HEIGHT('oep'), 
-    #                                 IMG_WIDTH('oep'), 
-    #                                 transform, 
-    #                                 gauss_sigma=GAUSS_SIGMA, 
-    #                                 augment=True, 
-    #                                 condition_len=4, 
-    #                                 crop_width=50, 
-    #                                 spacing=8, 
-    #                                 expt_type=ExperimentTypes.CAGE_PREDICTION, 
-    #                                 pred_len=1)
-    # test_data3 = DataLoader(test_dataset3, batch_size=1, shuffle=True, num_workers=1)
-    # for i_batch, sample_batched in enumerate(test_data3):
-    #     print(i_batch)
-    #     img, gauss = sample_batched
-    #     gauss = gauss.squeeze(0)
-    #     img = img.squeeze(0)
-    #     vis_gauss(img, gauss, i_batch)
