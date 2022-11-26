@@ -9,6 +9,7 @@ from src.dataset import KeypointsDataset, transform, gauss_2d_batch, bimodal_gau
 from src.prediction import Prediction
 from datetime import datetime, time
 from PIL import Image
+import imgaug.augmenters as iaa
 import numpy as np
 import matplotlib.pyplot as plt
 import time
@@ -50,10 +51,13 @@ else:
 config = load_config_class(checkpoint_path)
 expt_type = config.expt_type
 
+print("Using checkpoint: ", checkpoint_file_name)
+print("Loaded config: ", config)
+
 def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_from_edge=False, timeout=30,
           bboxes=[], termination_map=None, viz=False, exact_path_len=None, viz_iter=None, filter_bad=False, x_min=None, x_max=None, y_min=None, y_max=None, start_points=None, model=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    transform = transforms.Compose([transforms.ToTensor()])
+    transform = transforms.ToTensor()
 
     num_condition_points = config.condition_len
     crop_size = config.crop_width
@@ -61,21 +65,24 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
     if start_points is None or len(start_points) < num_condition_points:
         raise ValueError(f"Need at least {num_condition_points} start points")
     path = [start_point for start_point in start_points]
-    disp_img = image.copy()
+    disp_img = (image.copy() * 255.0).astype(np.uint8)
 
     for iter in range(exact_path_len):
-        if iter < 1:
-            continue
+        print(iter)
+        # tm = time.time()
         condition_pixels = [p[::-1] for p in path[-num_condition_points:]]
         # print(condition_pixels)
         crop_center = condition_pixels[-1]
         xmin, xmax, ymin, ymax = max(0, crop_center[0] - crop_size), min(image.shape[1], crop_center[0] + crop_size), max(0, crop_center[1] - crop_size), min(image.shape[0], crop_center[1] + crop_size)
         crop = image.copy()[ymin:ymax, xmin:xmax]
         cond_pixels_in_crop = condition_pixels - np.array([xmin, ymin])
+        
+        crop = test_dataset.get_trp_model_input(crop, cond_pixels_in_crop, iaa.Resize({"height": config.img_height, "width": config.img_width}))
         spline = test_dataset.draw_spline(crop, cond_pixels_in_crop[:, 1], cond_pixels_in_crop[:, 0], label=False)
         crop[:, :, 0] = spline
-        # crop[:, :, 1] = 1 - spline
+
         crop_eroded = cv2.erode((crop > 0.1).astype(np.uint8), np.ones((8, 8)), iterations=1)
+        # print("Model input prep time: ", time.time() - tm)
 
         if viz:
             plt.scatter(cond_pixels_in_crop[:, 0], cond_pixels_in_crop[:, 1], c='r')
@@ -85,7 +92,13 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
             plt.imshow(crop_eroded * 255)
             plt.show()
         
-        model_input = transform(crop.copy()).unsqueeze(0).to(device)
+        tm = time.time()
+        crop = crop.copy()
+        # print("Model input transform and to device time 0: ", time.time() - tm)
+        model_input = torch.as_tensor(crop.transpose(2, 0, 1)).unsqueeze(0)
+        # print("Model input transform and to device time 1: ", time.time() - tm)
+        model_input = model_input.to(device)
+        # print("Model input transform and to device time 2: ", time.time() - tm)
         start_time = time.time()
         model_output = model(model_input).detach().cpu().numpy().squeeze()
         if viz:
@@ -93,12 +106,13 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
             plt.show()
 
         model_output *= crop_eroded[:, :, 1]
-        print("Time taken for prediction: ", time.time() - start_time)
+        # print("Time taken for prediction: ", time.time() - start_time)
 
         if viz:
             plt.imshow(model_output.squeeze())
             plt.show()
 
+        tm = time.time()
         # mask model output by disc of radius COND_POINT_DIST_PX around the last condition pixel
         tolerance = 2
         last_condition_pixel = cond_pixels_in_crop[-1]
@@ -115,6 +129,7 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
         global_yx = np.array([argmax_yx[0] + ymin, argmax_yx[1] + xmin])
 
         path.append(global_yx)
+        # print("Model output post-processing time: ", time.time() - tm)
 
         if viz:
             plt.scatter(argmax_yx[1], argmax_yx[0], c='r')
@@ -125,15 +140,12 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
             plt.imshow(image)
             plt.show()
         
-            disp_img = cv2.circle(disp_img, (global_yx[1], global_yx[0]), 1, (0, 0, 255), 2)
-            # add line from previous to current point
-            if len(path) > 1:
-                disp_img = cv2.line(disp_img, (path[-2][1], path[-2][0]), (global_yx[1], global_yx[0]), (0, 0, 255), 2)
-            cv2.imshow('image to display', disp_img)
-            cv2.waitKey(1)
-
-# os.environ["CUDA_VISIBLE_DEVICES"]="1"
-# torch.cuda.set_device(1)
+        disp_img = cv2.circle(disp_img, (global_yx[1], global_yx[0]), 1, (0, 0, 255), 2)
+        # add line from previous to current point
+        if len(path) > 1:
+            disp_img = cv2.line(disp_img, (path[-2][1], path[-2][0]), (global_yx[1], global_yx[0]), (0, 0, 255), 2)
+        plt.imsave('disp_img.png', disp_img)
+        # cv2.waitKey(1)
 
 expt_name = os.path.normpath(checkpoint_path).split(os.sep)[-2]
 output_folder_name = f'preds/preds_{expt_name}'
