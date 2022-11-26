@@ -14,7 +14,7 @@ from src.dataset import KeypointsDataset, transform
 import matplotlib.pyplot as plt
 import argparse
 
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
 # parse command line flags
 parser = argparse.ArgumentParser()

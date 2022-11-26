@@ -85,6 +85,13 @@ class CL5_20_PL1(BaseTraceExperimentConfig):
     pred_len: int = 1
 
 @dataclass
+class TRCR140_CL4_25_PL1(BaseTraceExperimentConfig):
+    crop_width: int = 140
+    cond_point_dist_px: int = 25
+    condition_len: int = 4
+    pred_len: int = 1
+
+@dataclass
 class CL3_10_PL2(BaseTraceExperimentConfig):
     crop_width: int = 100
     cond_point_dist_px: int = 10
@@ -128,5 +135,5 @@ class CAP800(BaseTraceExperimentConfig):
 def get_class_name(cls):
     return cls.__name__
 
-ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120, CL5_20_PL1, CL3_10_PL2, CL10_10_PL2, CL3_10_PL1, CL10_10_PL1, CAP800]
+ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120, CL5_20_PL1, CL3_10_PL2, CL10_10_PL2, CL3_10_PL1, CL10_10_PL1, CAP800, TRCR140_CL4_25_PL1]
 ALL_EXPERIMENTS_CONFIG = {get_class_name(expt): expt for expt in ALL_EXPERIMENTS_LIST}
