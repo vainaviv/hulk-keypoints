@@ -21,7 +21,7 @@ from config import load_config_class, is_point_pred, get_dataset_dir, Experiment
 parser = argparse.ArgumentParser()
 parser.add_argument('--checkpoint_path', type=str, default='')
 parser.add_argument('--checkpoint_file_name', type=str, default='')
-parser.add_argument('--trace_if_trp', action='store_true', default=True)
+parser.add_argument('--trace_if_trp', action='store_true', default=False)
 
 flags = parser.parse_args()
 
@@ -55,7 +55,7 @@ print("Using checkpoint: ", checkpoint_file_name)
 print("Loaded config: ", config)
 
 def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_from_edge=False, timeout=30,
-          bboxes=[], termination_map=None, viz=False, exact_path_len=None, viz_iter=None, filter_bad=False, x_min=None, x_max=None, y_min=None, y_max=None, start_points=None, model=None):
+          bboxes=[], termination_map=None, viz=True, exact_path_len=None, viz_iter=None, filter_bad=False, x_min=None, x_max=None, y_min=None, y_max=None, start_points=None, model=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     transform = transforms.ToTensor()
 
@@ -70,45 +70,52 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
     for iter in range(exact_path_len):
         print(iter)
         # tm = time.time()
-        condition_pixels = [p[::-1] for p in path[-num_condition_points:]]
+        condition_pixels = [p for p in path[-num_condition_points:]]
         # print(condition_pixels)
-        crop_center = condition_pixels[-1]
-        xmin, xmax, ymin, ymax = max(0, crop_center[0] - crop_size), min(image.shape[1], crop_center[0] + crop_size), max(0, crop_center[1] - crop_size), min(image.shape[0], crop_center[1] + crop_size)
-        crop = image.copy()[ymin:ymax, xmin:xmax]
-        cond_pixels_in_crop = condition_pixels - np.array([xmin, ymin])
         
-        crop = test_dataset.get_trp_model_input(crop, cond_pixels_in_crop, iaa.Resize({"height": config.img_height, "width": config.img_width}))
-        spline = test_dataset.draw_spline(crop, cond_pixels_in_crop[:, 1], cond_pixels_in_crop[:, 0], label=False)
-        crop[:, :, 0] = spline
+        # crop_center = condition_pixels[-1]
+        # xmin, xmax, ymin, ymax = max(0, crop_center[0] - crop_size), min(image.shape[1], crop_center[0] + crop_size), max(0, crop_center[1] - crop_size), min(image.shape[0], crop_center[1] + crop_size)
+        # crop = image.copy()[ymin:ymax, xmin:xmax]
+        # cond_pixels_in_crop = condition_pixels - np.array([xmin, ymin])
+        
+        crop, cond_pixels_in_crop, top_left = test_dataset.get_crop_and_cond_pixels(image, condition_pixels, center_around_last=True)
+        ymin, xmin = top_left
+        model_input, _, cable_mask = test_dataset.get_trp_model_input(crop, cond_pixels_in_crop, iaa.Resize({"height": config.img_height, "width": config.img_width}))
 
-        crop_eroded = cv2.erode((crop > 0.1).astype(np.uint8), np.ones((8, 8)), iterations=1)
+        crop_eroded = cv2.erode((cable_mask).astype(np.uint8), np.ones((3, 3)), iterations=1)
         # print("Model input prep time: ", time.time() - tm)
 
-        if viz:
-            plt.scatter(cond_pixels_in_crop[:, 0], cond_pixels_in_crop[:, 1], c='r')
-            plt.imshow(crop)
+        if False and viz:
+            # plt.scatter(cond_pixels_in_crop[:, 0], cond_pixels_in_crop[:, 1], c='r')
+            # plt.imshow(crop)
+            # plt.show()
+
+            # plt.imshow(cable_mask)
+            # plt.show()
+
+            # plt.imshow(crop_eroded)
+            # plt.show()
+
+            plt.imshow(model_input.cpu().numpy().transpose(1, 2, 0))
             plt.show()
 
-            plt.imshow(crop_eroded * 255)
-            plt.show()
-        
         tm = time.time()
-        crop = crop.copy()
+        # crop = crop.copy()
         # print("Model input transform and to device time 0: ", time.time() - tm)
-        model_input = torch.as_tensor(crop.transpose(2, 0, 1)).unsqueeze(0)
+        # model_input = torch.as_tensor(crop.transpose(2, 0, 1)).unsqueeze(0)
         # print("Model input transform and to device time 1: ", time.time() - tm)
-        model_input = model_input.to(device)
+        # model_input = model_input.to(device)
         # print("Model input transform and to device time 2: ", time.time() - tm)
         start_time = time.time()
-        model_output = model(model_input).detach().cpu().numpy().squeeze()
-        if viz:
+        model_output = model(model_input.unsqueeze(0)).detach().cpu().numpy().squeeze()
+        if False and viz:
             plt.imshow(model_output.squeeze())
             plt.show()
 
-        model_output *= crop_eroded[:, :, 1]
+        model_output *= crop_eroded
         # print("Time taken for prediction: ", time.time() - start_time)
 
-        if viz:
+        if False and viz:
             plt.imshow(model_output.squeeze())
             plt.show()
 
@@ -116,16 +123,21 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
         # mask model output by disc of radius COND_POINT_DIST_PX around the last condition pixel
         tolerance = 2
         last_condition_pixel = cond_pixels_in_crop[-1]
-        outer_circle = np.zeros_like(model_output)
         # now create circle of radius COND_POINT_DIST_PX + tolerance
-        X, Y = np.meshgrid(np.arange(outer_circle.shape[1]), np.arange(outer_circle.shape[0]))
+        X, Y = np.meshgrid(np.arange(model_output.shape[1]), np.arange(model_output.shape[0]))
         outer_circle = (X - last_condition_pixel[0])**2 + (Y - last_condition_pixel[1])**2 < (config.cond_point_dist_px + tolerance)**2
         inner_circle = (X - last_condition_pixel[0])**2 + (Y - last_condition_pixel[1])**2 < (config.cond_point_dist_px - tolerance)**2
         disc = (outer_circle & ~inner_circle)
 
-        model_output *= disc
+        # model_output *= disc
 
-        argmax_yx = np.unravel_index(model_output.argmax(), model_output.shape)
+        if viz:
+            plt.imshow(model_output.squeeze())
+            plt.show()
+
+
+        print(crop.shape, np.unravel_index(model_output.argmax(), model_output.shape), np.array([crop.shape[0] / config.img_height, crop.shape[1] / config.img_width]))
+        argmax_yx = np.unravel_index(model_output.argmax(), model_output.shape) * np.array([crop.shape[0] / config.img_height, crop.shape[1] / config.img_width])
         global_yx = np.array([argmax_yx[0] + ymin, argmax_yx[1] + xmin])
 
         path.append(global_yx)
@@ -147,7 +159,7 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
         plt.imsave('disp_img.png', disp_img)
         # cv2.waitKey(1)
 
-expt_name = os.path.normpath(checkpoint_path).split(os.sep)[-2]
+expt_name = os.path.normpath(checkpoint_path).split(os.sep)[-1]
 output_folder_name = f'preds/preds_{expt_name}'
 if not os.path.exists(output_folder_name):
     os.mkdir(output_folder_name)
@@ -188,16 +200,17 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-test_dataset = KeypointsDataset(os.path.join(get_dataset_dir(expt_type), 'test'), 
+test_dataset = KeypointsDataset(os.path.join(config.dataset_dir, 'test'), 
                                     config.img_height, 
                                     config.img_width, 
                                     transform,
                                     gauss_sigma=config.gauss_sigma, 
-                                    augment=False, 
-                                    expt_type=config.expt_type, 
+                                    augment=True, 
                                     condition_len=config.condition_len, 
                                     crop_width=config.crop_width,
-                                    spacing=config.cond_point_dist_px)
+                                    spacing=config.cond_point_dist_px,
+                                    expt_type=config.expt_type,
+                                    pred_len=config.pred_len,)
 
 if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
     image_folder = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset/test'
@@ -219,7 +232,7 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
                 break
 
         # print("HERE HERE HERE")
-        starting_points = test_dataset._get_evenly_spaced_points(pixels, config.condition_len, start_idx, config.cond_point_dist_px, backward=False)
+        starting_points = test_dataset._get_evenly_spaced_points(pixels, config.condition_len, start_idx, config.cond_point_dist_px, img.shape, backward=False)
         if len(starting_points) < config.condition_len:
             continue
         spline = trace(img, None, None, exact_path_len=100, start_points=starting_points, model=keypoints_models[0])
@@ -240,18 +253,16 @@ else:
         if (len(img_t.shape) < 4):
             img_t = img_t.unsqueeze(0)
 
-        # display image and user will click on two points
         plt.clf()
         plt.imshow(img_t[0].squeeze().detach().cpu().numpy().transpose(1,2,0))
+        plt.savefig(f'{output_folder_name}/input_img_{i}.png'.format(i=i))
+
         # plot one heatmap for each model with matplotlib
         plt.figure()
 
-        img_masked = img_t.detach().cpu().numpy()[0, 2:3, ...] > 100/255
-
-        input_img_np = img_t.detach().cpu().numpy()[0, 0:3, ...]
+        # input_img_np = img_t.detach().cpu().numpy()[0, 0:3, ...]
         # plt.clf()
         # plt.imshow(input_img_np.transpose(1,2,0))
-
         # plt.savefig(f'{output_folder_name}/input_img_{i}.png')
 
         heatmaps = []
@@ -271,7 +282,7 @@ else:
             output_image = f[0][0:3, ...].detach().cpu().numpy().transpose(1,2,0)
             output_image[:, :, 2] = output_heatmap
             output_image = output_image.copy()
-            output_image = (output_image * 255.0).astype(np.uint8)
+            # output_image = (output_image * 255.0).astype(np.uint8)
             overlay = output_image # cv2.circle(output_image, (argmax_yx[1], argmax_yx[0]), 2, (255, 255, 255), -1)
             plt.imshow(overlay)
             save_path = os.path.join(failure_folder_name, f'output_img_{i}.png')

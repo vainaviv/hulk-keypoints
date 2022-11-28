@@ -14,7 +14,7 @@ from scipy import interpolate
 import matplotlib.pyplot as plt
 import sys
 sys.path.insert(0, '../')
-from config import ExperimentTypes, BaseTraceExperimentConfig, CAP800
+from config import ExperimentTypes, BaseTraceExperimentConfig, CAP800, TRCR140_CL4_25_PL1
 
 # No domain randomization
 transform = transforms.Compose([transforms.ToTensor()])
@@ -39,7 +39,7 @@ def gauss_2d_batch(width, height, sigma, U, V, normalize_dist=False, single=Fals
         return (G/G.max()).double() * 2
     return G.double()
 
-def gauss_2d_batch_efficient_np(width, height, sigma, U, V, weights):
+def gauss_2d_batch_efficient_np(width, height, sigma, U, V, weights, normalize=False):
     crop_size = 3 * sigma
     ret = np.zeros((height + 2*crop_size, width + 2*crop_size + 1))
     X,Y = np.meshgrid(np.arange(-crop_size, crop_size+1), np.arange(-crop_size, crop_size+1))
@@ -51,6 +51,8 @@ def gauss_2d_batch_efficient_np(width, height, sigma, U, V, weights):
         if ret[y-crop_size:y+crop_size+1, x-crop_size:x+crop_size+1].shape == gaussian.shape:
            ret[y-crop_size:y+crop_size+1, x-crop_size:x+crop_size+1] = np.max((cur_weight * gaussian, ret[y-crop_size:y+crop_size+1, x-crop_size:x+crop_size+1]), axis=0)
 
+    if normalize:
+        ret = ret / ret.max()
     return ret[crop_size:crop_size+height, crop_size:crop_size+width]
 
 def vis_gauss(img, gaussians, i):
@@ -61,7 +63,7 @@ def vis_gauss(img, gaussians, i):
     output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
     if not os.path.exists('./dataset_py_test'):
         os.mkdir('./dataset_py_test')
-    cv2.imwrite(f'./dataset_py_test/test-gaussians_{i:05d}.png', output)
+    # cv2.imwrite(f'./dataset_py_test/test-gaussians_{i:05d}.png', output)
     img[:, :, 2] = gaussians[:, :, 0] * 255
     cv2.imwrite(f'./dataset_py_test/test-img_{i:05d}.png', img[...,::-1])
 
@@ -151,9 +153,9 @@ class KeypointsDataset(Dataset):
         img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len,1], points[:-self.pred_len,0]) * cable_mask
         return transform(img.copy()).cuda(), points, cable_mask
     
-    def get_crop_and_cond_pixels(self, img, condition_pixels):
+    def get_crop_and_cond_pixels(self, img, condition_pixels, center_around_last=False):
         # print("condpx input", condition_pixels)
-        center_of_crop = condition_pixels[-self.pred_len-1]
+        center_of_crop = condition_pixels[-self.pred_len*(1 - int(center_around_last))-1]
         # print(center_of_crop)
         # pad image by self.crop_width
         img = np.pad(img, ((self.crop_width, self.crop_width), (self.crop_width, self.crop_width), (0, 0)), 'constant')
@@ -170,7 +172,7 @@ class KeypointsDataset(Dataset):
         condition_pixels = [[pixel[0] - top_left[0] + self.crop_width, pixel[1] - top_left[1] + self.crop_width] for pixel in condition_pixels]
         # print("condpx after", condition_pixels)
 
-        return img, np.array(condition_pixels)[:, ::-1]
+        return img, np.array(condition_pixels)[:, ::-1], top_left
 
     def draw_spline(self, crop, x, y, label=False):
         if len(x) < 2:
@@ -197,7 +199,7 @@ class KeypointsDataset(Dataset):
         spline[xnew, ynew] = weights
         spline = np.expand_dims(spline, axis=2)
         spline = np.tile(spline, 3)
-        spline_dilated = cv2.dilate(spline, np.ones((5, 5), np.uint8), iterations=1)
+        spline_dilated = cv2.dilate(spline, np.ones((2, 2), np.uint8), iterations=1)
         return spline_dilated[:, :, 0]
 
     def __getitem__(self, data_index):
@@ -217,7 +219,7 @@ class KeypointsDataset(Dataset):
                     break
             # get crop and crop-relative condition pixels
             # print('condition pixels', condition_pixels)
-            img, cond_pix_array = self.get_crop_and_cond_pixels(img, condition_pixels)
+            img, cond_pix_array, _ = self.get_crop_and_cond_pixels(img, condition_pixels)
 
             # plt.imshow(img)
             # # print(cond_pix_array)
@@ -298,12 +300,12 @@ class KeypointsDataset(Dataset):
             combined, points, cable_mask = self.get_trp_model_input(img, cond_pix_array, self.img_transform)
 
             if self.pred_len == 1:
-                label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
+                label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights, normalize=True))
             else:
                 try:
                     label = torch.as_tensor(self.draw_spline(img, points[-self.pred_len:,1], points[-self.pred_len:,0], label=True)) 
                 except:
-                    label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights))
+                    label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights, normalize=True))
             label = label * cable_mask
             label = label.unsqueeze_(0).cuda()
 
@@ -375,7 +377,7 @@ if __name__ == '__main__':
 
 
     # TRACE PREDICTION
-    test_config = BaseTraceExperimentConfig(img_height=161, img_width=161)
+    test_config = TRCR140_CL4_25_PL1()
     test_dataset2 = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset/test',
                                     test_config.img_height,
                                     test_config.img_width,

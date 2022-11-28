@@ -228,10 +228,10 @@ class ResNet(nn.Module):
         
         if not self.remove_avg_pool_layer:
             x = self.avgpool(x)
-        
+
         if not self.fully_conv:
             x = x.view(x.size(0), -1)
-        
+
         x = self.fc(x)
 
         return x
