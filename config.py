@@ -9,6 +9,16 @@ ALLOWED_EXPT_TYPES = [ExperimentTypes.CLASSIFY_OVER_UNDER,
                       ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION,
                       ExperimentTypes.TRACE_PREDICTION]
 
+PARAMS_CONDITION_ON_POINTS = {'COND_POINT_DIST_PX': 25,
+                                'CONDITION_LEN':  4,
+                                'CROP_WIDTH': 100,
+                                'PRED_LEN': 1}
+
+PARAMS_CONDITION_ON_SWEEP = {'COND_POINT_DIST_PX': 8,
+                                'CONDITION_LEN':  6,
+                                'CROP_WIDTH': 50,
+                                'PRED_LEN': 1}
+
 NUM_KEYPOINTS = 1
 IMG_HEIGHT  = lambda expt_type: 200 if is_crop_task(expt_type) else 100 
 IMG_WIDTH   = lambda expt_type: 200 if is_crop_task(expt_type) else 100
@@ -18,7 +28,7 @@ batch_size = 4
 COND_POINT_DIST_PX = 8
 CONDITION_LEN = 6
 CROP_WIDTH = 50
-PRED_LEN = 3
+PRED_LEN = 1
 
 def get_dataset_dir(expt_type):
     if expt_type == ExperimentTypes.TRACE_PREDICTION:

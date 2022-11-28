@@ -16,7 +16,7 @@ from imgaug.augmentables import KeypointsOnImage
 from scipy import interpolate
 import matplotlib.pyplot as plt
 import sys
-sys.path.insert(0, '/home/kaushiks/hulk-keypoints/')
+sys.path.insert(0, '/home/vainavi/hulk-keypoints/')
 from config import *
 
 # No domain randomization
@@ -28,6 +28,8 @@ sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 img_transform = iaa.Sequential([
     iaa.flip.Fliplr(0.5),
     iaa.flip.Flipud(0.5),
+    iaa.AdditiveGaussianNoise(scale=(0.02, 0.03)),
+    iaa.GaussianBlur(sigma=(0.0, 0.6))
     # iaa.Resize({"height": 200, "width": 200}),
     # sometimes(iaa.Affine(
     #     scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
@@ -86,10 +88,15 @@ def vis_gauss(img, gaussians, i):
     gaussians = np.concatenate((gaussians, np.zeros_like(gaussians[:, :, :1]), np.zeros_like(gaussians[:, :, :1])), axis=2)
     h1 = gaussians
     output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
+    crop = np.expand_dims(img[:, :, -1], axis=-1)
+    crop_og = np.tile(crop, 3)
     if not os.path.exists('./dataset_py_test'):
         os.mkdir('./dataset_py_test')
+    plt.imshow(output)
+    plt.show()
     cv2.imwrite(f'./dataset_py_test/test-gaussians_{i:05d}.png', output)
     cv2.imwrite(f'./dataset_py_test/test-img_{i:05d}.png', img[...,::-1])
+    cv2.imwrite(f'./dataset_py_test/test-crop_{i:05d}.png', crop_og)
 
 def bimodal_gauss(G1, G2, normalize=False):
     bimodal = torch.max(G1, G2)
@@ -109,7 +116,7 @@ def get_gauss(w, h, sigma, U, V):
 
 class KeypointsDataset(Dataset):
     def __init__(self, folder, img_height, img_width, transform, gauss_sigma=8, augment=True, crop=True, condition_len=4, crop_width=100, 
-                 pred_len=1, spacing=15, expt_type=ExperimentTypes.CLASSIFY_OVER_UNDER):
+                 pred_len=1, spacing=15, sweep=True, seed=1, expt_type=ExperimentTypes.CLASSIFY_OVER_UNDER):
         self.img_height = img_height
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
@@ -121,6 +128,8 @@ class KeypointsDataset(Dataset):
         self.crop_span = self.crop_width*2 + 1
         self.pred_len = pred_len
         self.spacing = spacing
+        self.sweep = sweep
+        self.seed = seed
 
         self.data = []
         self.expt_type = expt_type
@@ -175,7 +184,7 @@ class KeypointsDataset(Dataset):
         spline[xnew, ynew] = weights
         spline = np.expand_dims(spline, axis=2)
         spline = np.tile(spline, 3)
-        spline_dilated = cv2.dilate(spline, np.ones((5,5), np.uint8), iterations=1)
+        spline_dilated = cv2.dilate(spline, np.ones((4,4), np.uint8), iterations=1)
         return spline_dilated[:, :, 0]
 
     def __getitem__(self, data_index):
@@ -185,6 +194,14 @@ class KeypointsDataset(Dataset):
         # Lines 186-203 load the image and labels. you may need to add something to make this possible for your dataset.
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             img = loaded_data['img'][:, :, :3]
+            cable_mask = np.ones(img.shape[:2])
+            cable_mask[img[:, :, 1] <= 0.3] = 0.0
+            col, row = np.where(cable_mask > 0.0)
+            darken = np.random.choice(np.arange(0, len(col), dtype=int), size=len(col)//5, replace=False)
+            # points_to_darken = img[col[darken], row[darken]]
+            noise = np.expand_dims(np.random.normal(0.05, 0.05, len(darken)), axis=-1)
+            noise = np.tile(noise, 3)
+            img[col[darken], row[darken]] -= noise
             pixels = loaded_data['pixels']
             crop = np.zeros(1)
             while not np.array_equal(crop.shape, np.array([self.crop_span, self.crop_span, 3])):
@@ -217,7 +234,10 @@ class KeypointsDataset(Dataset):
             cable_mask = np.ones(img.shape[:2])
             cable_mask[img[:, :, 1] < 0.1] = 0
         
-            img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len,1], points[:-self.pred_len,0]) * cable_mask
+            if self.sweep:
+                img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len,1], points[:-self.pred_len,0]) * cable_mask
+            else:
+                img[:, :, 0] = gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, points[:-self.pred_len,0], points[:-self.pred_len,1], weights=self.weights)
             combined = transform(img.copy()).cuda()
 
             if PRED_LEN == 1:
@@ -280,17 +300,18 @@ class KeypointsDataset(Dataset):
 if __name__ == '__main__':
     # TODO Jainil: run dataset.py to test if your dataloader works. If it works, then you can move onto training
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    test_dataset = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_crossings_dataset/test',
-                                    IMG_HEIGHT('oep'), 
-                                    IMG_WIDTH('oep'), 
+    # /home/kaushiks/hulk-keypoints/processed_sim_data/under_over_crossings_dataset/test
+    test_dataset = KeypointsDataset('./annotations_medium',
+                                    IMG_HEIGHT('trp'), 
+                                    IMG_WIDTH('trp'), 
                                     transform, 
                                     gauss_sigma=GAUSS_SIGMA, 
                                     augment=True, 
                                     condition_len=6, 
                                     crop_width=50, 
                                     spacing=8, 
-                                    expt_type=ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION, 
-                                    pred_len=3)
+                                    expt_type=ExperimentTypes.TRACE_PREDICTION, 
+                                    pred_len=1)
     test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
     for i_batch, sample_batched in enumerate(test_data):
         print(i_batch)

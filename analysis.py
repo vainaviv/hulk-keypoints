@@ -83,73 +83,84 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-test_dataset = KeypointsDataset(os.path.join(get_dataset_dir(expt_type), 'test'), 
-                                IMG_HEIGHT, 
-                                IMG_WIDTH, 
-                                transform,
-                                gauss_sigma=GAUSS_SIGMA, 
-                                augment=False, 
-                                expt_type=expt_type, 
-                                condition_len=CONDITION_LEN, 
-                                crop_width=CROP_WIDTH, 
-                                spacing=COND_POINT_DIST_PX)
+accs = []
+for seed in range(5):
+    output_folder_name = f'preds/preds_{expt_name}/{seed}'
+    if not os.path.exists(output_folder_name):
+        os.mkdir(output_folder_name)
+    test_dataset = KeypointsDataset(os.path.join(get_dataset_dir(expt_type), 'test'), 
+                                    IMG_HEIGHT, 
+                                    IMG_WIDTH, 
+                                    transform,
+                                    gauss_sigma=GAUSS_SIGMA, 
+                                    augment=False, 
+                                    expt_type=expt_type, 
+                                    condition_len=CONDITION_LEN, 
+                                    crop_width=CROP_WIDTH, 
+                                    spacing=COND_POINT_DIST_PX,
+                                    sweep=True,
+                                    seed=seed)
 
-preds = []
-gts = []
-hits = 0
-total = 0
-for i, f in enumerate(test_dataset):
-    print(i)
-    img_t = f[0]
-    if (len(img_t.shape) < 4):
-        img_t = img_t.unsqueeze(0)
+    preds = []
+    gts = []
+    hits = 0
+    total = 0
+    for i, f in enumerate(test_dataset):
+        print(i)
+        img_t = f[0]
+        if (len(img_t.shape) < 4):
+            img_t = img_t.unsqueeze(0)
 
-    # display image and user will click on two points
-    plt.clf()
-    plt.imshow(img_t[0].squeeze().detach().cpu().numpy().transpose(1,2,0))
-    # plot one heatmap for each model with matplotlib
-    plt.figure()
+        # display image and user will click on two points
+        plt.clf()
+        plt.imshow(img_t[0].squeeze().detach().cpu().numpy().transpose(1,2,0))
+        # plot one heatmap for each model with matplotlib
+        plt.figure()
 
-    img_masked = img_t.detach().cpu().numpy()[0, 2:3, ...] > 100/255
+        img_masked = img_t.detach().cpu().numpy()[0, 2:3, ...] > 100/255
 
-    input_img_np = img_t.detach().cpu().numpy()[0, 0:3, ...]
-    # plt.clf()
-    # plt.imshow(input_img_np.transpose(1,2,0))
+        input_img_np = img_t.detach().cpu().numpy()[0, 0:3, ...]
+        # plt.clf()
+        # plt.imshow(input_img_np.transpose(1,2,0))
 
-    # plt.savefig(f'{output_folder_name}/input_img_{i}.png')
+        # plt.savefig(f'{output_folder_name}/input_img_{i}.png')
 
-    heatmaps = []
-    # create len(predictions) subplots
-    for j, prediction in enumerate(predictions):
-        output = prediction.predict(img_t[0])
+        heatmaps = []
+        # create len(predictions) subplots
+        for j, prediction in enumerate(predictions):
+            output = prediction.predict(img_t[0])
+
+        if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
+            preds.append(output.detach().cpu().numpy().item())
+            gts.append(f[1].detach().cpu().numpy().item())
+            plt.title(f'Pred: {preds[-1]}, GT: {gts[-1]}')
+        elif is_point_pred(expt_type):
+            argmax_yx = np.unravel_index(np.argmax(output.detach().cpu().numpy()[0, 0, ...]), output.detach().cpu().numpy()[0, 0, ...].shape)
+            output_yx = np.unravel_index(np.argmax(f[1][0].detach().cpu().numpy()), f[1][0].detach().cpu().numpy().shape)
+            # print(argmax_yx, output_yx)
+            if np.linalg.norm((np.array(argmax_yx) - np.array(output_yx)), 2) < 15:
+                hits += 1
+            output_heatmap = output.detach().cpu().numpy()[0, 0, ...]
+            output_image = f[0][0:3, ...].detach().cpu().numpy().transpose(1,2,0)
+            output_image[:, :, 2] = output_heatmap
+            output_image = output_image.copy()
+            output_image = (output_image * 255.0).astype(np.uint8)
+            overlay = output_image # cv2.circle(output_image, (argmax_yx[1], argmax_yx[0]), 2, (255, 255, 255), -1)
+            plt.imshow(overlay)
+            plt.savefig(f'{output_folder_name}/output_img_{i}.png')
+
+        # check if the gt at argmax is 1
+        total += 1
 
     if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
-        preds.append(output.detach().cpu().numpy().item())
-        gts.append(f[1].detach().cpu().numpy().item())
-        plt.title(f'Pred: {preds[-1]}, GT: {gts[-1]}')
+        # calculate auc score
+        import sklearn.metrics as metrics
+        fpr, tpr, thresholds = metrics.roc_curve(gts, preds, pos_label=1)
+        auc = metrics.auc(fpr, tpr)
+        print("Classification AUC:", auc)
     elif is_point_pred(expt_type):
-        argmax_yx = np.unravel_index(np.argmax(output.detach().cpu().numpy()[0, 0, ...]), output.detach().cpu().numpy()[0, 0, ...].shape)
-        output_yx = np.unravel_index(np.argmax(f[1][0].detach().cpu().numpy()), f[1][0].detach().cpu().numpy().shape)
-        # print(argmax_yx, output_yx)
-        if np.linalg.norm((np.array(argmax_yx) - np.array(output_yx)), 2) < 15:
-            hits += 1
-        output_heatmap = output.detach().cpu().numpy()[0, 0, ...]
-        output_image = f[0][0:3, ...].detach().cpu().numpy().transpose(1,2,0)
-        output_image[:, :, 2] = output_heatmap
-        output_image = output_image.copy()
-        output_image = (output_image * 255.0).astype(np.uint8)
-        overlay = output_image # cv2.circle(output_image, (argmax_yx[1], argmax_yx[0]), 2, (255, 255, 255), -1)
-        plt.imshow(overlay)
-        plt.savefig(f'{output_folder_name}/output_img_{i}.png')
+        print("Mean within threshold accuracy:", hits/total)
+        accs.append(hits / total)
 
-    # check if the gt at argmax is 1
-    total += 1
-
-if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
-    # calculate auc score
-    import sklearn.metrics as metrics
-    fpr, tpr, thresholds = metrics.roc_curve(gts, preds, pos_label=1)
-    auc = metrics.auc(fpr, tpr)
-    print("Classification AUC:", auc)
-elif is_point_pred(expt_type):
-    print("Mean within threshold accuracy:", hits/total)
+print("All accuracies: ", accs)
+print("Mean accuracy: ", np.mean(accs))
