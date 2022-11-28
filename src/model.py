@@ -4,17 +4,21 @@ import torch.nn as nn
 import torch.nn.functional as F
 import time
 import sys
-sys.path.insert(0, '/home/vainavi/hulk-keypoints/src')
+import os
+sys.path.insert(0, 'src')
 from resnet_dilated import Resnet34_8s, Resnet50_8s, Resnet34_Classifier
 
 class KeypointsGauss(nn.Module):
-	def __init__(self, num_keypoints, img_height=480, img_width=640, channels=3):
+	def __init__(self, num_keypoints, img_height=480, img_width=640, channels=3, resnet_type='34', pretrained=True):
 		super(KeypointsGauss, self).__init__()
 		self.num_keypoints = num_keypoints
 		self.num_outputs = self.num_keypoints
 		self.img_height = img_height
 		self.img_width = img_width
-		self.resnet = Resnet34_8s(channels=channels, pretrained=True) #Resnet50_8s(channels=channels, pretrained=True) #Resnet34_8s(channels=channels, pretrained=False)
+		if resnet_type == '34':
+			self.resnet = Resnet34_8s(channels=channels, pretrained=pretrained) #Resnet50_8s(channels=channels, pretrained=True) #Resnet34_8s(channels=channels, pretrained=False)
+		elif resnet_type == '50':
+			self.resnet = Resnet50_8s(channels=channels, pretrained=pretrained)
 		self.sigmoid = torch.nn.Sigmoid()
 	def forward(self, x):
 		output = self.resnet(x) 
