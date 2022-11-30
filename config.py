@@ -50,6 +50,7 @@ def load_config_class(path):
 @dataclass
 class BaseTraceExperimentConfig:
     expt_type: str = ExperimentTypes.TRACE_PREDICTION
+    dataset_dir: str = get_dataset_dir(ExperimentTypes.TRACE_PREDICTION)
     img_height: int = 100
     img_width: int = 100
     crop_width: int = 80
@@ -132,8 +133,37 @@ class CAP800(BaseTraceExperimentConfig):
     gauss_sigma: int = 4
     condition_len: int = 4
 
+@dataclass
+class TRCR140_CL4_25_PL1_RN34(BaseTraceExperimentConfig):
+    crop_width: int = 140
+    cond_point_dist_px: int = 25
+    condition_len: int = 4
+    pred_len: int = 1
+    resnet_type: str = '34'
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset'
+
+
+@dataclass
+class TRCR140_CL4_25_PL1_RN34_MED(BaseTraceExperimentConfig):
+    crop_width: int = 140
+    cond_point_dist_px: int = 25
+    condition_len: int = 4
+    pred_len: int = 1
+    resnet_type: str = '34'
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_2'
+
+@dataclass
+class TRCR80_CL4_25_PL1_RN34_MED(BaseTraceExperimentConfig):
+    crop_width: int = 80
+    cond_point_dist_px: int = 34
+    condition_len: int = 4
+    pred_len: int = 1
+    resnet_type: str = '34'
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_2'
+
+
 def get_class_name(cls):
     return cls.__name__
 
-ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120, CL5_20_PL1, CL3_10_PL2, CL10_10_PL2, CL3_10_PL1, CL10_10_PL1, CAP800, TRCR140_CL4_25_PL1]
+ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120, CL5_20_PL1, CL3_10_PL2, CL10_10_PL2, CL3_10_PL1, CL10_10_PL1, CAP800, TRCR140_CL4_25_PL1, TRCR140_CL4_25_PL1_RN34, TRCR140_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED]
 ALL_EXPERIMENTS_CONFIG = {get_class_name(expt): expt for expt in ALL_EXPERIMENTS_LIST}

@@ -14,7 +14,7 @@ from scipy import interpolate
 import matplotlib.pyplot as plt
 import sys
 sys.path.insert(0, '../')
-from config import ExperimentTypes, BaseTraceExperimentConfig, CAP800, TRCR140_CL4_25_PL1
+from config import ExperimentTypes, BaseTraceExperimentConfig, CAP800, TRCR80_CL4_25_PL1_RN34_MED
 
 # No domain randomization
 transform = transforms.Compose([transforms.ToTensor()])
@@ -160,7 +160,7 @@ class KeypointsDataset(Dataset):
         if not is_in_bounds(last_point):
             return np.array([])
         rand_spacing = spacing * np.random.uniform(0.8, 1.2)
-        while len(points) < num_points and start_idx > 0 and start_idx < len(pixels):            
+        while len(points) < num_points and start_idx >= 0 and start_idx < len(pixels):
             start_idx -= (int(backward) * 2 - 1)
             if np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point) > rand_spacing:
                 last_point = np.array(pixels[start_idx]).squeeze()
@@ -172,7 +172,7 @@ class KeypointsDataset(Dataset):
         # print("ret", np.array(points)[..., ::-1])
         return np.array(points)[..., ::-1]
     
-    def get_trp_model_input(self, crop, crop_points, aug_transform):
+    def get_trp_model_input(self, crop, crop_points, aug_transform, center_around_last=False):
         kpts = KeypointsOnImage.from_xy_array(crop_points, shape=crop.shape)
         img, kpts = aug_transform(image=crop, keypoints=kpts)
         points = []
@@ -180,10 +180,21 @@ class KeypointsDataset(Dataset):
             points.append([k.x,k.y])
         points = np.array(points)
 
+        # points_in_image = []
+        # for i, point in enumerate(points):
+        #     px, py = int(point[0]), int(point[1])
+        #     if px not in range(img.shape[1]) or py not in range(img.shape[0]):
+        #         continue
+        #     points_in_image.append(point)
+        # points = np.array(points_in_image)
+
         cable_mask = np.ones(img.shape[:2])
         cable_mask[img[:, :, 1] < 0.1] = 0
 
-        img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len,1], points[:-self.pred_len,0]) * cable_mask
+        if center_around_last:
+            img[:, :, 0] = self.draw_spline(img, points[:,1], points[:,0]) * cable_mask
+        else:
+            img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len,1], points[:-self.pred_len,0]) * cable_mask
         return transform(img.copy()).cuda(), points, cable_mask
     
     def get_crop_and_cond_pixels(self, img, condition_pixels, center_around_last=False):
@@ -423,19 +434,19 @@ if __name__ == '__main__':
 
 
     # TRACE PREDICTION
-    test_config = TRCR140_CL4_25_PL1()
-    test_dataset2 = KeypointsDataset('/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_2/test',
+    test_config = TRCR50_CL4_25_PL1_RN34_MED()
+    test_dataset2 = KeypointsDataset(os.path.join(test_config.dataset_dir, 'test'),
                                     test_config.img_height,
                                     test_config.img_width,
                                     transform,
                                     gauss_sigma=test_config.gauss_sigma, 
                                     augment=True, 
-                                    condition_len=6, 
-                                    crop_width=50, 
-                                    spacing=8, 
+                                    condition_len=test_config.condition_len,
+                                    crop_width=test_config.crop_width, 
+                                    spacing=test_config.cond_point_dist_px,
                                     expt_type=ExperimentTypes.TRACE_PREDICTION, 
                                     pred_len=1)
-    test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
+    test_data = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
     for i_batch, sample_batched in enumerate(test_data):
         print(i_batch)
         img, gauss = sample_batched

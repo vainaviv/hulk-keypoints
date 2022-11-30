@@ -8,13 +8,13 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import numpy as np
-from config import ALL_EXPERIMENTS_CONFIG, get_dataset_dir, is_point_pred, save_config_params
+from config import ALL_EXPERIMENTS_CONFIG, is_point_pred, save_config_params
 from src.model import KeypointsGauss, ClassificationModel
 from src.dataset import KeypointsDataset, transform
 import matplotlib.pyplot as plt
 import argparse
 
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 # parse command line flags
 parser = argparse.ArgumentParser()
@@ -92,7 +92,7 @@ if not os.path.exists(output_dir):
 if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 
-train_dataset = KeypointsDataset(['%s/train'%get_dataset_dir(config.expt_type)],
+train_dataset = KeypointsDataset(['%s/train'%config.dataset_dir],
                                 config.img_height, 
                                 config.img_width, 
                                 transform, 
@@ -105,7 +105,7 @@ train_dataset = KeypointsDataset(['%s/train'%get_dataset_dir(config.expt_type)],
                                 spacing=config.cond_point_dist_px)
 train_data = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, num_workers=workers)
 
-test_dataset = KeypointsDataset('%s/test'%get_dataset_dir(config.expt_type),
+test_dataset = KeypointsDataset('%s/test'%config.dataset_dir,
                            config.img_height, config.img_width, transform, gauss_sigma=config.gauss_sigma, augment=False, expt_type=config.expt_type, condition_len=config.condition_len, crop_width=config.crop_width, spacing=config.cond_point_dist_px)
 test_data = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=True, num_workers=workers)
 
