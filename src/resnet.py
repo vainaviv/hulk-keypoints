@@ -21,7 +21,7 @@ def conv3x3(in_planes, out_planes, stride=1, dilation=1):
     "3x3 convolution with padding"
     
     kernel_size = np.asarray((3, 3))
-    
+
     # Compute the size of the upsampled filter with
     # a specified dilation rate.
     upsampled_kernel_size = (kernel_size - 1) * (dilation - 1) + kernel_size

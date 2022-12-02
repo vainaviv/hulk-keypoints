@@ -25,8 +25,6 @@ sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 img_transform = iaa.Sequential([
     iaa.flip.Fliplr(0.5),
     iaa.flip.Flipud(0.5),
-    iaa.AdditiveGaussianNoise(scale=(0.02, 0.03)),
-    iaa.GaussianBlur(sigma=(0.0, 0.6))
     # iaa.Resize({"height": 200, "width": 200}),
     # sometimes(iaa.Affine(
     #     scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
@@ -123,6 +121,7 @@ class KeypointsDataset(Dataset):
         self.transform = transform
 
         transform_list = augmentation_list if augment else no_augmentation_list
+        transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.02, 0.03)), iaa.GaussianBlur(sigma=(0.0, 0.6))])
         transform_list.append(iaa.Resize({"height": img_height, "width": img_width}))
         self.img_transform = iaa.Sequential(transform_list, random_order=False)
         self.augment = augment
@@ -160,7 +159,7 @@ class KeypointsDataset(Dataset):
         if not is_in_bounds(last_point):
             return np.array([])
         rand_spacing = spacing * np.random.uniform(0.8, 1.2)
-        while len(points) < num_points and start_idx >= 0 and start_idx < len(pixels):
+        while len(points) < num_points and start_idx > 0 and start_idx < len(pixels):
             start_idx -= (int(backward) * 2 - 1)
             if np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point) > rand_spacing:
                 last_point = np.array(pixels[start_idx]).squeeze()
@@ -180,16 +179,16 @@ class KeypointsDataset(Dataset):
             points.append([k.x,k.y])
         points = np.array(points)
 
-        # points_in_image = []
-        # for i, point in enumerate(points):
-        #     px, py = int(point[0]), int(point[1])
-        #     if px not in range(img.shape[1]) or py not in range(img.shape[0]):
-        #         continue
-        #     points_in_image.append(point)
-        # points = np.array(points_in_image)
+        points_in_image = []
+        for i, point in enumerate(points):
+            px, py = int(point[0]), int(point[1])
+            if px not in range(img.shape[1]) or py not in range(img.shape[0]):
+                continue
+            points_in_image.append(point)
+        points = np.array(points_in_image)
 
         cable_mask = np.ones(img.shape[:2])
-        cable_mask[img[:, :, 1] < 0.1] = 0
+        cable_mask[img[:, :, 1] < 0.4] = 0
 
         if center_around_last:
             img[:, :, 0] = self.draw_spline(img, points[:,1], points[:,0]) * cable_mask
@@ -328,7 +327,7 @@ class KeypointsDataset(Dataset):
 
             # getting cable mask (cable_mask)
             cable_mask = np.ones(img.shape[:2])
-            cable_mask[img[:, :, 1] < 0.1] = 0
+            cable_mask[img[:, :, 1] < 0.35] = 0
 
             # print(final_kpts[:, 0], final_kpts[:, 1])
         

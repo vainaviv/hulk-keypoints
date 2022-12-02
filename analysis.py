@@ -19,14 +19,14 @@ from config import load_config_class, is_point_pred, get_dataset_dir, Experiment
 
 def visualize_heatmap_on_image(img, heatmap):
     argmax = list(np.unravel_index(np.argmax(heatmap), heatmap.shape))[::-1]
-    heatmap = cv2.resize(heatmap, (img.shape[1], img.shape[0]))
+    # heatmap = cv2.resize(heatmap, (img.shape[1], img.shape[0]))
     heatmap = cv2.applyColorMap(np.uint8(255*heatmap), cv2.COLORMAP_JET)
     heatmap = np.float32(heatmap) / 255
     cam = heatmap + np.float32(img)
     cam = cam / np.max(cam)
 
     # plot argmax location as white dot
-    cv2.circle(cam, argmax, 5, (1,1,1), -1)
+    cv2.circle(cam, argmax, 1, (1,1,1), -1)
 
     return cam
 
@@ -95,15 +95,16 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
         ymin, xmin = np.array(top_left) - test_dataset.crop_width
         model_input, _, cable_mask = test_dataset.get_trp_model_input(crop, cond_pixels_in_crop, iaa.Resize({"height": config.img_height, "width": config.img_width}), center_around_last=True)
 
-        crop_eroded = cv2.erode((cable_mask).astype(np.uint8), np.ones((3, 3)), iterations=1)
+        crop_eroded = cv2.erode((cable_mask).astype(np.uint8), np.ones((2, 2)), iterations=1)
         # print("Model input prep time: ", time.time() - tm)
 
-        if False and viz:
-            plt.imshow(model_input.cpu().numpy().transpose(1, 2, 0))
-            plt.show()
+        # if viz:
+        #     plt.imshow(crop_eroded)
+        #     plt.show()
 
         model_output = model(model_input.unsqueeze(0)).detach().cpu().numpy().squeeze()
         model_output *= crop_eroded.squeeze()
+        model_output = cv2.resize(model_output, (crop.shape[1], crop.shape[0]))
 
         # mask model output by disc of radius COND_POINT_DIST_PX around the last condition pixel
         tolerance = 2
@@ -116,14 +117,14 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
 
         # model_output *= disc
 
-        if False and viz:
-            plt.imshow(model_output.squeeze())
-            plt.show()
+        # if viz:
+        #     plt.imshow(disc.squeeze())
+        #     plt.show()
 
         # print(model_output.shape, np.unravel_index(model_output.argmax(), model_output.shape))
         # print(crop.shape, np.unravel_index(model_output.argmax(), model_output.shape), np.array([crop.shape[0] / config.img_height, crop.shape[1] / config.img_width]))
         # print(ymin, xmin)
-        argmax_yx = np.unravel_index(model_output.argmax(), model_output.shape) * np.array([crop.shape[0] / config.img_height, crop.shape[1] / config.img_width])
+        argmax_yx = np.unravel_index(model_output.argmax(), model_output.shape)# * np.array([crop.shape[0] / config.img_height, crop.shape[1] / config.img_width])
         global_yx = np.array([argmax_yx[0] + ymin, argmax_yx[1] + xmin]).astype(int)
 
         path.append(global_yx)
@@ -146,7 +147,7 @@ def trace(image, start_point_1, start_point_2, stop_when_crossing=False, resume_
             disp_img = cv2.line(disp_img, (path[-2][1], path[-2][0]), (global_yx[1], global_yx[0]), (0, 0, 255), 2)
         plt.imsave(f'preds/disp_img_{i}.png', disp_img)
         cv2.imshow("disp_img", disp_img)
-        cv2.waitKey(5000)
+        cv2.waitKey(2000)
 
 expt_name = os.path.normpath(checkpoint_path).split(os.sep)[-1]
 output_folder_name = f'preds/preds_{expt_name}'
