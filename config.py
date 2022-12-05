@@ -128,8 +128,8 @@ class CL10_10_PL1(BaseTraceExperimentConfig):
 @dataclass
 class CAP800(BaseTraceExperimentConfig):
     expt_type: str = ExperimentTypes.CAGE_PREDICTION
-    img_height: int = 800
-    img_width: int = 800
+    img_height: int = 600
+    img_width: int = 600
     gauss_sigma: int = 4
     condition_len: int = 4
 

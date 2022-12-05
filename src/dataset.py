@@ -89,8 +89,8 @@ def vis_gauss(img, gaussians, i):
     output = cv2.normalize(h1, None, 0, 255, cv2.NORM_MINMAX)
     crop = np.expand_dims(img[:, :, -1], axis=-1)
     crop_og = np.tile(crop, 3)
-    if not os.path.exists('./dataset_py_test'):
-        os.mkdir('./dataset_py_test')
+    if not os.path.exists('./dataset_py_train'):
+        os.mkdir('./dataset_py_train')
     # cv2.imwrite(f'./dataset_py_test/test-gaussians_{i:05d}.png', output)
     img[:, :, 2] = gaussians[:, :, 0] * 255
     cv2.imwrite(f'./dataset_py_test/test-img_{i:05d}.png', img[...,::-1])
@@ -302,7 +302,7 @@ class KeypointsDataset(Dataset):
 
             # beginning conditioning at 6th pixel (0-indexed) within img boundaries 
             start_idx = 5
-            condition_pixels = self._get_evenly_spaced_points(within_bounds_pixels, self.condition_len, start_idx, self.spacing, backward=False)            
+            condition_pixels = self._get_evenly_spaced_points(within_bounds_pixels, self.condition_len, start_idx, self.spacing, img.shape, backward=False)            
             
             condition_pixels_array = np.array(condition_pixels)
             # note: need to flip condition_pixels for augmentation
@@ -433,22 +433,44 @@ if __name__ == '__main__':
 
 
     # TRACE PREDICTION
-    test_config = TRCR50_CL4_25_PL1_RN34_MED()
-    test_dataset2 = KeypointsDataset(os.path.join(test_config.dataset_dir, 'test'),
-                                    test_config.img_height,
-                                    test_config.img_width,
-                                    transform,
-                                    gauss_sigma=test_config.gauss_sigma, 
-                                    augment=True, 
-                                    condition_len=test_config.condition_len,
-                                    crop_width=test_config.crop_width, 
-                                    spacing=test_config.cond_point_dist_px,
-                                    expt_type=ExperimentTypes.TRACE_PREDICTION, 
-                                    pred_len=1)
-    test_data = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
-    for i_batch, sample_batched in enumerate(test_data):
-        print(i_batch)
-        img, gauss = sample_batched
-        gauss = gauss.squeeze(0)
-        img = img.squeeze(0)
-        vis_gauss(img, gauss, i_batch)
+    # test_config = TRCR50_CL4_25_PL1_RN34_MED()
+    # test_dataset2 = KeypointsDataset(os.path.join(test_config.dataset_dir, 'test'),
+    #                                 test_config.img_height,
+    #                                 test_config.img_width,
+    #                                 transform,
+    #                                 gauss_sigma=test_config.gauss_sigma, 
+    #                                 augment=True, 
+    #                                 condition_len=test_config.condition_len,
+    #                                 crop_width=test_config.crop_width, 
+    #                                 spacing=test_config.cond_point_dist_px,
+    #                                 expt_type=ExperimentTypes.TRACE_PREDICTION, 
+    #                                 pred_len=1)
+    # test_data = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
+    # for i_batch, sample_batched in enumerate(test_data):
+    #     print(i_batch)
+    #     img, gauss = sample_batched
+    #     gauss = gauss.squeeze(0)
+    #     img = img.squeeze(0)
+    #     vis_gauss(img, gauss, i_batch)
+
+    
+    # CAGE PINCH PREDICTION
+    # test_config = CAP800()
+    # test_dataset3 = KeypointsDataset('/home/mkparu/rope-rendering/data_processing/post_processed_sim_data/crop_cage_pinch_dataset/train',
+    #                                 test_config.img_height,
+    #                                 test_config.img_width,
+    #                                 transform,
+    #                                 gauss_sigma=test_config.gauss_sigma, 
+    #                                 augment=True, 
+    #                                 condition_len=test_config.condition_len, 
+    #                                 crop_width=test_config.crop_width, 
+    #                                 spacing=test_config.cond_point_dist_px,
+    #                                 expt_type=test_config.expt_type, 
+    #                                 pred_len=test_config.pred_len)
+    # test_data3 = DataLoader(test_dataset3, batch_size=1, shuffle=True, num_workers=1)
+    # for i_batch, sample_batched in enumerate(test_data3):
+    #     print(i_batch)
+    #     img, gauss = sample_batched
+    #     gauss = gauss.squeeze(0)
+    #     img = img.squeeze(0)
+    #     vis_gauss(img, gauss, i_batch)
