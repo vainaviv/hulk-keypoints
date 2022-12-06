@@ -264,16 +264,21 @@ else:
             preds.append(output.detach().cpu().numpy().item())
             gts.append(f[1].detach().cpu().numpy().item())
             plt.title(f'Pred: {preds[-1]}, GT: {gts[-1]}')
+        
         elif is_point_pred(expt_type):
             argmax_yx = np.unravel_index(np.argmax(output.detach().cpu().numpy()[0, 0, ...]), output.detach().cpu().numpy()[0, 0, ...].shape)
             output_yx = np.unravel_index(np.argmax(f[1][0].detach().cpu().numpy()), f[1][0].detach().cpu().numpy().shape)
-
+            print("argmax_yx", argmax_yx)
             output_heatmap = output.detach().cpu().numpy()[0, 0, ...]
             output_image = f[0][0:3, ...].detach().cpu().numpy().transpose(1,2,0)
-            output_image[:, :, 2] = output_heatmap
+            # output_image[:, :, 2] = output_heatmap * 255
+            output_image[:, :, 2] = output_heatmap 
             output_image = output_image.copy()
             # output_image = (output_image * 255.0).astype(np.uint8)
-            overlay = output_image # cv2.circle(output_image, (argmax_yx[1], argmax_yx[0]), 2, (255, 255, 255), -1)
+            overlay = output_image
+            #adding white circle for argmax of cage point prediction because gaussian heatmap is too uncertain
+            if(expt_type == CAGE_PREDICTION):
+                cv2.circle(output_image, (argmax_yx[1], argmax_yx[0]), 2, (255, 255, 255), -1)
             plt.imshow(overlay)
 
             save_path = os.path.join(failure_folder_name, f'output_img_{i}.png')

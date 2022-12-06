@@ -10,22 +10,21 @@ class ExperimentTypes:
     TRACE_PREDICTION = 'trp'
     CAGE_PREDICTION = 'cap'
 
-# TODO Jainil: add Experiment type for cage pinch predictions
 ALLOWED_EXPT_TYPES = [ExperimentTypes.CLASSIFY_OVER_UNDER,
                       ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION,
                       ExperimentTypes.TRACE_PREDICTION,
                       ExperimentTypes.CAGE_PREDICTION]
 
-# TODO Jainil: add link to dataset
 def get_dataset_dir(expt_type):
     if expt_type == ExperimentTypes.TRACE_PREDICTION:
         return '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_complex'
+    if expt_type == ExperimentTypes.CAGE_PREDICTION:
+        return '/home/mkparu/rope-rendering/data_processing/post_processed_sim_data/crop_cage_pinch_dataset'
     return '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_crossings_dataset'
 
 def is_crop_task(expt_type):
     return expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION
 
-# TODO Jainil: add cage pinch as a point pred type
 def is_point_pred(expt_type):
     return expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION or expt_type == ExperimentTypes.TRACE_PREDICTION or expt_type == ExperimentTypes.CAGE_PREDICTION
 
@@ -126,12 +125,13 @@ class CL10_10_PL1(BaseTraceExperimentConfig):
 
 
 @dataclass
-class CAP800(BaseTraceExperimentConfig):
+class CAP600(BaseTraceExperimentConfig):
     expt_type: str = ExperimentTypes.CAGE_PREDICTION
     img_height: int = 600
     img_width: int = 600
     gauss_sigma: int = 4
     condition_len: int = 4
+    dataset_dir: str = '/home/mkparu/rope-rendering/data_processing/post_processed_sim_data/crop_cage_pinch_dataset'
 
 @dataclass
 class TRCR140_CL4_25_PL1_RN34(BaseTraceExperimentConfig):
@@ -183,5 +183,5 @@ class TRCR80_CL4_25_PL1_RN50_MED3(BaseTraceExperimentConfig):
 def get_class_name(cls):
     return cls.__name__
 
-ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120, CL5_20_PL1, CL3_10_PL2, CL10_10_PL2, CL3_10_PL1, CL10_10_PL1, CAP800, TRCR140_CL4_25_PL1, TRCR140_CL4_25_PL1_RN34, TRCR140_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED3, TRCR80_CL4_25_PL1_RN50_MED3]
+ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120, CL5_20_PL1, CL3_10_PL2, CL10_10_PL2, CL3_10_PL1, CL10_10_PL1, CAP600, TRCR140_CL4_25_PL1, TRCR140_CL4_25_PL1_RN34, TRCR140_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED3, TRCR80_CL4_25_PL1_RN50_MED3]
 ALL_EXPERIMENTS_CONFIG = {get_class_name(expt): expt for expt in ALL_EXPERIMENTS_LIST}

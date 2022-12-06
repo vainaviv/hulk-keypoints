@@ -14,7 +14,7 @@ from scipy import interpolate
 import matplotlib.pyplot as plt
 import sys
 sys.path.insert(0, '../')
-from config import ExperimentTypes, BaseTraceExperimentConfig, CAP800, TRCR80_CL4_25_PL1_RN34_MED
+from config import ExperimentTypes, BaseTraceExperimentConfig, CAP600, TRCR80_CL4_25_PL1_RN34_MED
 
 # No domain randomization
 transform = transforms.Compose([transforms.ToTensor()])
@@ -95,6 +95,13 @@ def vis_gauss(img, gaussians, i):
     img[:, :, 2] = gaussians[:, :, 0] * 255
     cv2.imwrite(f'./dataset_py_test/test-img_{i:05d}.png', img[...,::-1])
     cv2.imwrite(f'./dataset_py_test/test-crop_{i:05d}.png', crop_og)
+
+def vis_gauss_input_output(img, gaussians, i):
+    gaussians = gaussians.cpu().detach().numpy().transpose(1, 2, 0)
+    img = (img.cpu().detach().numpy().transpose(1, 2, 0) * 255)
+    gaussians = np.concatenate((gaussians, np.zeros_like(gaussians[:, :, :1]), np.zeros_like(gaussians[:, :, :1])), axis=2) * 255
+    cv2.imwrite(f'./dataset_py_test2/input_{i:05d}.png', img)
+    cv2.imwrite(f'./dataset_py_test2/label_{i:05d}.png', gaussians)
 
 def bimodal_gauss(G1, G2, normalize=False):
     bimodal = torch.max(G1, G2)
@@ -455,7 +462,7 @@ if __name__ == '__main__':
 
     
     # CAGE PINCH PREDICTION
-    # test_config = CAP800()
+    # test_config = CAP600()
     # test_dataset3 = KeypointsDataset('/home/mkparu/rope-rendering/data_processing/post_processed_sim_data/crop_cage_pinch_dataset/train',
     #                                 test_config.img_height,
     #                                 test_config.img_width,
@@ -473,4 +480,4 @@ if __name__ == '__main__':
     #     img, gauss = sample_batched
     #     gauss = gauss.squeeze(0)
     #     img = img.squeeze(0)
-    #     vis_gauss(img, gauss, i_batch)
+    #     vis_gauss_input_output(img, gauss, i_batch)
