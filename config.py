@@ -127,8 +127,8 @@ class CL10_10_PL1(BaseTraceExperimentConfig):
 @dataclass
 class CAP600(BaseTraceExperimentConfig):
     expt_type: str = ExperimentTypes.CAGE_PREDICTION
-    img_height: int = 600
-    img_width: int = 600
+    img_height: int = 200
+    img_width: int = 200
     gauss_sigma: int = 4
     condition_len: int = 4
     dataset_dir: str = '/home/mkparu/rope-rendering/data_processing/post_processed_sim_data/crop_cage_pinch_dataset'

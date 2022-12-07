@@ -310,7 +310,7 @@ class KeypointsDataset(Dataset):
             # beginning conditioning at 6th pixel (0-indexed) within img boundaries 
             start_idx = 5
             condition_pixels = self._get_evenly_spaced_points(within_bounds_pixels, self.condition_len, start_idx, self.spacing, img.shape, backward=False)            
-            
+            # print("after get evenly spaced points", time.time())
             condition_pixels_array = np.array(condition_pixels)
             # note: need to flip condition_pixels for augmentation
             condition_pixels_array = condition_pixels_array[:, ::-1]
@@ -343,7 +343,7 @@ class KeypointsDataset(Dataset):
             combined = transform(img.copy()).cuda()
 
             # generating the gauss / label out of the cage point
-            label = torch.as_tensor(gauss_2d_batch_efficient_np(img_dim_x, img_dim_y, self.gauss_sigma, final_kpts[-self.pred_len:, 0], final_kpts[-self.pred_len:, 1], weights=self.label_weights))
+            label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, final_kpts[-self.pred_len:, 0], final_kpts[-self.pred_len:, 1], weights=self.label_weights))
             label = label
             label = label.unsqueeze_(0).cuda()
         
@@ -372,7 +372,7 @@ class KeypointsDataset(Dataset):
             label = label * cable_mask
             label = label.unsqueeze_(0).cuda()
 
-        else:
+        elif self.expt_type != ExperimentTypes.CAGE_PREDICTION:
             # input processing
             condition_mask = np.zeros(img.shape)
             for condition_pixel in condition_pixels[:len(condition_pixels)//2]:
