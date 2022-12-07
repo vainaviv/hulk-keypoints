@@ -277,7 +277,7 @@ else:
             # output_image = (output_image * 255.0).astype(np.uint8)
             overlay = output_image
             #adding white circle for argmax of cage point prediction because gaussian heatmap is too uncertain
-            if(expt_type == CAGE_PREDICTION):
+            if(expt_type == ExperimentTypes.CAGE_PREDICTION):
                 cv2.circle(output_image, (argmax_yx[1], argmax_yx[0]), 2, (255, 255, 255), -1)
             plt.imshow(overlay)
 
