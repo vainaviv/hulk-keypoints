@@ -7,6 +7,7 @@ import sys
 import os
 sys.path.insert(0, 'src')
 from resnet_dilated import Resnet34_8s, Resnet50_8s, Resnet34_Classifier
+import segmentation_models_pytorch as smp
 
 class KeypointsGauss(nn.Module):
 	def __init__(self, num_keypoints, img_height=480, img_width=640, channels=3, resnet_type='34', pretrained=True):
@@ -19,6 +20,14 @@ class KeypointsGauss(nn.Module):
 			self.resnet = Resnet34_8s(channels=channels, pretrained=pretrained) #Resnet50_8s(channels=channels, pretrained=True) #Resnet34_8s(channels=channels, pretrained=False)
 		elif resnet_type == '50':
 			self.resnet = Resnet50_8s(channels=channels, pretrained=pretrained)
+		elif resnet_type == 'UNet18':
+			self.resnet = smp.Unet(encoder_name='resnet18', encoder_weights='imagenet' if pretrained else None, in_channels=3, classes=self.num_outputs)
+		elif resnet_type == 'UNet34':
+			self.resnet = smp.Unet(encoder_name='resnet34', encoder_weights='imagenet' if pretrained else None, in_channels=3, classes=self.num_outputs)
+		elif resnet_type == 'UNet50':
+			self.resnet = smp.Unet(encoder_name='resnet50', encoder_weights='imagenet' if pretrained else None, in_channels=3, classes=self.num_outputs)
+		elif resnet_type == 'UNet101':
+			self.resnet = smp.Unet(encoder_name='resnet101', encoder_weights='imagenet' if pretrained else None, in_channels=3, classes=self.num_outputs)
 		self.sigmoid = torch.nn.Sigmoid()
 	def forward(self, x):
 		output = self.resnet(x) 

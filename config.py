@@ -51,6 +51,7 @@ def load_config_class(path):
 class BaseTraceExperimentConfig:
     expt_type: str = ExperimentTypes.TRACE_PREDICTION
     dataset_dir: str = get_dataset_dir(ExperimentTypes.TRACE_PREDICTION)
+    real_dataset_dir: str = ""
     img_height: int = 100
     img_width: int = 100
     crop_width: int = 80
@@ -65,6 +66,9 @@ class BaseTraceExperimentConfig:
     min_checkpoint_freq: int = 10
     resnet_type: str = '50'
     pretrained: bool = False
+    oversample: bool = False
+    oversample_factor: float = 1.0
+    rot_cond: bool = False
 
 @dataclass
 class TRCR80(BaseTraceExperimentConfig):
@@ -179,9 +183,342 @@ class TRCR80_CL4_25_PL1_RN50_MED3(BaseTraceExperimentConfig):
     resnet_type: str = '50'
     dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'
 
+@dataclass
+class TRCR60_CL4_25_PL1_RN34_MED3_V2(BaseTraceExperimentConfig):
+    crop_width: int = 60
+    cond_point_dist_px: int = 20
+    condition_len: int = 3
+    pred_len: int = 1
+    resnet_type: str = '34'
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'
+
+@dataclass
+class TRCR60_CL4_25_PL1_RN50_MED3_V2(BaseTraceExperimentConfig):
+    crop_width: int = 60
+    cond_point_dist_px: int = 20
+    condition_len: int = 3
+    pred_len: int = 1
+    resnet_type: str = '50'
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'
+
+@dataclass
+class TRCR60_CL4_25_PL1_RN50_MED3_B32_V2(BaseTraceExperimentConfig):
+    crop_width: int = 60
+    cond_point_dist_px: int = 20
+    condition_len: int = 3
+    pred_len: int = 1
+    resnet_type: str = '50'
+    batch_size: int = 32
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'
+
+@dataclass
+class TRCR60_CL4_25_PL1_RN34_MED3_B32_V2(BaseTraceExperimentConfig):
+    crop_width: int = 60
+    cond_point_dist_px: int = 20
+    condition_len: int = 3
+    pred_len: int = 1
+    resnet_type: str = '34'
+    batch_size: int = 32
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'
+
+
+@dataclass
+class TRCR60_CL3_20_PL1_RN34_MED3_RN34_B64_OS(BaseTraceExperimentConfig):
+    crop_width: int = 60
+    cond_point_dist_px: int = 20
+    condition_len: int = 3
+    pred_len: int = 1
+    resnet_type: str = '34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    oversample: bool = True
+
+
+@dataclass
+class TRCR60_CL3_20_PL1_MED3_RN50_B64_OS(BaseTraceExperimentConfig):
+    crop_width: int = 60
+    cond_point_dist_px: int = 20
+    condition_len: int = 3
+    pred_len: int = 1
+    resnet_type: str = '50'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    oversample: bool = True
+
+@dataclass
+class TRCR60_CL3_20_PL1_MED3_UNet34_B64_OS(BaseTraceExperimentConfig):
+    crop_width: int = 60
+    cond_point_dist_px: int = 20
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    oversample: bool = True
+
+@dataclass
+class TRCR60_CL3_20_PL1_MED3_UNet34_B64_OS_RotCond(BaseTraceExperimentConfig):
+    crop_width: int = 60
+    cond_point_dist_px: int = 20
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 250
+
+@dataclass
+class TRCR50_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond(BaseTraceExperimentConfig):
+    crop_width: int = 50
+    cond_point_dist_px: int = 15
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 250
+
+@dataclass
+class TRCR50_CL3_15_PL1_MED3_UNet18_B64_OS_RotCond(BaseTraceExperimentConfig):
+    crop_width: int = 50
+    cond_point_dist_px: int = 15
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet18'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 250
+
+@dataclass
+class TRCR50_CL3_15_PL1_MED3_UNet50_B64_OS_RotCond(BaseTraceExperimentConfig):
+    crop_width: int = 50
+    cond_point_dist_px: int = 15
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet50'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 250
+
+@dataclass
+class TRCR50_CL3_15_PL1_MED3_UNet101_B64_OS_RotCond(BaseTraceExperimentConfig):
+    crop_width: int = 50
+    cond_point_dist_px: int = 15
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet101'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 250
+
+@dataclass
+class TRCR40_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond(BaseTraceExperimentConfig):
+    crop_width: int = 40
+    cond_point_dist_px: int = 15
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 250
+
+@dataclass
+class TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond(BaseTraceExperimentConfig):
+    crop_width: int = 36
+    cond_point_dist_px: int = 14
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 250
+
+@dataclass
+class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond(BaseTraceExperimentConfig):
+    crop_width: int = 32
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 250
+
+@dataclass
+class TRCR40_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond_Hard2(BaseTraceExperimentConfig):
+    crop_width: int = 40
+    cond_point_dist_px: int = 15
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 125
+
+@dataclass
+class TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond_Hard2(BaseTraceExperimentConfig):
+    crop_width: int = 36
+    cond_point_dist_px: int = 14
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 125
+
+@dataclass
+class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2(BaseTraceExperimentConfig):
+    crop_width: int = 32
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 125
+
+@dataclass
+class TRCR28_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2(BaseTraceExperimentConfig):
+    crop_width: int = 28
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 125
+
+@dataclass
+class TRCR24_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2(BaseTraceExperimentConfig):
+    crop_width: int = 24
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 125
+
+@dataclass
+class TRCR40_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond_Adj1(BaseTraceExperimentConfig):
+    crop_width: int = 40
+    cond_point_dist_px: int = 15
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 125
+
+@dataclass
+class TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond_Adj1(BaseTraceExperimentConfig):
+    crop_width: int = 36
+    cond_point_dist_px: int = 14
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 125
+
+@dataclass
+class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Adj1(BaseTraceExperimentConfig):
+    crop_width: int = 32
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 125
+
+
+@dataclass
+class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2(BaseTraceExperimentConfig):
+    crop_width: int = 32
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
+    real_dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_1/real_data_for_tracer/'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 125
 
 def get_class_name(cls):
     return cls.__name__
 
-ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120, CL5_20_PL1, CL3_10_PL2, CL10_10_PL2, CL3_10_PL1, CL10_10_PL1, CAP800, TRCR140_CL4_25_PL1, TRCR140_CL4_25_PL1_RN34, TRCR140_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED3, TRCR80_CL4_25_PL1_RN50_MED3]
+ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120, CL5_20_PL1, CL3_10_PL2, CL10_10_PL2, CL3_10_PL1, CL10_10_PL1, CAP800, TRCR140_CL4_25_PL1, TRCR140_CL4_25_PL1_RN34, TRCR140_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED3, TRCR80_CL4_25_PL1_RN50_MED3, TRCR60_CL4_25_PL1_RN34_MED3_V2, TRCR60_CL4_25_PL1_RN50_MED3_V2, TRCR60_CL4_25_PL1_RN34_MED3_B32_V2, TRCR60_CL4_25_PL1_RN50_MED3_B32_V2, TRCR60_CL3_20_PL1_RN34_MED3_RN34_B64_OS, TRCR60_CL3_20_PL1_MED3_RN50_B64_OS, TRCR60_CL3_20_PL1_MED3_UNet34_B64_OS, TRCR60_CL3_20_PL1_MED3_UNet34_B64_OS_RotCond, TRCR50_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond, TRCR50_CL3_15_PL1_MED3_UNet18_B64_OS_RotCond, TRCR50_CL3_15_PL1_MED3_UNet50_B64_OS_RotCond, TRCR50_CL3_15_PL1_MED3_UNet101_B64_OS_RotCond, TRCR40_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond, TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond, TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond, TRCR40_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond_Hard2, TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond_Hard2, TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2, TRCR40_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond_Adj1, TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond_Adj1, TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Adj1,
+TRCR28_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2, TRCR24_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2,
+TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2]
 ALL_EXPERIMENTS_CONFIG = {get_class_name(expt): expt for expt in ALL_EXPERIMENTS_LIST}
