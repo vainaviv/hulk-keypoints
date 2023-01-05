@@ -20,7 +20,7 @@ def get_dataset_dir(expt_type):
         return '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_complex'
     if expt_type == ExperimentTypes.CAGE_PREDICTION:
         return '/home/mkparu/rope-rendering/data_processing/post_processed_sim_data/crop_cage_pinch_dataset'
-    return '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_crossings_dataset'
+    return '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_crossings_dataset'
 
 def is_crop_task(expt_type):
     return expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION
@@ -179,9 +179,27 @@ class TRCR80_CL4_25_PL1_RN50_MED3(BaseTraceExperimentConfig):
     resnet_type: str = '50'
     dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'
 
+@dataclass
+class UNDER_OVER:
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = get_dataset_dir(ExperimentTypes.CLASSIFY_OVER_UNDER)
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 150
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 1
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '50'
+    pretrained: bool = False
 
 def get_class_name(cls):
     return cls.__name__
 
-ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120, CL5_20_PL1, CL3_10_PL2, CL10_10_PL2, CL3_10_PL1, CL10_10_PL1, CAP600, TRCR140_CL4_25_PL1, TRCR140_CL4_25_PL1_RN34, TRCR140_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED3, TRCR80_CL4_25_PL1_RN50_MED3]
+ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120, CL5_20_PL1, CL3_10_PL2, CL10_10_PL2, CL3_10_PL1, CL10_10_PL1, CAP600, TRCR140_CL4_25_PL1, TRCR140_CL4_25_PL1_RN34, TRCR140_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED3, TRCR80_CL4_25_PL1_RN50_MED3, UNDER_OVER]
 ALL_EXPERIMENTS_CONFIG = {get_class_name(expt): expt for expt in ALL_EXPERIMENTS_LIST}
