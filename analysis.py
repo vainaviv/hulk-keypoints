@@ -14,7 +14,7 @@ import numpy as np
 
 os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
-model_ckpt = "hulk_cascade_step_1/model_2_1_122_1.7929086790566509_0.4343425222651126.pth"
+model_ckpt = "endpoint_detect/model_2_1_80_0.20086061270784195_0.022261099168342024.pth"
 
 # model
 keypoints = KeypointsGauss(NUM_KEYPOINTS, img_height=IMG_HEIGHT, img_width=IMG_WIDTH)
@@ -32,7 +32,7 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-image_dir = 'train_sets/hulk_cascade_step_1/test/images'
+image_dir = 'train_sets/endpoint_detect/test/images'
 for i, f in enumerate(sorted(os.listdir(image_dir))):
     img = cv2.imread(os.path.join(image_dir, f))
     img_t = transform(img)

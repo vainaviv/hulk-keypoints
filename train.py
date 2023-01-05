@@ -45,13 +45,14 @@ def fit(train_data, test_data, model, epochs, checkpoint_path = ''):
             test_loss += loss.item()
         print('test loss:', test_loss / i_batch)
         if epoch%2 == 0:
-            torch.save(keypoints.state_dict(), checkpoint_path + '/model_2_1_' + str(epoch) + '_' + str(train_loss) + '_' + str(test_loss) + '.pth')
+            torch.save(keypoints.state_dict(), checkpoint_path + '/model_' + str(epoch) + '_' + str(train_loss) + '_' + str(test_loss) + '.pth')
 
 # dataset
 workers=0
-dataset_dir = 'hulk_cascade_step_1'
+dataset_dir = 'endpoint_detect'
 output_dir = 'checkpoints'
-save_dir = os.path.join(output_dir, dataset_dir)
+save = dataset_dir + "lr=1e-5"
+save_dir = os.path.join(output_dir, save)
 
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
@@ -76,7 +77,7 @@ if use_cuda:
 keypoints = KeypointsGauss(1, img_height=IMG_HEIGHT, img_width=IMG_WIDTH).cuda()
 
 # optimizer
-optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-4, weight_decay=1.0e-4)
+optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-5, weight_decay=1.0e-4)
 #optimizer = optim.Adam(keypoints.parameters(), lr=0.0001)
 
 fit(train_data, test_data, keypoints, epochs=epochs, checkpoint_path=save_dir)

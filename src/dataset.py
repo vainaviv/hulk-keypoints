@@ -30,6 +30,9 @@ img_transform = iaa.Sequential([
         ))
     ], random_order=True)
 
+resize_transform = iaa.Sequential([
+    iaa.size.Resize({"height":480, "width":640})])
+
 def normalize(x):
     return F.normalize(x, p=1)
 
@@ -67,22 +70,24 @@ class KeypointsDataset(Dataset):
 
         self.imgs = []
         self.labels = []
-        for i in range(len(os.listdir(labels_folder))):
+        for f in os.listdir(labels_folder):
             #label = np.load(os.path.join(labels_folder, '%05d.npy'%i))[:-2].reshape(num_keypoints, 2)
+            i = int(f.split('.')[0])
             label = np.load(os.path.join(labels_folder, '%05d.npy'%i))
-            if len(label) > 0:
-                label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
-                label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
-                img_path = os.path.join(img_folder, '%05d.png'%i)
-                img_save = cv2.imread(img_path)
-                self.imgs.append(img_save)
-                self.labels.append(label)
+            # if len(label) > 0:
+            #     label[:,0] = np.clip(label[:, 0], 0, self.img_width-1)
+            #     label[:,1] = np.clip(label[:, 1], 0, self.img_height-1)
+            img_path = os.path.join(img_folder, '%05d.png'%i)
+            img_save = cv2.imread(img_path)
+            self.imgs.append(img_save)
+            self.labels.append(label)
 
     def __getitem__(self, index):
         keypoints = self.labels[index]
         # img = cv2.imread(self.imgs[index])
         img = self.imgs[index]
         kpts = KeypointsOnImage.from_xy_array(keypoints, shape=img.shape)
+        img, kpts = resize_transform(image=img, keypoints=kpts)
         if self.augment:
             img, labels = self.img_transform(image=img, keypoints=kpts)
         else:
@@ -93,13 +98,18 @@ class KeypointsDataset(Dataset):
         for l in labels:
             labels_np.append([l.x,l.y])
         labels = torch.from_numpy(np.array(labels_np, dtype=np.int32)).cuda()
-        U = labels[:,0]
-        V = labels[:,1]
-        gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, U, V)
-        mm_gauss = gaussians[0]
-        for i in range(1, len(gaussians)):
-            mm_gauss = bimodal_gauss(mm_gauss, gaussians[i])
-        mm_gauss.unsqueeze_(0)
+        if len(labels) == 0:
+            mm_gauss = torch.zeros(1, self.img_height, self.img_width)
+            mm_gauss = mm_gauss.type(torch.DoubleTensor)
+            mm_gauss = mm_gauss.cuda()
+        else:
+            U = labels[:,0]
+            V = labels[:,1]
+            gaussians = gauss_2d_batch(self.img_width, self.img_height, self.gauss_sigma, U, V)
+            mm_gauss = gaussians[0]
+            for i in range(1, len(gaussians)):
+                mm_gauss = bimodal_gauss(mm_gauss, gaussians[i])
+            mm_gauss.unsqueeze_(0)
         return img, mm_gauss
 
     def __len__(self):
