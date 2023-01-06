@@ -165,6 +165,8 @@ class KeypointsDataset(Dataset):
             if os.path.exists(folder):
                 count = 0
                 for fname in sorted(os.listdir(folder)):
+                    # if os.path.isdir(os.path.join(folder, fname)):
+                    #     continue
                     self.data.append(os.path.join(folder, fname))
                     count += 1
                 self.last_folder_size = count
@@ -192,6 +194,20 @@ class KeypointsDataset(Dataset):
                     return np.array([])
         # print("ret", np.array(points)[..., ::-1])
         return np.array(points)[..., ::-1]
+
+    def rotate_condition(self, img, points, center_around_last=False):
+        angle = 0
+        if self.rot_cond:
+            if center_around_last:
+                dir_vec = points[-1] - points[-2]
+            else:
+                dir_vec = points[-self.pred_len-1] - points[-self.pred_len-2]
+            angle = np.arctan2(dir_vec[1], dir_vec[0])
+            # print(angle * 180 / np.pi)
+            # rotate image specific angle using cv2.rotate
+            M = cv2.getRotationMatrix2D((img.shape[1]/2, img.shape[0]/2), angle*180/np.pi, 1)
+            img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
+        return img
     
     def get_trp_model_input(self, crop, crop_points, aug_transform, center_around_last=False):
         kpts = KeypointsOnImage.from_xy_array(crop_points, shape=crop.shape)
@@ -209,17 +225,18 @@ class KeypointsDataset(Dataset):
             points_in_image.append(point)
         points = np.array(points_in_image)
 
-        angle = 0
-        if self.rot_cond:
-            if center_around_last:
-                dir_vec = points[-1] - points[-2]
-            else:
-                dir_vec = points[-self.pred_len-1] - points[-self.pred_len-2]
-            angle = np.arctan2(dir_vec[1], dir_vec[0])
-            # print(angle * 180 / np.pi)
-            # rotate image specific angle using cv2.rotate
-            M = cv2.getRotationMatrix2D((img.shape[1]/2, img.shape[0]/2), angle*180/np.pi, 1)
-            img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
+        img = self.rotate_condition(img, points, center_around_last=center_around_last)
+        # angle = 0
+        # if self.rot_cond:
+        #     if center_around_last:
+        #         dir_vec = points[-1] - points[-2]
+        #     else:
+        #         dir_vec = points[-self.pred_len-1] - points[-self.pred_len-2]
+        #     angle = np.arctan2(dir_vec[1], dir_vec[0])
+        #     # print(angle * 180 / np.pi)
+        #     # rotate image specific angle using cv2.rotate
+        #     M = cv2.getRotationMatrix2D((img.shape[1]/2, img.shape[0]/2), angle*180/np.pi, 1)
+        #     img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
 
             # put a gaussian blob around the center of the image for positional encoding
             # img[:, :, 0] = gauss_2d_batch_efficient_np(img.shape[0], img.shape[1], self.gauss_sigma, np.array([img.shape[0]/2]), np.array([img.shape[1]/2]), [1], normalize=True)
@@ -304,9 +321,8 @@ class KeypointsDataset(Dataset):
             # get random data from last folder
             data_index = np.random.randint(len(self.data) - self.last_folder_size, len(self.data))
 
+        print(self.data[data_index])
         loaded_data = np.load(self.data[data_index], allow_pickle=True).item()
-        # TODO Jainil: this will be where most of your coding will happen. 
-        # Lines 186-203 load the image and labels. you may need to add something to make this possible for your dataset.
         dataset_start_time = time.time()
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             img = loaded_data['img'][:, :, :3]
@@ -420,6 +436,7 @@ class KeypointsDataset(Dataset):
                 img[:, :, 0] = gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, condition_pixels[:-self.pred_len,0], condition_pixels[:-self.pred_len,1], weights=self.weights)
             if self.augment:
                 img = self.img_transform(image=img)
+            img = self.rotate_condition(img, condition_pixels)
             combined = transform(img.copy()).cuda()
             label = torch.as_tensor(loaded_data['under_over']).double().cuda()
 
@@ -496,7 +513,8 @@ if __name__ == '__main__':
                                     condition_len=test_config.condition_len, 
                                     crop_width=test_config.crop_width, 
                                     spacing=test_config.cond_point_dist_px, 
-                                    expt_type=test_config.expt_type)
+                                    expt_type=test_config.expt_type,
+                                    config=test_config)
     test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
 
     for i_batch, sample_batched in enumerate(test_data):
