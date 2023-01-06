@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import time
 from scipy.signal import convolve2d
 import argparse
-from config import load_config_class, is_point_pred, get_dataset_dir, ExperimentTypes
+from config import *
 
 def visualize_heatmap_on_image(img, heatmap):
     argmax = list(np.unravel_index(np.argmax(heatmap), heatmap.shape))[::-1]
@@ -61,7 +61,8 @@ else:
     checkpoint_file_name = os.path.join(checkpoint_path, checkpoint_file_name)
 
 # laod up all the parameters from the checkpoint
-config = load_config_class(checkpoint_path)
+# config = load_config_class(checkpoint_path)
+config = UNDER_OVER()
 expt_type = config.expt_type
 
 print("Using checkpoint: ", checkpoint_file_name)
@@ -243,17 +244,20 @@ else:
         if (len(img_t.shape) < 4):
             img_t = img_t.unsqueeze(0)
 
-        plt.clf()
-        plt.imshow(img_t[0].squeeze().detach().cpu().numpy().transpose(1,2,0))
-        plt.savefig(f'{output_folder_name}/input_img_{i}.png'.format(i=i))
+        # plt.clf()
+        # plt.imshow(img_t[0].squeeze().detach().cpu().numpy().transpose(1,2,0))
+        # plt.savefig(f'{output_folder_name}/input_img_{i}.png'.format(i=i))
 
         # plot one heatmap for each model with matplotlib
         plt.figure()
 
-        # input_img_np = img_t.detach().cpu().numpy()[0, 0:3, ...]
-        # plt.clf()
-        # plt.imshow(input_img_np.transpose(1,2,0))
-        # plt.savefig(f'{output_folder_name}/input_img_{i}.png')
+        if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
+            pass
+        else:
+            input_img_np = img_t.detach().cpu().numpy()[0, 0:3, ...]
+            plt.clf()
+            plt.imshow(input_img_np.transpose(1,2,0))
+            plt.savefig(f'{output_folder_name}/input_img_{i}.png')
 
         heatmaps = []
         # create len(predictions) subplots
@@ -261,9 +265,24 @@ else:
             output = prediction.predict(img_t[0])
 
         if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
-            preds.append(output.detach().cpu().numpy().item())
-            gts.append(f[1].detach().cpu().numpy().item())
+            pred = output.detach().cpu().numpy().item()
+            preds.append(pred)
+            gt = f[1].detach().cpu().numpy().item()
+            gts.append(gt)
             plt.title(f'Pred: {preds[-1]}, GT: {gts[-1]}')
+            plt.imshow(img_t[0].detach().cpu().numpy().transpose(1, 2, 0))
+            save_path = os.path.join(failure_folder_name, f'output_img_{i}.png')
+            save_path_og = os.path.join(failure_folder_name, f'output_img_{i}_og.png')
+            pred_rounded = round(pred)
+            if pred_rounded == int(gt):
+                hits += 1
+                save_path = os.path.join(success_folder_name, f'output_img_{i}.png')
+                save_path_og = os.path.join(success_folder_name, f'output_img_{i}_og.png')
+            plt.savefig(save_path)
+            plt.clf()
+            input_img_np = img_t.detach().cpu().numpy()[0, 1, ...]
+            plt.imshow(input_img_np)
+            plt.savefig(save_path_og)
         
         elif is_point_pred(expt_type):
             argmax_yx = np.unravel_index(np.argmax(output.detach().cpu().numpy()[0, 0, ...]), output.detach().cpu().numpy()[0, 0, ...].shape)

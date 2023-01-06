@@ -3,12 +3,16 @@ import os
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+import shutil
 
-NUM_STEPS_MIN_FOR_CROSSING = 10
+NUM_STEPS_MIN_FOR_CROSSING = 5 # 10
 DIST_THRESH = 0.1
 
 input_file_path = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1/train'
-out_file_path = '/home/vainavi/hulk-keypoints/processed_sim_data/20crop_under_over_crossings_dataset/train'
+out_file_path = '/home/vainavi/hulk-keypoints/processed_sim_data/toy_under_over_dataset/train'
+
+if os.path.exists(out_file_path):
+    shutil.rmtree(out_file_path)
 
 if not os.path.exists(out_file_path):
     os.makedirs(out_file_path)
@@ -37,7 +41,9 @@ for file in files:
         if len(prev_pixels) == 0:
             continue
         min_dist, argmin_pt = np.min(np.linalg.norm(prev_pixels - point, axis=1)), np.argmin(np.linalg.norm(prev_pixels - point, axis=1))
+        # print("min dist: ", min_dist)
         if min_dist < DIST_THRESH:
+            print("found crossing: ", min_dist)
             overcrossing = (points_3d[i, 2] > points_3d[argmin_pt, 2])
             crossing_info[i] = [argmin_pt, overcrossing]
 

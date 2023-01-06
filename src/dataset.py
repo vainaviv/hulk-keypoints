@@ -14,6 +14,7 @@ from scipy import interpolate
 import matplotlib.pyplot as plt
 import sys
 from collections import OrderedDict
+import shutil
 sys.path.insert(0, '../')
 from config import *
 
@@ -336,7 +337,7 @@ class KeypointsDataset(Dataset):
             label = label
             label = label.unsqueeze_(0).cuda()
         elif self.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
-            img = loaded_data['crop_img'][:, :, :3]
+            img = (loaded_data['crop_img'][:, :, :3]).copy()
             cable_mask = np.ones(img.shape[:2])
             cable_mask[img[:, :, 1] < 0.35] = 0
             condition_pixels = np.array(loaded_data['spline_pixels'])
@@ -346,8 +347,9 @@ class KeypointsDataset(Dataset):
                 img[:, :, 0] = self.draw_spline(img, condition_pixels[:, 1], condition_pixels[:, 0], label=True) * cable_mask
             else:
                 img[:, :, 0] = gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, condition_pixels[:-self.pred_len,0], condition_pixels[:-self.pred_len,1], weights=self.weights)
-            combined = self.img_transform(image=img)
-            combined = transform(combined.copy()).cuda()
+            if self.augment:
+                img = self.img_transform(image=img)
+            combined = transform(img.copy()).cuda()
             label = torch.as_tensor(loaded_data['under_over']).double().cuda()
 
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
@@ -409,16 +411,19 @@ class KeypointsDataset(Dataset):
         return len(self.data)
 
 if __name__ == '__main__':
-    # TODO Jainil: run dataset.py to test if your dataloader works. If it works, then you can move onto training
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    dataset_test_path = './dataset_py_test'
+    if os.path.exists(dataset_test_path):
+        shutil.rmtree(dataset_test_path)
+    os.mkdir(dataset_test_path)
     # UNDER OVER
     test_config = UNDER_OVER()
-    test_dataset = KeypointsDataset('/home/vainavi/hulk-keypoints/processed_sim_data/under_over_crossings_dataset/train',
+    test_dataset = KeypointsDataset('/home/vainavi/hulk-keypoints/processed_sim_data/toy_under_over_dataset/train',
                                     test_config.img_height, 
                                     test_config.img_width, 
                                     transform, 
                                     gauss_sigma=test_config.gauss_sigma, 
-                                    augment=True, 
+                                    augment=False, 
                                     condition_len=test_config.condition_len, 
                                     crop_width=test_config.crop_width, 
                                     spacing=test_config.cond_point_dist_px, 

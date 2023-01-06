@@ -16,7 +16,8 @@ import os
 # plt.savefig("losses.png")
 
 # npy file-based method
-files_to_inspect = ['logs/losses_hulkL_cond_sep1_rnet34_pretrained_clean_full_dataset_pretrained_v1.npy', 'logs/losses_hulkL_cond_sep1_rnet50_pretrained_clean_full_dataset_pretrained_v1.npy']
+files_to_inspect = ['./checkpoints/under_over_class/test_losses_under_over_class.npy', 
+                    './checkpoints/under_over_class/train_losses_under_over_class.npy']
 losses = [np.load(file_to_inspect) for file_to_inspect in files_to_inspect]
 
 # smooth losses
