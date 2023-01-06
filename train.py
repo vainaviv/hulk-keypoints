@@ -19,7 +19,7 @@ os.environ["CUDA_VISIBLE_DEVICES"]="1"
 # parse command line flags
 parser = argparse.ArgumentParser()
 parser.add_argument('--expt_name', type=str, default='')
-parser.add_argument('--expt_class', type=str, default='trp')
+parser.add_argument('--expt_class', type=str, default='UNDER_OVER')
 parser.add_argument('--checkpoint_path', type=str, default='')
 
 flags = parser.parse_args()
@@ -96,24 +96,26 @@ if not os.path.exists(output_dir):
 if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 
-train_dataset = KeypointsDataset(['%s/train'%config.dataset_dir, '%s/train'%config.real_dataset_dir],
-                                config.img_height, 
-                                config.img_width, 
-                                transform, 
-                                gauss_sigma=config.gauss_sigma, 
-                                augment=True, 
-                                expt_type=config.expt_type, 
-                                condition_len=config.condition_len, 
-                                pred_len=config.pred_len,
-                                crop_width=config.crop_width, 
-                                spacing=config.cond_point_dist_px,
-                                oversample=config.oversample,
-                                config=config)
-train_data = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, num_workers=workers)
+if config.expt_type == 'trp':
+    train_dataset = KeypointsDataset(['%s/train'%config.dataset_dir, '%s/train'%config.real_dataset_dir],
+                                    transform, 
+                                    augment=True, 
+                                    config=config)
+    test_dataset = KeypointsDataset(['%s/test'%config.dataset_dir, '%s/test'%config.real_dataset_dir],
+                                    transform, 
+                                    augment=False,
+                                    config=config)
+else:
+    train_dataset = KeypointsDataset('%s/train'%config.dataset_dir,
+                                    transform, 
+                                    augment=True, 
+                                    config=config)
+    test_dataset = KeypointsDataset('%s/test'%config.dataset_dir,
+                                    transform, 
+                                    augment=False, 
+                                    config=config)
 
-test_dataset = KeypointsDataset(['%s/test'%config.dataset_dir, '%s/test'%config.real_dataset_dir],
-                           config.img_height, config.img_width, transform, gauss_sigma=config.gauss_sigma, augment=False, expt_type=config.expt_type, condition_len=config.condition_len, crop_width=config.crop_width, spacing=config.cond_point_dist_px, oversample=config.oversample,
-                           config=config)
+train_data = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, num_workers=workers)
 test_data = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=True, num_workers=workers)
 
 

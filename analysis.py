@@ -86,8 +86,8 @@ else:
     checkpoint_file_name = os.path.join(checkpoint_path, checkpoint_file_name)
 
 # laod up all the parameters from the checkpoint
-# config = load_config_class(checkpoint_path)
-config = UNDER_OVER()
+config = load_config_class(checkpoint_path)
+# config = UNDER_OVER()
 expt_type = config.expt_type
 
 print("Using checkpoint: ", checkpoint_file_name)

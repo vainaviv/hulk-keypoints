@@ -20,7 +20,7 @@ def get_dataset_dir(expt_type):
         return '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_complex'
     if expt_type == ExperimentTypes.CAGE_PREDICTION:
         return '/home/mkparu/rope-rendering/data_processing/post_processed_sim_data/crop_cage_pinch_dataset'
-    return '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_crossings_dataset'
+    return '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_crossing_set2'
 
 def is_crop_task(expt_type):
     return expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION
@@ -527,7 +527,7 @@ class UNDER_OVER:
     batch_size: int = 4
     cond_point_dist_px: int = 20
     condition_len: int = 5
-    pred_len: int = 1
+    pred_len: int = 0
     eval_checkpoint_freq: int = 1
     min_checkpoint_freq: int = 10
     resnet_type: str = '50'

@@ -9,7 +9,7 @@ NUM_STEPS_MIN_FOR_CROSSING = 5 # 10
 DIST_THRESH = 0.1
 
 input_file_path = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1/train'
-out_file_path = '/home/vainavi/hulk-keypoints/processed_sim_data/toy_under_over_dataset/train'
+out_file_path = '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_crossing_set2/train'
 
 if os.path.exists(out_file_path):
     shutil.rmtree(out_file_path)
@@ -43,7 +43,6 @@ for file in files:
         min_dist, argmin_pt = np.min(np.linalg.norm(prev_pixels - point, axis=1)), np.argmin(np.linalg.norm(prev_pixels - point, axis=1))
         # print("min dist: ", min_dist)
         if min_dist < DIST_THRESH:
-            print("found crossing: ", min_dist)
             overcrossing = (points_3d[i, 2] > points_3d[argmin_pt, 2])
             crossing_info[i] = [argmin_pt, overcrossing]
 
@@ -87,12 +86,12 @@ for file in files:
         # add all spline pixels before and after the crossing pixel that are within the crop size
         spline_pixels = []
         for i in range(int(crossing), len(pixels)):
-            if np.linalg.norm(pixels[i] - crossing_pixel, ord=np.inf) < crop_size:
+            if np.linalg.norm(pixels[i] - crossing_pixel, ord=np.inf) <= crop_size:
                 spline_pixels.append(pixels[i] - crossing_top_left)
             else:
                 break
         for i in range(int(crossing), 0, -1):
-            if np.linalg.norm(pixels[i] - crossing_pixel, ord=np.inf) < crop_size:
+            if np.linalg.norm(pixels[i] - crossing_pixel, ord=np.inf) <= crop_size:
                 spline_pixels.insert(0, pixels[i] - crossing_top_left)
             else:
                 break
