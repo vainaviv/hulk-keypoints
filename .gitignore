@@ -8,4 +8,5 @@ src/test_data
 dataset_py_test
 test_data
 logs
+eval_imgs
 __pycache__
