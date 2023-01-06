@@ -500,7 +500,7 @@ class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Adj1(BaseTraceExperimentConfi
 
 
 @dataclass
-class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2(BaseTraceExperimentConfig):
+class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_WReal(BaseTraceExperimentConfig):
     crop_width: int = 32
     cond_point_dist_px: int = 12
     condition_len: int = 3
@@ -510,7 +510,7 @@ class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2(BaseTraceExperimentConf
     resnet_type: str = 'UNet34'
     batch_size: int = 64
     dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
-    real_dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_1/real_data_for_tracer/'
+    real_dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_1/real_data_for_tracer'
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 125
@@ -520,5 +520,5 @@ def get_class_name(cls):
 
 ALL_EXPERIMENTS_LIST = [BaseTraceExperimentConfig, TRCR80, TRCR100, TRCR120, CL5_20_PL1, CL3_10_PL2, CL10_10_PL2, CL3_10_PL1, CL10_10_PL1, CAP800, TRCR140_CL4_25_PL1, TRCR140_CL4_25_PL1_RN34, TRCR140_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED, TRCR80_CL4_25_PL1_RN34_MED3, TRCR80_CL4_25_PL1_RN50_MED3, TRCR60_CL4_25_PL1_RN34_MED3_V2, TRCR60_CL4_25_PL1_RN50_MED3_V2, TRCR60_CL4_25_PL1_RN34_MED3_B32_V2, TRCR60_CL4_25_PL1_RN50_MED3_B32_V2, TRCR60_CL3_20_PL1_RN34_MED3_RN34_B64_OS, TRCR60_CL3_20_PL1_MED3_RN50_B64_OS, TRCR60_CL3_20_PL1_MED3_UNet34_B64_OS, TRCR60_CL3_20_PL1_MED3_UNet34_B64_OS_RotCond, TRCR50_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond, TRCR50_CL3_15_PL1_MED3_UNet18_B64_OS_RotCond, TRCR50_CL3_15_PL1_MED3_UNet50_B64_OS_RotCond, TRCR50_CL3_15_PL1_MED3_UNet101_B64_OS_RotCond, TRCR40_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond, TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond, TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond, TRCR40_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond_Hard2, TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond_Hard2, TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2, TRCR40_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond_Adj1, TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond_Adj1, TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Adj1,
 TRCR28_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2, TRCR24_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2,
-TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2]
+TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_WReal]
 ALL_EXPERIMENTS_CONFIG = {get_class_name(expt): expt for expt in ALL_EXPERIMENTS_LIST}

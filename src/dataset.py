@@ -14,7 +14,7 @@ from scipy import interpolate
 import matplotlib.pyplot as plt
 import sys
 sys.path.insert(0, '../')
-from config import ExperimentTypes, BaseTraceExperimentConfig, CAP800, TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2
+from config import ExperimentTypes, BaseTraceExperimentConfig, CAP800, TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_WReal
 
 # No domain randomization
 transform = transforms.Compose([transforms.ToTensor()])
@@ -150,7 +150,7 @@ class KeypointsDataset(Dataset):
         folders = folder
 
         self.last_folder_size = 0
-        self.last_folder_prob = 0.5
+        self.last_folder_prob = 0.4
         print('Loading data from', folders)
         for folder in folders:
             if os.path.exists(folder):
@@ -263,7 +263,13 @@ class KeypointsDataset(Dataset):
         x_in = np.where(xnew < crop.shape[0])
         xnew = xnew[x_in[0]]
         ynew = ynew[x_in[0]]
+        x_in = np.where(xnew >= 0)
+        xnew = xnew[x_in[0]]
+        ynew = ynew[x_in[0]]
         y_in = np.where(ynew < crop.shape[1])
+        xnew = xnew[y_in[0]]
+        ynew = ynew[y_in[0]]
+        y_in = np.where(ynew >= 0)
         xnew = xnew[y_in[0]]
         ynew = ynew[y_in[0]]
 
@@ -408,7 +414,7 @@ class KeypointsDataset(Dataset):
             combined = transform(img.copy()).cuda()
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             combined, points, cable_mask, _ = self.get_trp_model_input(img, cond_pix_array, self.img_transform)
-            print(points)
+            # print(points)
 
             if self.pred_len == 1:
                 label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights, normalize=True))
@@ -487,7 +493,7 @@ if __name__ == '__main__':
 
 
     # TRACE PREDICTION
-    test_config = TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2()
+    test_config = TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_WReal()
     test_dataset2 = KeypointsDataset([os.path.join(test_config.dataset_dir, 'train'), os.path.join(test_config.real_dataset_dir, 'train')],
                                     test_config.img_height,
                                     test_config.img_width,
