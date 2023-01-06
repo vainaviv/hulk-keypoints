@@ -24,19 +24,21 @@ transform = transforms.Compose([transforms.ToTensor()])
 sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 
 # Domain randomization
-img_transform = iaa.Sequential([
-    iaa.flip.Fliplr(0.5),
-    iaa.flip.Flipud(0.5),
-    # iaa.Resize({"height": 200, "width": 200}),
-    # sometimes(iaa.Affine(
-    #     scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
-    #     rotate=(-30, 30),
-    #     shear=(-30, 30)
-    # ))
-    ], random_order=True)
+# img_transform = iaa.Sequential([
+#     iaa.flip.Fliplr(0.5),
+#     iaa.flip.Flipud(0.5),
+#     iaa.MultiplyBrightness((0.7, 1.2)),
+#     # iaa.AddToBrightness((-50, 50)),
+#     # iaa.Resize({"height": 200, "width": 200}),
+#     # sometimes(iaa.Affine(
+#     #     scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
+#     #     rotate=(-30, 30),
+#     #     shear=(-30, 30)
+#     # ))
+#     ], random_order=False)
 
-# No randomization
-no_transform = iaa.Sequential([])
+# # No randomization
+# no_transform = iaa.Sequential([])
 
 # New domain randomization
 img_transform_new = iaa.Sequential([
@@ -50,7 +52,9 @@ img_transform_new = iaa.Sequential([
         shear=(-30, 30)
         ))
     ], random_order=True)
-augmentation_list = [iaa.flip.Fliplr(0.5), iaa.flip.Flipud(0.5)]
+# flips and rot90
+augmentation_list = [iaa.flip.Fliplr(0.5), iaa.flip.Flipud(0.5), iaa.Rot90([0, 1, 2, 3])]
+ #iaa.MultiplyBrightness((0.7, 1.2)),]
 no_augmentation_list = []
 
 def normalize(x):
@@ -122,15 +126,17 @@ def get_gauss(w, h, sigma, U, V):
     return torch.zeros(1, h, w).cuda().double()
 
 class KeypointsDataset(Dataset):
-    def __init__(self, folder, img_height, img_width, transform, gauss_sigma=8, augment=True, crop=True, condition_len=4, crop_width=100, 
-                 pred_len=1, spacing=15, sweep=True, seed=1, expt_type=ExperimentTypes.CLASSIFY_OVER_UNDER):
+    def __init__(self, folder, img_height, img_width, transform, gauss_sigma=8, augment=True, crop=True, condition_len=4, crop_width=100, pred_len=1, spacing=15, sweep=True, seed=1, expt_type=ExperimentTypes.CLASSIFY_OVER_UNDER, real_world=False, oversample=False, config=None):
         self.img_height = img_height
         self.img_width = img_width
         self.gauss_sigma = gauss_sigma
         self.transform = transform
 
         transform_list = augmentation_list if augment else no_augmentation_list
-        transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.02, 0.03)), iaa.GaussianBlur(sigma=(0.0, 0.6))])
+        if not real_world and not augment:
+            transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.025, 0.025)), iaa.GaussianBlur(sigma=(0.3, 0.3))])
+        elif not real_world and augment:
+            transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.05)), iaa.GaussianBlur(sigma=(0.1, 0.5))])
         transform_list.append(iaa.Resize({"height": img_height, "width": img_width}))
         self.img_transform = iaa.Sequential(transform_list, random_order=False)
         self.augment = augment
@@ -141,6 +147,8 @@ class KeypointsDataset(Dataset):
         self.spacing = spacing
         self.sweep = sweep
         self.seed = seed
+        self.oversample = oversample
+        self.rot_cond = config.rot_cond
 
         self.data = []
         self.expt_type = expt_type
@@ -148,32 +156,37 @@ class KeypointsDataset(Dataset):
         self.weights = np.geomspace(0.5, 1, self.condition_len)
         self.label_weights = np.ones(self.pred_len) # np.geomspace(1, 0.5, self.pred_len)
 
-        # if folder is a list, then iterate over folders
-        if not isinstance(folder, list):
-            folders = [folder]
-        else:
-            folders = folder
+        folders = folder
 
+        self.last_folder_size = 0
+        self.last_folder_prob = 0.4
+        print('Loading data from', folders)
         for folder in folders:
             if os.path.exists(folder):
+                count = 0
                 for fname in sorted(os.listdir(folder)):
                     self.data.append(os.path.join(folder, fname))
+                    count += 1
+                self.last_folder_size = count
 
-    def _get_evenly_spaced_points(self, pixels, num_points, start_idx, spacing, img_size, backward=True):
+    def _get_evenly_spaced_points(self, pixels, num_points, start_idx, spacing, img_size, backward=True, randomize_spacing=True):
         def is_in_bounds(pixel):
             return pixel[0] >= 0 and pixel[0] < img_size[0] and pixel[1] >= 0 and pixel[1] < img_size[1]
+        def get_rand_spacing(spacing):
+            return spacing * np.random.uniform(0.7, 1.3) if randomize_spacing else spacing
         # get evenly spaced points
         last_point = np.array(pixels[start_idx]).squeeze()
         points = [last_point]
         if not is_in_bounds(last_point):
             return np.array([])
-        rand_spacing = spacing * np.random.uniform(0.8, 1.2)
+        rand_spacing = get_rand_spacing(spacing)
         while len(points) < num_points and start_idx > 0 and start_idx < len(pixels):
             start_idx -= (int(backward) * 2 - 1)
-            if np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point) > rand_spacing:
+            spacing = np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point)
+            if spacing > rand_spacing:
                 last_point = np.array(pixels[start_idx]).squeeze()
-                rand_spacing = spacing * np.random.uniform(0.8, 1.2)
-                if is_in_bounds(last_point):
+                rand_spacing = get_rand_spacing(spacing)
+                if is_in_bounds(last_point) and spacing < 20:
                     points.append(last_point)
                 else:
                     return np.array([])
@@ -196,14 +209,35 @@ class KeypointsDataset(Dataset):
             points_in_image.append(point)
         points = np.array(points_in_image)
 
+        angle = 0
+        if self.rot_cond:
+            if center_around_last:
+                dir_vec = points[-1] - points[-2]
+            else:
+                dir_vec = points[-self.pred_len-1] - points[-self.pred_len-2]
+            angle = np.arctan2(dir_vec[1], dir_vec[0])
+            # print(angle * 180 / np.pi)
+            # rotate image specific angle using cv2.rotate
+            M = cv2.getRotationMatrix2D((img.shape[1]/2, img.shape[0]/2), angle*180/np.pi, 1)
+            img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
+
+            # put a gaussian blob around the center of the image for positional encoding
+            # img[:, :, 0] = gauss_2d_batch_efficient_np(img.shape[0], img.shape[1], self.gauss_sigma, np.array([img.shape[0]/2]), np.array([img.shape[1]/2]), [1], normalize=True)
+
+        # rotate all points by angle around center of image
+        points = points - np.array([img.shape[1]/2, img.shape[0]/2])
+        points = np.matmul(points, np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]))
+        points = points + np.array([img.shape[1]/2, img.shape[0]/2])
+
+        if center_around_last:
+            img[:, :, 0] = self.draw_spline(img, points[:,1], points[:,0])# * cable_mask
+        else:
+            img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len,1], points[:-self.pred_len,0])# * cable_mask
+
         cable_mask = np.ones(img.shape[:2])
         cable_mask[img[:, :, 1] < 0.4] = 0
 
-        if center_around_last:
-            img[:, :, 0] = self.draw_spline(img, points[:,1], points[:,0]) * cable_mask
-        else:
-            img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len,1], points[:-self.pred_len,0]) * cable_mask
-        return transform(img.copy()).cuda(), points, cable_mask
+        return transform(img.copy()).cuda(), points, cable_mask, angle
     
     def get_crop_and_cond_pixels(self, img, condition_pixels, center_around_last=False):
         center_of_crop = condition_pixels[-self.pred_len*(1 - int(center_around_last))-1]
@@ -242,7 +276,13 @@ class KeypointsDataset(Dataset):
         x_in = np.where(xnew < crop.shape[0])
         xnew = xnew[x_in[0]]
         ynew = ynew[x_in[0]]
+        x_in = np.where(xnew >= 0)
+        xnew = xnew[x_in[0]]
+        ynew = ynew[x_in[0]]
         y_in = np.where(ynew < crop.shape[1])
+        xnew = xnew[y_in[0]]
+        ynew = ynew[y_in[0]]
+        y_in = np.where(ynew >= 0)
         xnew = xnew[y_in[0]]
         ynew = ynew[y_in[0]]
 
@@ -255,17 +295,23 @@ class KeypointsDataset(Dataset):
         spline[xnew, ynew] = weights
         spline = np.expand_dims(spline, axis=2)
         spline = np.tile(spline, 3)
-        spline_dilated = cv2.dilate(spline, np.ones((4,4), np.uint8), iterations=1)
+        spline_dilated = cv2.dilate(spline, np.ones((2,2), np.uint8), iterations=1)
         return spline_dilated[:, :, 0]
 
     def __getitem__(self, data_index):
         start_time = time.time()
+        if data_index < len(self.data) - self.last_folder_size and np.random.random() < self.last_folder_prob:
+            # get random data from last folder
+            data_index = np.random.randint(len(self.data) - self.last_folder_size, len(self.data))
+
         loaded_data = np.load(self.data[data_index], allow_pickle=True).item()
         # TODO Jainil: this will be where most of your coding will happen. 
         # Lines 186-203 load the image and labels. you may need to add something to make this possible for your dataset.
         dataset_start_time = time.time()
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             img = loaded_data['img'][:, :, :3]
+            if img.max() > 1:
+                img = (img / 255.0).astype(np.float32)
             cable_mask = np.ones(img.shape[:2])
             cable_mask[img[:, :, 1] <= 0.3] = 0.0
             col, row = np.where(cable_mask > 0.0)
@@ -274,13 +320,38 @@ class KeypointsDataset(Dataset):
             noise = np.tile(noise, 3)
             img[col[darken], row[darken]] -= noise
             pixels = loaded_data['pixels']
+            dense_points = loaded_data['dense_points']
+            # print("dense points", dense_points)
             crop = np.zeros(1)
+            iters = 0
             while True: #not np.array_equal(crop.shape, np.array([self.crop_span, self.crop_span, 3])):
-                start_idx = np.random.randint(0, len(pixels) - (self.condition_len + self.pred_len))
+                # print(self.oversample, len(dense_points), np.random.random() < 1.0)
+                if self.oversample and len(dense_points) > 0 and np.random.random() < 0.5:
+                    start_idx = np.random.choice(dense_points)
+                else:
+                    start_idx = np.random.randint(0, len(pixels) - (self.condition_len + self.pred_len))
                 condition_pixels = self._get_evenly_spaced_points(pixels, self.condition_len + self.pred_len, start_idx, self.spacing, img.shape, backward=True)
                 if len(condition_pixels) == self.condition_len + self.pred_len:
                     break
+                if iters > 10:
+                    return self.__getitem__(np.random.randint(0, len(self.data)))
+                iters += 1
+            # get crop and crop-relative condition pixels
+            # print('condition pixels', condition_pixels)
+            if self.augment:
+                # pass
+                jitter = np.random.randint(-2, 3, size=condition_pixels.shape) * 0
+                jitter[-self.pred_len:] = 0
+                condition_pixels = condition_pixels + jitter
+
             img, cond_pix_array, _ = self.get_crop_and_cond_pixels(img, condition_pixels)
+
+            # plt.imshow(img)
+            # # print(cond_pix_array)
+            # plt.scatter(cond_pix_array[:, 0], cond_pix_array[:, 1])
+            # plt.savefig(f'./dataset_py_test/test_save_scatter.png')
+
+            # raise Exception()
         elif self.expt_type == ExperimentTypes.CAGE_PREDICTION:
             # getting img, pixels, and cage_point 
             img = loaded_data['img'][:, :, :3]
@@ -353,10 +424,8 @@ class KeypointsDataset(Dataset):
             label = torch.as_tensor(loaded_data['under_over']).double().cuda()
 
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
-            jitter = np.random.uniform(-1, 1, size=cond_pix_array.shape)
-            jitter[-self.condition_len:] = 0
-            cond_pix_array = cond_pix_array + jitter
-            combined, points, cable_mask = self.get_trp_model_input(img, cond_pix_array, self.img_transform)
+            combined, points, cable_mask, _ = self.get_trp_model_input(img, cond_pix_array, self.img_transform)
+            # print(points)
 
             if self.pred_len == 1:
                 label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights, normalize=True))
@@ -365,7 +434,7 @@ class KeypointsDataset(Dataset):
                     label = torch.as_tensor(self.draw_spline(img, points[-self.pred_len:,1], points[-self.pred_len:,0], label=True)) 
                 except:
                     label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights, normalize=True))
-            label = label * cable_mask
+            label = label #* cable_mask
             label = label.unsqueeze_(0).cuda()
 
         elif self.expt_type != ExperimentTypes.CAGE_PREDICTION and self.expt_type != ExperimentTypes.CLASSIFY_OVER_UNDER:
@@ -463,6 +532,29 @@ if __name__ == '__main__':
     #     img = img.squeeze(0)
     #     vis_gauss(img, gauss, i_batch)
 
+
+    # # TRACE PREDICTION
+    # test_config = TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_WReal()
+    # test_dataset2 = KeypointsDataset([os.path.join(test_config.dataset_dir, 'train'), os.path.join(test_config.real_dataset_dir, 'train')],
+    #                                 test_config.img_height,
+    #                                 test_config.img_width,
+    #                                 transform,
+    #                                 gauss_sigma=test_config.gauss_sigma, 
+    #                                 augment=True, 
+    #                                 condition_len=test_config.condition_len,
+    #                                 crop_width=test_config.crop_width, 
+    #                                 spacing=test_config.cond_point_dist_px,
+    #                                 expt_type=ExperimentTypes.TRACE_PREDICTION, 
+    #                                 pred_len=1,
+    #                                 config=test_config,
+    #                                 oversample=test_config.oversample)
+    # test_data = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
+    # for i_batch, sample_batched in enumerate(test_data):
+    #     print(i_batch)
+    #     img, gauss = sample_batched
+    #     gauss = gauss.squeeze(0)
+    #     img = img.squeeze(0)
+    #     vis_gauss(img, gauss, i_batch)
     
     # CAGE PINCH PREDICTION
     # test_config = CAP600()

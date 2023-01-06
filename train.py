@@ -20,6 +20,7 @@ os.environ["CUDA_VISIBLE_DEVICES"]="1"
 parser = argparse.ArgumentParser()
 parser.add_argument('--expt_name', type=str, default='')
 parser.add_argument('--expt_class', type=str, default='trp')
+parser.add_argument('--checkpoint_path', type=str, default='')
 
 flags = parser.parse_args()
 
@@ -27,6 +28,7 @@ flags = parser.parse_args()
 experiment_time = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
 expt_name = flags.expt_name
 expt_class = flags.expt_class
+checkpoint_path = flags.checkpoint_path
 
 if expt_class not in ALL_EXPERIMENTS_CONFIG:
     raise ValueError(f"expt_class must be one of {list(ALL_EXPERIMENTS_CONFIG.keys())}")
@@ -35,6 +37,8 @@ config = ALL_EXPERIMENTS_CONFIG[expt_class]()
 
 if expt_name == '':
     expt_name = f"{experiment_time}_{expt_class}"
+else:
+    expt_name = f"{experiment_time}_{expt_class}_{expt_name}"
 
 def forward(sample_batched, model):
     img, gt_gauss = sample_batched
@@ -92,7 +96,7 @@ if not os.path.exists(output_dir):
 if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 
-train_dataset = KeypointsDataset(['%s/train'%config.dataset_dir],
+train_dataset = KeypointsDataset(['%s/train'%config.dataset_dir, '%s/train'%config.real_dataset_dir],
                                 config.img_height, 
                                 config.img_width, 
                                 transform, 
@@ -102,11 +106,14 @@ train_dataset = KeypointsDataset(['%s/train'%config.dataset_dir],
                                 condition_len=config.condition_len, 
                                 pred_len=config.pred_len,
                                 crop_width=config.crop_width, 
-                                spacing=config.cond_point_dist_px)
+                                spacing=config.cond_point_dist_px,
+                                oversample=config.oversample,
+                                config=config)
 train_data = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, num_workers=workers)
 
-test_dataset = KeypointsDataset('%s/test'%config.dataset_dir,
-                           config.img_height, config.img_width, transform, gauss_sigma=config.gauss_sigma, augment=False, expt_type=config.expt_type, condition_len=config.condition_len, crop_width=config.crop_width, spacing=config.cond_point_dist_px)
+test_dataset = KeypointsDataset(['%s/test'%config.dataset_dir, '%s/test'%config.real_dataset_dir],
+                           config.img_height, config.img_width, transform, gauss_sigma=config.gauss_sigma, augment=False, expt_type=config.expt_type, condition_len=config.condition_len, crop_width=config.crop_width, spacing=config.cond_point_dist_px, oversample=config.oversample,
+                           config=config)
 test_data = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=True, num_workers=workers)
 
 
@@ -121,6 +128,11 @@ if not is_point_pred(config.expt_type):
     keypoints = ClassificationModel(num_classes=1, img_height=config.img_height, img_width=config.img_width).cuda()
 else:
     keypoints = KeypointsGauss(num_keypoints=1, img_height=config.img_height, img_width=config.img_width, resnet_type=config.resnet_type, pretrained=config.pretrained).cuda()
+
+# load from checkpoint
+if checkpoint_path != '':
+    print('loading checkpoint from', checkpoint_path)
+    keypoints.load_state_dict(torch.load(checkpoint_path))
 
 # optimizer
 optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-5, weight_decay=1.0e-4)
