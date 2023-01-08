@@ -433,6 +433,10 @@ class KeypointsDataset(Dataset):
                 img[:, :, 0] = self.draw_spline(img, condition_pixels, label=True) #* cable_mask
             else:
                 img[:, :, 0] = gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, condition_pixels[:-self.pred_len,0], condition_pixels[:-self.pred_len,1], weights=self.weights)
+            if self.real_world:
+                img = img[1:, 1:, :]
+                img = cv2.resize(img, (2*self.crop_width, 2*self.crop_width))
+                # condition_pixels -= [1, 1]
             img, _= self.rotate_condition(img, condition_pixels, center_around_last=True, index=data_index)
             combined = transform(img.copy()).cuda()
             label = torch.as_tensor(loaded_data['under_over']).double().cuda()
