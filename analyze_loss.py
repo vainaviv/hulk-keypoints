@@ -16,8 +16,8 @@ import os
 # plt.savefig("losses.png")
 
 # npy file-based method
-files_to_inspect = ['./checkpoints/under_over_class/test_losses_under_over_class.npy', 
-                    './checkpoints/under_over_class/train_losses_under_over_class.npy']
+files_to_inspect = ['./checkpoints/2023-01-06-23-11-13_UNDER_OVER_under_over_2/test_losses_2023-01-06-23-11-13_UNDER_OVER_under_over_2.npy', 
+                    './checkpoints/2023-01-06-23-11-13_UNDER_OVER_under_over_2/train_losses_2023-01-06-23-11-13_UNDER_OVER_under_over_2.npy']
 losses = [np.load(file_to_inspect) for file_to_inspect in files_to_inspect]
 
 # smooth losses

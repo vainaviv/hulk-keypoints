@@ -96,7 +96,6 @@ def vis_gauss(img, gaussians, i):
     crop_og = np.tile(crop, 3)
     if not os.path.exists('./dataset_py_train'):
         os.mkdir('./dataset_py_train')
-    # cv2.imwrite(f'./dataset_py_test/test-gaussians_{i:05d}.png', output)
     img[:, :, 2] = gaussians[:, :, 0] * 255
     cv2.imwrite(f'./dataset_py_test/test-img_{i:05d}.png', img[...,::-1])
     cv2.imwrite(f'./dataset_py_test/test-crop_{i:05d}.png', crop_og)
@@ -133,10 +132,13 @@ class KeypointsDataset(Dataset):
 
         transform_list = augmentation_list if augment else no_augmentation_list
         if not real_world and not augment:
-            transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.02, 0.02)), iaa.GaussianBlur(sigma=(0.2, 0.2))])
+            transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.025, 0.025)), iaa.GaussianBlur(sigma=(0.3, 0.3))])
+            # transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.02, 0.02)), iaa.GaussianBlur(sigma=(0.2, 0.2))])
+            transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.01))])
         elif not real_world and augment:
-            # transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.05)), iaa.GaussianBlur(sigma=(0.1, 0.5))])
-            transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.03)), iaa.GaussianBlur(sigma=(0.1, 0.3))])
+            transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.05)), iaa.GaussianBlur(sigma=(0.1, 0.5))])
+            # transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.03)), iaa.GaussianBlur(sigma=(0.1, 0.3))])
+            # transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.005, 0.015))])
         transform_list.append(iaa.Resize({"height": self.img_height, "width": self.img_width}))
         self.img_transform = iaa.Sequential(transform_list, random_order=False)
         self.augment = augment
@@ -149,6 +151,7 @@ class KeypointsDataset(Dataset):
         self.seed = seed
         self.oversample = oversample
         self.rot_cond = config.rot_cond
+        self.real_world = real_world
 
         self.data = []
         self.expt_type = config.expt_type
@@ -198,7 +201,6 @@ class KeypointsDataset(Dataset):
                     points.append(last_point)
                 else:
                     return np.array([])
-        # print("ret", np.array(points)[..., ::-1])
         return np.array(points)[..., ::-1]
 
     def rotate_condition(self, img, points, center_around_last=False, index=0):
@@ -215,13 +217,6 @@ class KeypointsDataset(Dataset):
                 angle += 180
             elif angle > 90.0:
                 angle -= 180
-            # print(points)
-            # print(angle)
-            # plt.clf()
-            # plt.title(f'Angle: {angle}')
-            # plt.imshow(img)
-            # plt.scatter(points[:, 0], points[:, 1])
-            # plt.savefig(f'dataset_py_test/input_img_{index}.png')
             # rotate image specific angle using cv2.rotate
             M = cv2.getRotationMatrix2D((img.shape[1]/2, img.shape[0]/2), angle, 1)
             img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
@@ -244,28 +239,14 @@ class KeypointsDataset(Dataset):
         points = np.array(points_in_image)
 
         img, angle = self.rotate_condition(img, points, center_around_last=center_around_last)
-        # angle = 0
-        # if self.rot_cond:
-        #     if center_around_last:
-        #         dir_vec = points[-1] - points[-2]
-        #     else:
-        #         dir_vec = points[-self.pred_len-1] - points[-self.pred_len-2]
-        #     angle = np.arctan2(dir_vec[1], dir_vec[0])
-        #     # print(angle * 180 / np.pi)
-        #     # rotate image specific angle using cv2.rotate
-        #     M = cv2.getRotationMatrix2D((img.shape[1]/2, img.shape[0]/2), angle*180/np.pi, 1)
-        #     img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
-
-            # put a gaussian blob around the center of the image for positional encoding
-            # img[:, :, 0] = gauss_2d_batch_efficient_np(img.shape[0], img.shape[1], self.gauss_sigma, np.array([img.shape[0]/2]), np.array([img.shape[1]/2]), [1], normalize=True)
-
+  
         # rotate all points by angle around center of image
         points = points - np.array([img.shape[1]/2, img.shape[0]/2])
         points = np.matmul(points, np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]))
         points = points + np.array([img.shape[1]/2, img.shape[0]/2])
 
         if center_around_last:
-            img[:, :, 0] = self.draw_spline(img, points)# * cable_mask
+            img[:, :, 0] = self.draw_spline(img, points) * cable_mask
         else:
             img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len])# * cable_mask
 
@@ -288,6 +269,7 @@ class KeypointsDataset(Dataset):
         return img, np.array(condition_pixels)[:, ::-1], top_left
 
     def deduplicate_points(self, points):
+        # print("points to deduplicate: ", points)
         x = points[:,0]
         y = points[:,1]
         x = list(OrderedDict.fromkeys(x))
@@ -301,16 +283,6 @@ class KeypointsDataset(Dataset):
     def draw_spline(self, crop, points, label=False):
         if len(points) < 2:
             raise Exception("if drawing spline, must have 2 points minimum for label")
-        # x = points[:,1]
-        # y = points[:,0]
-        # x = list(OrderedDict.fromkeys(x))
-        # y = list(OrderedDict.fromkeys(y))
-        # tmp = OrderedDict()
-        # for point in zip(x, y):
-        #     tmp.setdefault(point[:2], point)
-        # mypoints = np.array(list(tmp.values()))
-        # print(points)
-        # print(points[:, ::-1])
         mypoints = self.deduplicate_points(points[:, ::-1])
         x, y = mypoints[:, 0], mypoints[:, 1]
         k = len(x) - 1 if len(x) < 4 else 3
@@ -392,11 +364,6 @@ class KeypointsDataset(Dataset):
 
             img, cond_pix_array, _ = self.get_crop_and_cond_pixels(img, condition_pixels)
 
-            # plt.imshow(img)
-            # plt.scatter(cond_pix_array[:, 0], cond_pix_array[:, 1])
-            # plt.savefig(f'./dataset_py_test/test_save_scatter.png')
-
-            # raise Exception()
         elif self.expt_type == ExperimentTypes.CAGE_PREDICTION:
             # getting img, pixels, and cage_point 
             img = loaded_data['img'][:, :, :3]
@@ -451,15 +418,21 @@ class KeypointsDataset(Dataset):
             label = label.unsqueeze_(0).cuda()
         elif self.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
             img = (loaded_data['crop_img'][:, :, :3]).copy()
+            condition_pixels = np.array(loaded_data['spline_pixels'], dtype=np.float64)
+            # if self.real_world:
+            #     img = img[1:-1, 1:-1, :]
+            #     img = cv2.resize(img, (2*self.crop_width, 2*self.crop_width))
+            #     condition_pixels -= [1, 1]
+            if img.max() > 1:
+                img = (img / 255.0).astype(np.float32)
             cable_mask = np.ones(img.shape[:2])
             cable_mask[img[:, :, 1] < 0.35] = 0
-            condition_pixels = np.array(loaded_data['spline_pixels'])
+            if self.augment:
+                img = self.img_transform(image=img)
             if self.sweep:
                 img[:, :, 0] = self.draw_spline(img, condition_pixels, label=True) #* cable_mask
             else:
                 img[:, :, 0] = gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, condition_pixels[:-self.pred_len,0], condition_pixels[:-self.pred_len,1], weights=self.weights)
-            if self.augment:
-                img = self.img_transform(image=img)
             img, _= self.rotate_condition(img, condition_pixels, center_around_last=True, index=data_index)
             combined = transform(img.copy()).cuda()
             label = torch.as_tensor(loaded_data['under_over']).double().cuda()
@@ -483,9 +456,6 @@ class KeypointsDataset(Dataset):
             for condition_pixel in condition_pixels[:len(condition_pixels)//2]:
                 condition_mask[int(condition_pixel[1]), int(condition_pixel[0])] = 1.0
             condition_with_cable = np.where(condition_mask > 0, 1, 0)
-            # if self.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
-            #     aug_input_concat_tuple = (img, condition_with_cable)
-            #     label = torch.as_tensor(loaded_data['under_over']).double().cuda()
             if self.expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
                 end_mask = np.zeros(img.shape)
                 for condition in condition_pixels[len(condition_pixels)//2:]:
@@ -504,7 +474,6 @@ class KeypointsDataset(Dataset):
                 cond_V, cond_U = np.nonzero(condition_with_cable[:, :, 0])
                 cond_U, cond_V = torch.from_numpy(np.array([cond_U, cond_V], dtype=np.int32)).cuda()
                 combined[0] = 255.0 * get_gauss(self.img_width, self.img_height, self.gauss_sigma, cond_U, cond_V)
-                # combined[1] = 255.0 * (1 - get_gauss(self.img_width, self.img_height, self.gauss_sigma, cond_U, cond_V))
             else:
                 raise Exception("No condition")
             end_mask = pull_with_cable_and_img[:, :, 6:9].copy()

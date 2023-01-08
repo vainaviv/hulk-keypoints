@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import os
+import pickle as pkl
 
 glob_points = []
 image = None
@@ -28,14 +29,14 @@ def get_real_world_image_points(image_path):
 
 
 if __name__ == '__main__':
-    image_path = '/home/kaushiks/hulk-keypoints/real_world_images/oct_17_figure_eight_overhand'
+    image_path = '/home/vainavi/hulk-keypoints/eval_imgs'
     all_images = os.listdir(image_path)
     image_annot_dict = {}
     for img_name in all_images:
         if 'depth' in img_name:
             continue
-        get_real_world_image_points(os.path.join(image_path, img_name))
-        image_annot_dict[img_name] = glob_points
+        file_path = os.path.join(image_path, img_name)
+        get_real_world_image_points(file_path)
+        image_annot_dict[file_path] = glob_points
         glob_points = []
-
         print(image_annot_dict)

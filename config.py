@@ -515,7 +515,8 @@ class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_WReal(BaseTraceExperime
     rot_cond: bool = True
     epochs: int = 125
 
-class UNDER_OVER:
+@dataclass
+class UNDER_OVER(BaseTraceExperimentConfig):
     expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
     dataset_dir: str = get_dataset_dir(ExperimentTypes.CLASSIFY_OVER_UNDER)
     img_height: int = 20
