@@ -96,97 +96,69 @@ expt_type = config.expt_type
 print("Using checkpoint: ", checkpoint_file_name)
 print("Loaded config: ", config)
 
-def trace(image, start_points, viz=True, idx=0, exact_path_len=None, model=None):    
+def trace(image, start_points, viz=True, exact_path_len=None, model=None):    
     num_condition_points = config.condition_len
     if start_points is None or len(start_points) < num_condition_points:
         raise ValueError(f"Need at least {num_condition_points} start points")
     path = [start_point for start_point in start_points]
     disp_img = (image.copy() * 255.0).astype(np.uint8)
 
-    try: 
-        for iter in range(exact_path_len):
-            # print(iter)
-            # tm = time.time()
-            condition_pixels = [p for p in path[-num_condition_points:]]
-            # print(condition_pixels)
-            
-            # crop_center = condition_pixels[-1]
-            # xmin, xmax, ymin, ymax = max(0, crop_center[0] - crop_size), min(image.shape[1], crop_center[0] + crop_size), max(0, crop_center[1] - crop_size), min(image.shape[0], crop_center[1] + crop_size)
-            # crop = image.copy()[ymin:ymax, xmin:xmax]
-            # cond_pixels_in_crop = condition_pixels - np.array([xmin, ymin])
-            
-            crop, cond_pixels_in_crop, top_left = test_dataset.get_crop_and_cond_pixels(image, condition_pixels, center_around_last=True)
-            ymin, xmin = np.array(top_left) - test_dataset.crop_width
+    for iter in range(exact_path_len):
+        print(iter)
+        condition_pixels = [p for p in path[-num_condition_points:]]
+        
+        crop, cond_pixels_in_crop, top_left = test_dataset.get_crop_and_cond_pixels(image, condition_pixels, center_around_last=True)
+        ymin, xmin = np.array(top_left) - test_dataset.crop_width
 
-            model_input, _, cable_mask, angle = test_dataset.get_trp_model_input(crop, cond_pixels_in_crop, test_dataset.img_transform, center_around_last=True)
+        model_input, _, cable_mask, angle = test_dataset.get_trp_model_input(crop, cond_pixels_in_crop, test_dataset.img_transform, center_around_last=True)
 
-            crop_eroded = cv2.erode((cable_mask).astype(np.uint8), np.ones((2, 2)), iterations=1)
-            # print("Model input prep time: ", time.time() - tm)
+        crop_eroded = cv2.erode((cable_mask).astype(np.uint8), np.ones((2, 2)), iterations=1)
+        # print("Model input prep time: ", time.time() - tm)
 
-            if viz:
-                cv2.imshow('model input', model_input.detach().cpu().numpy().transpose(1, 2, 0))
-                cv2.waitKey(1)
+        if viz:
+            cv2.imshow('model input', model_input.detach().cpu().numpy().transpose(1, 2, 0))
+            cv2.waitKey(1)
 
-            model_output = model(model_input.unsqueeze(0)).detach().cpu().numpy().squeeze()
-            model_output *= crop_eroded.squeeze()
-            model_output = cv2.resize(model_output, (crop.shape[1], crop.shape[0]))
+        model_output = model(model_input.unsqueeze(0)).detach().cpu().numpy().squeeze()
+        model_output *= crop_eroded.squeeze()
+        model_output = cv2.resize(model_output, (crop.shape[1], crop.shape[0]))
 
-            # undo rotation if done in preprocessing
-            M = cv2.getRotationMatrix2D((model_output.shape[1]/2, model_output.shape[0]/2), -angle*180/np.pi, 1)
-            model_output = cv2.warpAffine(model_output, M, (model_output.shape[1], model_output.shape[0]))
+        # undo rotation if done in preprocessing
+        M = cv2.getRotationMatrix2D((model_output.shape[1]/2, model_output.shape[0]/2), -angle*180/np.pi, 1)
+        model_output = cv2.warpAffine(model_output, M, (model_output.shape[1], model_output.shape[0]))
 
-            # mask model output by disc of radius COND_POINT_DIST_PX around the last condition pixel
-            tolerance = 2
-            last_condition_pixel = cond_pixels_in_crop[-1]
-            # now create circle of radius COND_POINT_DIST_PX + tolerance
-            # X, Y = np.meshgrid(np.arange(model_output.shape[1]), np.arange(model_output.shape[0]))
-            # outer_circle = (X - last_condition_pixel[0])**2 + (Y - last_condition_pixel[1])**2 < (config.cond_point_dist_px + tolerance)**2
-            # inner_circle = (X - last_condition_pixel[0])**2 + (Y - last_condition_pixel[1])**2 < (config.cond_point_dist_px - tolerance)**2
-            # disc = (outer_circle & ~inner_circle)
+        # mask model output by disc of radius COND_POINT_DIST_PX around the last condition pixel
+        tolerance = 2
+        last_condition_pixel = cond_pixels_in_crop[-1]
 
-            # model_output *= disc
+        argmax_yx = np.unravel_index(model_output.argmax(), model_output.shape)# * np.array([crop.shape[0] / config.img_height, crop.shape[1] / config.img_width])
 
-            # if viz:
-            #     plt.imshow(disc.squeeze())
-            #     plt.show()
+        # get angle of argmax yx
+        global_yx = np.array([argmax_yx[0] + ymin, argmax_yx[1] + xmin]).astype(int)
 
-            # print(model_output.shape, np.unravel_index(model_output.argmax(), model_output.shape))
-            # print(crop.shape, np.unravel_index(model_output.argmax(), model_output.shape), np.array([crop.shape[0] / config.img_height, crop.shape[1] / config.img_width]))
-            # print(ymin, xmin)
-            argmax_yx = np.unravel_index(model_output.argmax(), model_output.shape)# * np.array([crop.shape[0] / config.img_height, crop.shape[1] / config.img_width])
+        path.append(global_yx)
+        # print("Model output post-processing time: ", time.time() - tm)
 
-            # get angle of argmax yx
-            global_yx = np.array([argmax_yx[0] + ymin, argmax_yx[1] + xmin]).astype(int)
+        if viz:
+            # plt.scatter(argmax_yx[1], argmax_yx[0], c='r')
+            # plt.imshow(crop)
+            # plt.show()
 
-            path.append(global_yx)
-            # print("Model output post-processing time: ", time.time() - tm)
+            cv2.imshow('heatmap on crop', visualize_heatmap_on_image(crop, model_output))
+            cv2.waitKey(1)
+            # plt.scatter(global_yx[1], global_yx[0], c='r')
+            # plt.imshow(image)
+            # plt.show()
 
-            if viz:
-                # plt.scatter(argmax_yx[1], argmax_yx[0], c='r')
-                # plt.imshow(crop)
-                # plt.show()
+        disp_img = cv2.circle(disp_img, (global_yx[1], global_yx[0]), 1, (0, 0, 255), 2)
+        # add line from previous to current point
+        if len(path) > 1:
+            disp_img = cv2.line(disp_img, (path[-2][1], path[-2][0]), (global_yx[1], global_yx[0]), (0, 0, 255), 2)
+        # plt.imsave(f'preds/disp_img_{i}.png', disp_img)
 
-                cv2.imshow('heatmap on crop', visualize_heatmap_on_image(crop, model_output))
-                cv2.waitKey(1)
-                # plt.scatter(global_yx[1], global_yx[0], c='r')
-                # plt.imshow(image)
-                # plt.show()
-
-            disp_img = cv2.circle(disp_img, (global_yx[1], global_yx[0]), 1, (0, 0, 255), 2)
-            # add line from previous to current point
-            if len(path) > 1:
-                disp_img = cv2.line(disp_img, (path[-2][1], path[-2][0]), (global_yx[1], global_yx[0]), (0, 0, 255), 2)
-            path.append(global_yx)
-            # plt.imsave(f'preds/full_trace_results/disp_img_{i}.png', disp_img)
-            if viz:
-                cv2.imshow("disp_img", disp_img)
-                cv2.waitKey(1)
-    except:
-        print("trace stopped working")
-    # print(path)
-    img_cp = (image.copy() * 255.0).astype(np.uint8)
-    trace_viz = visualize_path(img_cp, path)
-    plt.imsave(f'preds/full_trace_results/trace_{idx}.png', trace_viz)
+        if viz:
+            cv2.imshow("disp_img", disp_img)
+            cv2.waitKey(1)
     return path
 
 def visualize_path(img, path, black=False):
@@ -257,11 +229,9 @@ if os.path.exists(real_path):
                                     oversample=True,
                                     config=config)
 else:
-    test_dataset = KeypointsDataset(os.path.join(config.dataset_dir, 'test'), 
-                                    transform,
+    test_dataset = KeypointsDataset('%s/test'%config.dataset_dir,
+                                    transform, 
                                     augment=False, 
-                                    real_world=real_world_trace,
-                                    oversample=True,
                                     config=config)
 
 if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
@@ -300,7 +270,6 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
 
         # print(start_idx, pixels)
         starting_points = test_dataset._get_evenly_spaced_points(pixels, config.condition_len, start_idx + 1, config.cond_point_dist_px, img.shape, backward=False, randomize_spacing=False)
-        print(len(starting_points), config.condition_len)
         if len(starting_points) < config.condition_len:
             print("Not enough starting points")
             continue
@@ -314,11 +283,15 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
         if img.max() > 1:
             img = (img / 255.0).astype(np.float32)
 
-        spline = trace(img, starting_points, idx=i, exact_path_len=80, model=keypoints_models[0], viz=False)
+        spline = trace(img, starting_points, exact_path_len=80, model=keypoints_models[0], viz=False)
         # plt.imshow(img)
         # for pt in spline:
         #     plt.scatter(pt[1], pt[0], c='r')
         # plt.show()
+
+        img_cp = (img.copy() * 255.0).astype(np.uint8)
+        trace_viz = visualize_path(img_cp, spline)
+        plt.imsave(f'preds/full_trace_results/trace_{i}.png', trace_viz)
 
 else:
     preds = []
@@ -326,7 +299,6 @@ else:
     hits = 0
     total = 0
     for i, f in enumerate(test_dataset):
-        print(i)
         img_t = f[0]
         if (len(img_t.shape) < 4):
             img_t = img_t.unsqueeze(0)

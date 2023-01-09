@@ -10,8 +10,8 @@ NUM_STEPS_MIN_FOR_CROSSING = 5
 DIST_THRESH = 0.1
 NOT_CROSSING_THRESH = 10
 
-input_file_path = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1/train'
-out_file_path = '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none2/train'
+input_file_path = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1/test'
+out_file_path = '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none2/test'
 
 if os.path.exists(out_file_path):
     shutil.rmtree(out_file_path)
@@ -38,6 +38,7 @@ for file in files:
     
     crossing_info = np.zeros((pixels.shape[0], 2), dtype=np.int32) - 1 # corresponding point idx, then second int is 1 for under, 2 for over
 
+    ########## Where we find crossings
     for i, point in enumerate(pixels):
         prev_pixels = pixels[:max(0, i-NUM_STEPS_MIN_FOR_CROSSING)]
         if len(prev_pixels) == 0:
@@ -140,6 +141,9 @@ for file in files:
                 spline_pixels.insert(0, pixels[i] - crossing_top_left)
             else:
                 break
+        
+        if len(spline_pixels) < 2:
+            continue
 
         crossing_dict['spline_pixels'] = spline_pixels
         crossings_dicts.append(crossing_dict)

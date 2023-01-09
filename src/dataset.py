@@ -221,7 +221,7 @@ class KeypointsDataset(Dataset):
             M = cv2.getRotationMatrix2D((img.shape[1]/2, img.shape[0]/2), angle, 1)
             img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
         return img, angle
-    
+
     def get_trp_model_input(self, crop, crop_points, aug_transform, center_around_last=False):
         kpts = KeypointsOnImage.from_xy_array(crop_points, shape=crop.shape)
         img, kpts = aug_transform(image=crop, keypoints=kpts)
@@ -238,17 +238,30 @@ class KeypointsDataset(Dataset):
             points_in_image.append(point)
         points = np.array(points_in_image)
 
-        img, angle = self.rotate_condition(img, points, center_around_last=center_around_last)
-  
+        angle = 0
+        if self.rot_cond:
+            if center_around_last:
+                dir_vec = points[-1] - points[-2]
+            else:
+                dir_vec = points[-self.pred_len-1] - points[-self.pred_len-2]
+            angle = np.arctan2(dir_vec[1], dir_vec[0])
+            # print(angle * 180 / np.pi)
+            # rotate image specific angle using cv2.rotate
+            M = cv2.getRotationMatrix2D((img.shape[1]/2, img.shape[0]/2), angle*180/np.pi, 1)
+            img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
+
+            # put a gaussian blob around the center of the image for positional encoding
+            # img[:, :, 0] = gauss_2d_batch_efficient_np(img.shape[0], img.shape[1], self.gauss_sigma, np.array([img.shape[0]/2]), np.array([img.shape[1]/2]), [1], normalize=True)
+
         # rotate all points by angle around center of image
         points = points - np.array([img.shape[1]/2, img.shape[0]/2])
         points = np.matmul(points, np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]))
         points = points + np.array([img.shape[1]/2, img.shape[0]/2])
 
         if center_around_last:
-            img[:, :, 0] = self.draw_spline(img, points) #* cable_mask
+            img[:, :, 0] = self.draw_spline(img, points[:,1], points[:,0])# * cable_mask
         else:
-            img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len])# * cable_mask
+            img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len,1], points[:-self.pred_len,0])# * cable_mask
 
         cable_mask = np.ones(img.shape[:2])
         cable_mask[img[:, :, 1] < 0.4] = 0
@@ -280,10 +293,16 @@ class KeypointsDataset(Dataset):
         mypoints = np.array(list(tmp.values()))
         return mypoints
 
-    def draw_spline(self, crop, points, label=False):
-        if len(points) < 2:
+    def draw_spline(self, crop, x, y, label=False):
+        # x, y = points[:, 0], points[:, 1]
+        if len(x) < 2:
             raise Exception("if drawing spline, must have 2 points minimum for label")
-        mypoints = self.deduplicate_points(points[:, ::-1])
+        # x = list(OrderedDict.fromkeys(x))
+        # y = list(OrderedDict.fromkeys(y))
+        tmp = OrderedDict()
+        for point in zip(x, y):
+            tmp.setdefault(point[:2], point)
+        mypoints = np.array(list(tmp.values()))
         x, y = mypoints[:, 0], mypoints[:, 1]
         k = len(x) - 1 if len(x) < 4 else 3
         if k == 0:
@@ -327,6 +346,7 @@ class KeypointsDataset(Dataset):
             # get random data from last folder
             data_index = np.random.randint(len(self.data) - self.last_folder_size, len(self.data))
 
+        # print(self.data[data_index])
         loaded_data = np.load(self.data[data_index], allow_pickle=True).item()
         dataset_start_time = time.time()
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
@@ -409,7 +429,7 @@ class KeypointsDataset(Dataset):
             cable_mask[img[:, :, 1] < 0.35] = 0
         
             # getting img / combined
-            img[:, :, 0] =  self.draw_spline(img, final_kpts[:-self.pred_len])
+            img[:, :, 0] =  self.draw_spline(img, final_kpts[:-self.pred_len, 1], final_kpts[:-self.pred_len, 0])
             combined = transform(img.copy()).cuda()
 
             # generating the gauss / label out of the cage point
@@ -419,10 +439,6 @@ class KeypointsDataset(Dataset):
         elif self.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or self.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
             img = (loaded_data['crop_img'][:, :, :3]).copy()
             condition_pixels = np.array(loaded_data['spline_pixels'], dtype=np.float64)
-            # if self.real_world:
-            #     img = img[1:-1, 1:-1, :]
-            #     img = cv2.resize(img, (2*self.crop_width, 2*self.crop_width))
-            #     condition_pixels -= [1, 1]
             if img.max() > 1:
                 img = (img / 255.0).astype(np.float32)
             cable_mask = np.ones(img.shape[:2])
@@ -430,13 +446,12 @@ class KeypointsDataset(Dataset):
             if self.augment:
                 img = self.img_transform(image=img)
             if self.sweep:
-                img[:, :, 0] = self.draw_spline(img, condition_pixels, label=True) #* cable_mask
+                img[:, :, 0] = self.draw_spline(img, condition_pixels[:, 1], condition_pixels[:, 0], label=True) #* cable_mask
             else:
                 img[:, :, 0] = gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, condition_pixels[:-self.pred_len,0], condition_pixels[:-self.pred_len,1], weights=self.weights)
             if self.real_world:
                 img = img[1:, 1:, :]
                 img = cv2.resize(img, (2*self.crop_width, 2*self.crop_width))
-                # condition_pixels -= [1, 1]
             img, _= self.rotate_condition(img, condition_pixels, center_around_last=True, index=data_index)
             combined = transform(img.copy()).cuda()
             label = torch.as_tensor(loaded_data['under_over']).double().cuda()
@@ -448,7 +463,7 @@ class KeypointsDataset(Dataset):
                 label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights, normalize=True))
             else:
                 try:
-                    label = torch.as_tensor(self.draw_spline(img, points[-self.pred_len:], label=True)) 
+                    label = torch.as_tensor(self.draw_spline(img, points[-self.pred_len:,1], points[-self.pred_len:,0], label=True)) 
                 except:
                     label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights, normalize=True))
             label = label #* cable_mask
