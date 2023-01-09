@@ -39,8 +39,8 @@ class ClassificationModel(nn.Module):
 		super(ClassificationModel, self).__init__()
 		self.img_height = img_height
 		self.img_width = img_width
-		self.resnet = Resnet34_Classifier(channels=channels, pretrained=False) #Resnet50_8s(channels=channels, pretrained=True) #Resnet34_8s(channels=channels, pretrained=False)
 		self.num_classes = num_classes
+		self.resnet = Resnet34_Classifier(channels=channels, num_classes=self.num_classes, pretrained=False) #Resnet50_8s(channels=channels, pretrained=True) #Resnet34_8s(channels=channels, pretrained=False)
 		self.sigmoid = torch.nn.Sigmoid()
 
 	def forward(self, x):

@@ -44,7 +44,17 @@ def forward(sample_batched, model):
     img, gt_gauss = sample_batched
     img = Variable(img.cuda() if use_cuda else img)
     pred_gauss = model.forward(img).double()
-    loss = nn.BCELoss()(pred_gauss.squeeze(), gt_gauss.squeeze())
+    if expt_class == 'UNDER_OVER_NONE':
+        gt_class = np.zeros(pred_gauss.shape)
+        idxs_1 = gt_gauss.byte().cpu().detach().numpy()
+        idxs_0 = np.arange(idxs_1.shape[0], dtype=int)
+        idxs = np.vstack((idxs_0, idxs_1)).T
+        for idx in idxs:
+            gt_class[idx[0]][idx[1]] = 1.0
+        gt_class = torch.from_numpy(gt_class).cuda()
+        loss = nn.BCELoss()(pred_gauss.squeeze(), gt_class.squeeze())
+    else:
+        loss = nn.BCELoss()(pred_gauss.squeeze(), gt_gauss.squeeze())
     return loss
 
 def fit(train_data, test_data, model, epochs, optimizer, checkpoint_path = ''):
@@ -127,7 +137,7 @@ if use_cuda:
 
 # model
 if not is_point_pred(config.expt_type):
-    keypoints = ClassificationModel(num_classes=1, img_height=config.img_height, img_width=config.img_width).cuda()
+    keypoints = ClassificationModel(num_classes=config.classes, img_height=config.img_height, img_width=config.img_width).cuda()
 else:
     keypoints = KeypointsGauss(num_keypoints=1, img_height=config.img_height, img_width=config.img_width, resnet_type=config.resnet_type, pretrained=config.pretrained).cuda()
 

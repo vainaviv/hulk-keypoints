@@ -29,13 +29,13 @@ class Resnet34_8s(nn.Module):
         return x
 
 class Resnet34_Classifier(nn.Module):
-    def __init__(self, channels=3, pretrained=False):
+    def __init__(self, num_classes=1, channels=3, pretrained=False):
         super(Resnet34_Classifier, self).__init__()
         # Load the pretrained weights, remove avg pool
         # layer and get the output stride of 8
         resnet34_classifier = resnet34(fully_conv=False,
                                        channels=channels,
-                                       num_classes=1,
+                                       num_classes=num_classes,
                                        pretrained=pretrained,
                                        output_stride=8,
                                        remove_avg_pool_layer=True)

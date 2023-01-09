@@ -206,7 +206,7 @@ class KeypointsDataset(Dataset):
     def rotate_condition(self, img, points, center_around_last=False, index=0):
         img = img.copy()
         angle = 0
-        points = self.deduplicate_points(points)
+        # points = self.deduplicate_points(points)
         if self.rot_cond:
             if center_around_last:
                 dir_vec = points[-1] - points[0]
@@ -246,7 +246,7 @@ class KeypointsDataset(Dataset):
         points = points + np.array([img.shape[1]/2, img.shape[0]/2])
 
         if center_around_last:
-            img[:, :, 0] = self.draw_spline(img, points) * cable_mask
+            img[:, :, 0] = self.draw_spline(img, points) #* cable_mask
         else:
             img[:, :, 0] = self.draw_spline(img, points[:-self.pred_len])# * cable_mask
 
@@ -416,7 +416,7 @@ class KeypointsDataset(Dataset):
             label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, final_kpts[-self.pred_len:, 0], final_kpts[-self.pred_len:, 1], weights=self.label_weights))
             label = label
             label = label.unsqueeze_(0).cuda()
-        elif self.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
+        elif self.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or self.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
             img = (loaded_data['crop_img'][:, :, :3]).copy()
             condition_pixels = np.array(loaded_data['spline_pixels'], dtype=np.float64)
             # if self.real_world:
@@ -454,7 +454,7 @@ class KeypointsDataset(Dataset):
             label = label #* cable_mask
             label = label.unsqueeze_(0).cuda()
 
-        elif self.expt_type != ExperimentTypes.CAGE_PREDICTION and self.expt_type != ExperimentTypes.CLASSIFY_OVER_UNDER:
+        elif self.expt_type != ExperimentTypes.CAGE_PREDICTION and self.expt_type != ExperimentTypes.CLASSIFY_OVER_UNDER and self.expt_type != ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
             # input processing
             condition_mask = np.zeros(img.shape)
             for condition_pixel in condition_pixels[:len(condition_pixels)//2]:
@@ -499,8 +499,8 @@ if __name__ == '__main__':
         shutil.rmtree(dataset_test_path)
     os.mkdir(dataset_test_path)
     # UNDER OVER
-    test_config = UNDER_OVER()
-    test_dataset = KeypointsDataset('/home/vainavi/hulk-keypoints/processed_sim_data/under_over_crossing_set2/test',
+    test_config = UNDER_OVER_NONE()
+    test_dataset = KeypointsDataset('/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none/test',
                                     transform, 
                                     augment=True, 
                                     config=test_config)
