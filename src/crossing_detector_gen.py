@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 import shutil
 import random
 
-NUM_STEPS_MIN_FOR_CROSSING = 5 # 10
+NUM_STEPS_MIN_FOR_CROSSING = 5
 DIST_THRESH = 0.1
-NOT_CROSSING_THRESH = 5
+NOT_CROSSING_THRESH = 10
 
 input_file_path = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1/train'
-out_file_path = '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none/train'
+out_file_path = '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none2/train'
 
 if os.path.exists(out_file_path):
     shutil.rmtree(out_file_path)
@@ -45,7 +45,7 @@ for file in files:
         min_dist, argmin_pt = np.min(np.linalg.norm(prev_pixels - point, axis=1)), np.argmin(np.linalg.norm(prev_pixels - point, axis=1))
         # print("min dist: ", min_dist)
         if min_dist < DIST_THRESH:
-            overcrossing = (points_3d[i, 2] > points_3d[argmin_pt, 2])
+            overcrossing = (points_3d[i, 2] >= points_3d[argmin_pt, 2])
             crossing_info[i] = [argmin_pt, overcrossing]
 
     crossings = []
@@ -63,18 +63,23 @@ for file in files:
                 spans.append(cur_span)
                 cur_span = None
     for span in spans:
-        crossings.append(np.mean(span))
+        crossings.append(np.median(span))
 
     ################### Get not crossings
     num_crossings = len(crossings)
     non_crossing_info = np.zeros((pixels.shape[0], 2), dtype=np.int32) - 1 
     for i, point in enumerate(pixels):
-        prev_pixels = pixels[:max(0, i-NUM_STEPS_MIN_FOR_CROSSING)]
-        if len(prev_pixels) == 0:
-            continue
-        min_dist, argmin_pt = np.min(np.linalg.norm(prev_pixels - point, axis=1)), np.argmin(np.linalg.norm(prev_pixels - point, axis=1))
-        if min_dist > NOT_CROSSING_THRESH:
-            non_crossing_info[i] = [argmin_pt, (2)] #2 = neither under or over
+        part1 = pixels[0:max(0, i-NUM_STEPS_MIN_FOR_CROSSING)]
+        part2 = pixels[min(i+NUM_STEPS_MIN_FOR_CROSSING, len(pixels)):]
+        if part1.shape[0] == 0:
+            pixels_all = part2
+        elif part2.shape[0] == 0:
+            pixels_all = part1
+        else:
+            pixels_all = np.vstack((part1, part2))
+        min_dist_all, argmin_pt_all = np.min(np.linalg.norm(pixels_all - point, axis=1)), np.argmin(np.linalg.norm(pixels_all - point, axis=1), axis=0)
+        if min_dist_all > NOT_CROSSING_THRESH:
+            non_crossing_info[i] = [argmin_pt_all, (2)] #2 = neither under or over
 
     spans = []
     cur_span = None
@@ -92,7 +97,7 @@ for file in files:
     for span in spans:
         if num_non_crossings > int(num_crossings/2.5):
             break
-        crossings.append(np.mean(span))
+        crossings.append(np.median(span))
         num_non_crossings += 1
     ###################
     

@@ -23,19 +23,19 @@ transform = transforms.Compose([transforms.ToTensor()])
 
 sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 
-# Domain randomization
+# # Domain randomization
 # img_transform = iaa.Sequential([
 #     iaa.flip.Fliplr(0.5),
 #     iaa.flip.Flipud(0.5),
 #     iaa.MultiplyBrightness((0.7, 1.2)),
-#     # iaa.AddToBrightness((-50, 50)),
-#     # iaa.Resize({"height": 200, "width": 200}),
-#     # sometimes(iaa.Affine(
-#     #     scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
-#     #     rotate=(-30, 30),
-#     #     shear=(-30, 30)
-#     # ))
-#     ], random_order=False)
+    # iaa.AddToBrightness((-50, 50)),
+    # iaa.Resize({"height": 200, "width": 200}),
+    # sometimes(iaa.Affine(
+    #     scale = {"x": (0.7, 1.3), "y": (0.7, 1.3)},
+    #     rotate=(-30, 30),
+    #     shear=(-30, 30)
+    # ))
+    # ], random_order=False)
 
 # # No randomization
 # no_transform = iaa.Sequential([])
@@ -498,9 +498,12 @@ if __name__ == '__main__':
     if os.path.exists(dataset_test_path):
         shutil.rmtree(dataset_test_path)
     os.mkdir(dataset_test_path)
+    os.mkdir(os.path.join(dataset_test_path, 'under'))
+    os.mkdir(os.path.join(dataset_test_path, 'over'))
+    os.mkdir(os.path.join(dataset_test_path, 'none'))
     # UNDER OVER
     test_config = UNDER_OVER_NONE()
-    test_dataset = KeypointsDataset('/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none/test',
+    test_dataset = KeypointsDataset('/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none2/test',
                                     transform, 
                                     augment=True, 
                                     config=test_config)
@@ -509,9 +512,15 @@ if __name__ == '__main__':
     for i_batch, sample_batched in enumerate(test_data):
         print(i_batch)
         img, label = sample_batched
+        label = int(label.detach().squeeze().cpu().numpy().item())
         img = img.squeeze(0)
         img = (img.cpu().detach().numpy().transpose(1, 2, 0) * 255)
-        cv2.imwrite(f'./dataset_py_test/test-img_{i_batch:05d}.png', img[...,::-1])
+        if label == 0:
+            cv2.imwrite(f'./dataset_py_test/under/test-img_{i_batch:05d}.png', img[...,::-1])
+        elif label == 1:
+            cv2.imwrite(f'./dataset_py_test/over/test-img_{i_batch:05d}.png', img[...,::-1])
+        else:
+            cv2.imwrite(f'./dataset_py_test/none/test-img_{i_batch:05d}.png', img[...,::-1])
         # crop = np.expand_dims(img[:, :, -1], axis=-1)
         # crop_og = np.tile(crop, 3)
         # cv2.imwrite(f'./dataset_py_test/test-crop_{i_batch:05d}.png', crop_og)

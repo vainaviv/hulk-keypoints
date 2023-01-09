@@ -25,7 +25,7 @@ def get_dataset_dir(expt_type):
     elif expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
         return '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_crossing_set2'
     elif expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
-        return '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none'
+        return '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none2'
 
 def is_crop_task(expt_type):
     return expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE or expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION
@@ -61,6 +61,7 @@ class BaseConfig:
     crop_width: int = 80
     num_keypoints: int = 1
     gauss_sigma: int = 2
+    classes: int = 1
     epochs: int = 150
     batch_size: int = 4
     cond_point_dist_px: int = 20
@@ -530,7 +531,7 @@ class UNDER_OVER(BaseConfig):
     crop_width: int = 10
     num_keypoints: int = 1
     gauss_sigma: int = 2
-    epochs: int = 150
+    epochs: int = 50
     batch_size: int = 4
     cond_point_dist_px: int = 20
     condition_len: int = 5
@@ -551,7 +552,7 @@ class UNDER_OVER_NONE(BaseConfig):
     crop_width: int = 10
     num_keypoints: int = 1
     gauss_sigma: int = 2
-    epochs: int = 150
+    epochs: int = 50
     batch_size: int = 4
     cond_point_dist_px: int = 20
     condition_len: int = 5
