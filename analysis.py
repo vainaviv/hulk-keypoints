@@ -236,7 +236,7 @@ else:
 
 if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
     if not real_world_trace:
-        image_folder = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_2/test'
+        image_folder = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2/test'
         images = os.listdir(image_folder)
     else:
         image_folder = ''
@@ -355,7 +355,6 @@ else:
         elif is_point_pred(expt_type):
             argmax_yx = np.unravel_index(np.argmax(output.detach().cpu().numpy()[0, 0, ...]), output.detach().cpu().numpy()[0, 0, ...].shape)
             output_yx = np.unravel_index(np.argmax(f[1][0].detach().cpu().numpy()), f[1][0].detach().cpu().numpy().shape)
-            print("argmax_yx", argmax_yx)
             output_heatmap = output.detach().cpu().numpy()[0, 0, ...]
             output_image = f[0][0:3, ...].detach().cpu().numpy().transpose(1,2,0)
             # output_image[:, :, 2] = output_heatmap * 255

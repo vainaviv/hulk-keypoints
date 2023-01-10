@@ -159,7 +159,8 @@ class KeypointsDataset(Dataset):
 
         self.last_folder_size = 0
         self.last_folder_prob = config.real_sample_rate
-        if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
+
+        if folder.__class__ == list:
             folders = folder
             print('Loading data from', folders)
             for folder in folders:

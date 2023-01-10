@@ -56,6 +56,7 @@ class BaseConfig:
     expt_type: str = ExperimentTypes.TRACE_PREDICTION
     dataset_dir: str = get_dataset_dir(ExperimentTypes.TRACE_PREDICTION)
     real_dataset_dir: str = ""
+    real_sample_rate: float = 0.2
     img_height: int = 100
     img_width: int = 100
     crop_width: int = 80
@@ -72,6 +73,7 @@ class BaseConfig:
     resnet_type: str = '50'
     pretrained: bool = False
     oversample: bool = False
+    oversample_rate: float = 0.8
     oversample_factor: float = 1.0
     rot_cond: bool = False
 
