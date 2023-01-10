@@ -157,27 +157,30 @@ class KeypointsDataset(Dataset):
         self.weights = np.geomspace(0.5, 1, self.condition_len)
         self.label_weights = np.ones(self.pred_len) # np.geomspace(1, 0.5, self.pred_len)
 
-        self.last_folder_size = 0
-        self.last_folder_prob = config.real_sample_rate
-
-        if folder.__class__ == list:
-            folders = folder
-            print('Loading data from', folders)
-            for folder in folders:
-                if os.path.exists(folder):
-                    count = 0
-                    for fname in sorted(os.listdir(folder)):
-                        # if os.path.isdir(os.path.join(folder, fname)):
-                        #     continue
-                        self.data.append(os.path.join(folder, fname))
-                        count += 1
-                    self.last_folder_size = count
-        else:
-            count = 0
-            for fname in sorted(os.listdir(folder)):
-                self.data.append(os.path.join(folder, fname))
-                count += 1
-            self.last_folder_size = count
+        self.folder_sizes = []
+        self.folder_weights = np.array(config.dataset_weights)/np.sum(config.dataset_weights)
+        self.folder_counts = np.zeros(len(self.folder_weights))
+        # if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
+        folders = folder
+        print('Loading data from', folders)
+        for folder in folders:
+            if os.path.exists(folder):
+                count = 0
+                for fname in sorted(os.listdir(folder)):
+                    # if os.path.isdir(os.path.join(folder, fname)):
+                    #     continue
+                    self.data.append(os.path.join(folder, fname))
+                    count += 1
+                self.folder_sizes.append(count)
+            else:
+                raise FileNotFoundError(f'Folder {folder} does not exist')
+        self.folder_sizes = np.array(self.folder_sizes)
+        # else:
+        #     count = 0
+        #     for fname in sorted(os.listdir(folder)):
+        #         self.data.append(os.path.join(folder, fname))
+        #         count += 1
+        #     self.last_folder_size = count
 
     def _get_evenly_spaced_points(self, pixels, num_points, start_idx, spacing, img_size, backward=True, randomize_spacing=True):
         def is_in_bounds(pixel):
@@ -344,12 +347,13 @@ class KeypointsDataset(Dataset):
         return spline_dilated[:, :, 0]
 
     def __getitem__(self, data_index):
-        start_time = time.time()
-        if data_index < len(self.data) - self.last_folder_size and np.random.random() < self.last_folder_prob:
-            # get random data from last folder
-            data_index = np.random.randint(len(self.data) - self.last_folder_size, len(self.data))
+        # start_time = time.time()
+        # ignore data_index and get random data
+        folder_to_sample = np.random.choice(np.arange(len(self.folder_sizes)), p=self.folder_weights)
+        data_index = int(self.folder_sizes[:folder_to_sample].sum() + self.folder_counts[folder_to_sample])
+        self.folder_counts[folder_to_sample] += 1
+        self.folder_counts[folder_to_sample] = self.folder_counts[folder_to_sample] % self.folder_sizes[folder_to_sample]
 
-        # print(self.data[data_index])
         loaded_data = np.load(self.data[data_index], allow_pickle=True).item()
         dataset_start_time = time.time()
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
