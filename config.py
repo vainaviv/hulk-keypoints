@@ -504,7 +504,6 @@ class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Adj1(BaseConfig):
     rot_cond: bool = True
     epochs: int = 125
 
-
 @dataclass
 class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_WReal(BaseConfig):
     crop_width: int = 32
@@ -520,6 +519,24 @@ class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_WReal(BaseConfig):
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 125
+
+@dataclass
+class TRC_HW128(BaseConfig):
+    crop_width: int = 32
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 128
+    img_width: int = 128
+    oversample_rate: float = 0.8
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
+    real_dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_1/real_data_for_tracer'
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 125
+    real_sample_rate: float = 0.2
 
 @dataclass
 class UNDER_OVER(BaseConfig):
@@ -590,6 +607,7 @@ TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Adj1,
 TRCR28_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2, 
 TRCR24_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2,
 TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_WReal, 
+TRC_HW128, 
 UNDER_OVER,
 UNDER_OVER_NONE]
 

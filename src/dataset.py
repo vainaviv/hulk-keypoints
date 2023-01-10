@@ -124,7 +124,7 @@ def get_gauss(w, h, sigma, U, V):
     return torch.zeros(1, h, w).cuda().double()
 
 class KeypointsDataset(Dataset):
-    def __init__(self, folder, transform, augment=True, sweep=True, seed=1, real_world=False, oversample=False, config=None):
+    def __init__(self, folder, transform, augment=True, sweep=True, seed=1, real_world=False, config=None):
         self.img_height = config.img_height
         self.img_width = config.img_width
         self.gauss_sigma = config.gauss_sigma
@@ -133,12 +133,9 @@ class KeypointsDataset(Dataset):
         transform_list = augmentation_list if augment else no_augmentation_list
         if not real_world and not augment:
             transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.025, 0.025)), iaa.GaussianBlur(sigma=(0.3, 0.3))])
-            # transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.02, 0.02)), iaa.GaussianBlur(sigma=(0.2, 0.2))])
-            transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.01))])
         elif not real_world and augment:
-            transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.05)), iaa.GaussianBlur(sigma=(0.1, 0.5))])
-            # transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.03)), iaa.GaussianBlur(sigma=(0.1, 0.3))])
-            # transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.005, 0.015))])
+            # transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.05)), iaa.GaussianBlur(sigma=(0.1, 0.5))])
+            transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.02)), iaa.GaussianBlur(sigma=(0.1, 0.3))])
         transform_list.append(iaa.Resize({"height": self.img_height, "width": self.img_width}))
         self.img_transform = iaa.Sequential(transform_list, random_order=False)
         self.augment = augment
@@ -149,7 +146,8 @@ class KeypointsDataset(Dataset):
         self.spacing = config.cond_point_dist_px
         self.sweep = sweep
         self.seed = seed
-        self.oversample = oversample
+        self.oversample = config.oversample
+        self.oversample_rate = config.oversample_rate
         self.rot_cond = config.rot_cond
         self.real_world = real_world
 
@@ -160,7 +158,7 @@ class KeypointsDataset(Dataset):
         self.label_weights = np.ones(self.pred_len) # np.geomspace(1, 0.5, self.pred_len)
 
         self.last_folder_size = 0
-        self.last_folder_prob = 0.4
+        self.last_folder_prob = config.real_sample_rate
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             folders = folder
             print('Loading data from', folders)
@@ -225,6 +223,10 @@ class KeypointsDataset(Dataset):
     def get_trp_model_input(self, crop, crop_points, aug_transform, center_around_last=False):
         kpts = KeypointsOnImage.from_xy_array(crop_points, shape=crop.shape)
         img, kpts = aug_transform(image=crop, keypoints=kpts)
+        kernel = np.array([[0, -1, 0],
+                   [-1, 5,-1],
+                   [0, -1, 0]])
+        img = cv2.filter2D(src=img, ddepth=-1, kernel=kernel)
         points = []
         for k in kpts:
             points.append([k.x,k.y])
@@ -355,17 +357,17 @@ class KeypointsDataset(Dataset):
                 img = (img / 255.0).astype(np.float32)
             cable_mask = np.ones(img.shape[:2])
             cable_mask[img[:, :, 1] <= 0.3] = 0.0
-            col, row = np.where(cable_mask > 0.0)
-            darken = np.random.choice(np.arange(0, len(col), dtype=int), size=len(col)//5, replace=False)
-            noise = np.expand_dims(np.random.normal(0.05, 0.05, len(darken)), axis=-1)
-            noise = np.tile(noise, 3)
-            img[col[darken], row[darken]] -= noise
+            # col, row = np.where(cable_mask > 0.0)
+            # darken = np.random.choice(np.arange(0, len(col), dtype=int), size=len(col)//5, replace=False)
+            # noise = np.expand_dims(np.random.normal(0.05, 0.05, len(darken)), axis=-1)
+            # noise = np.tile(noise, 3)
+            # img[col[darken], row[darken]] -= noise
             pixels = loaded_data['pixels']
             dense_points = loaded_data['dense_points']
             crop = np.zeros(1)
             iters = 0
             while True: #not np.array_equal(crop.shape, np.array([self.crop_span, self.crop_span, 3])):
-                if self.oversample and len(dense_points) > 0 and np.random.random() < 0.5:
+                if self.oversample and len(dense_points) > 0 and np.random.random() < self.oversample_rate:
                     start_idx = np.random.choice(dense_points)
                 else:
                     start_idx = np.random.randint(0, len(pixels) - (self.condition_len + self.pred_len))
@@ -516,51 +518,42 @@ if __name__ == '__main__':
     os.mkdir(os.path.join(dataset_test_path, 'under'))
     os.mkdir(os.path.join(dataset_test_path, 'over'))
     os.mkdir(os.path.join(dataset_test_path, 'none'))
-    # UNDER OVER
-    test_config = UNDER_OVER_NONE()
-    test_dataset = KeypointsDataset('/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none2/test',
-                                    transform, 
-                                    augment=True, 
-                                    config=test_config)
-    test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
 
-    for i_batch, sample_batched in enumerate(test_data):
-        print(i_batch)
-        img, label = sample_batched
-        label = int(label.detach().squeeze().cpu().numpy().item())
-        img = img.squeeze(0)
-        img = (img.cpu().detach().numpy().transpose(1, 2, 0) * 255)
-        if label == 0:
-            cv2.imwrite(f'./dataset_py_test/under/test-img_{i_batch:05d}.png', img[...,::-1])
-        elif label == 1:
-            cv2.imwrite(f'./dataset_py_test/over/test-img_{i_batch:05d}.png', img[...,::-1])
-        else:
-            cv2.imwrite(f'./dataset_py_test/none/test-img_{i_batch:05d}.png', img[...,::-1])
-        # crop = np.expand_dims(img[:, :, -1], axis=-1)
-        # crop_og = np.tile(crop, 3)
-        # cv2.imwrite(f'./dataset_py_test/test-crop_{i_batch:05d}.png', crop_og)
+    # UNDER OVER
+    # test_config = UNDER_OVER_NONE()
+    # test_dataset = KeypointsDataset('/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none2/test',
+    #                                 transform, 
+    #                                 augment=True, 
+    #                                 config=test_config)
+    # test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
+
+    # for i_batch, sample_batched in enumerate(test_data):
+    #     print(i_batch)
+    #     img, label = sample_batched
+    #     label = int(label.detach().squeeze().cpu().numpy().item())
+    #     img = img.squeeze(0)
+    #     img = (img.cpu().detach().numpy().transpose(1, 2, 0) * 255)
+    #     if label == 0:
+    #         cv2.imwrite(f'./dataset_py_test/under/test-img_{i_batch:05d}.png', img[...,::-1])
+    #     elif label == 1:
+    #         cv2.imwrite(f'./dataset_py_test/over/test-img_{i_batch:05d}.png', img[...,::-1])
+    #     else:
+    #         cv2.imwrite(f'./dataset_py_test/none/test-img_{i_batch:05d}.png', img[...,::-1])
 
 
     # TRACE PREDICTION
-    # test_config = TRCR80_CL4_25_PL1_RN50_MED3()
-    # test_dataset2 = KeypointsDataset(os.path.join(test_config.dataset_dir, 'test'),
-    #                                 test_config.img_height,
-    #                                 test_config.img_width,
-    #                                 transform,
-    #                                 gauss_sigma=test_config.gauss_sigma, 
-    #                                 augment=True, 
-    #                                 condition_len=test_config.condition_len,
-    #                                 crop_width=test_config.crop_width, 
-    #                                 spacing=test_config.cond_point_dist_px,
-    #                                 expt_type=ExperimentTypes.TRACE_PREDICTION, 
-    #                                 pred_len=1)
-    # test_data = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
-    # for i_batch, sample_batched in enumerate(test_data):
-    #     print(i_batch)
-    #     img, gauss = sample_batched
-    #     gauss = gauss.squeeze(0)
-    #     img = img.squeeze(0)
-    #     vis_gauss(img, gauss, i_batch)
+    test_config = TRC_HW128()
+    test_dataset2 = KeypointsDataset(os.path.join(test_config.dataset_dir, 'test'),
+                                    transform,
+                                    augment=True, 
+                                    config=test_config)
+    test_data = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
+    for i_batch, sample_batched in enumerate(test_data):
+        print(i_batch)
+        img, gauss = sample_batched
+        gauss = gauss.squeeze(0)
+        img = img.squeeze(0)
+        vis_gauss(img, gauss, i_batch)
 
 
     # # TRACE PREDICTION

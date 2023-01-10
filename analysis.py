@@ -299,6 +299,7 @@ else:
     hits = 0
     total = 0
     for i, f in enumerate(test_dataset):
+        print(i)
         img_t = f[0]
         if (len(img_t.shape) < 4):
             img_t = img_t.unsqueeze(0)
