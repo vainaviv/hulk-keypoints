@@ -1,7 +1,8 @@
 import json
 import os
 import dataclasses
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import List
 # from dataclasses_json import dataclass_json
 
 class ExperimentTypes:
@@ -54,8 +55,8 @@ def load_config_class(path):
 @dataclass
 class BaseConfig:
     expt_type: str = ExperimentTypes.TRACE_PREDICTION
-    dataset_dir: str = get_dataset_dir(ExperimentTypes.TRACE_PREDICTION)
-    real_dataset_dir: str = ""
+    dataset_dir: List[str] = field(default_factory=lambda: [get_dataset_dir(ExperimentTypes.TRACE_PREDICTION)])
+    dataset_weights: List[float] = field(default_factory=lambda: [1.0])
     img_height: int = 100
     img_width: int = 100
     crop_width: int = 80
@@ -141,7 +142,7 @@ class CAP600(BaseConfig):
     img_width: int = 200
     gauss_sigma: int = 4
     condition_len: int = 4
-    dataset_dir: str = '/home/mkparu/rope-rendering/data_processing/post_processed_sim_data/crop_cage_pinch_dataset'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/mkparu/rope-rendering/data_processing/post_processed_sim_data/crop_cage_pinch_dataset'])
 
 @dataclass
 class TRCR140_CL4_25_PL1_RN34(BaseConfig):
@@ -150,7 +151,7 @@ class TRCR140_CL4_25_PL1_RN34(BaseConfig):
     condition_len: int = 4
     pred_len: int = 1
     resnet_type: str = '34'
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset'])
 
 
 @dataclass
@@ -160,7 +161,7 @@ class TRCR140_CL4_25_PL1_RN34_MED(BaseConfig):
     condition_len: int = 4
     pred_len: int = 1
     resnet_type: str = '34'
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_2'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_2'])
 
 @dataclass
 class TRCR80_CL4_25_PL1_RN34_MED(BaseConfig):
@@ -169,7 +170,7 @@ class TRCR80_CL4_25_PL1_RN34_MED(BaseConfig):
     condition_len: int = 4
     pred_len: int = 1
     resnet_type: str = '34'
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_2'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_2'])
 
 @dataclass
 class TRCR80_CL4_25_PL1_RN34_MED3(BaseConfig):
@@ -178,7 +179,7 @@ class TRCR80_CL4_25_PL1_RN34_MED3(BaseConfig):
     condition_len: int = 4
     pred_len: int = 1
     resnet_type: str = '34'
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'])
 
 @dataclass
 class TRCR80_CL4_25_PL1_RN50_MED3(BaseConfig):
@@ -187,7 +188,7 @@ class TRCR80_CL4_25_PL1_RN50_MED3(BaseConfig):
     condition_len: int = 4
     pred_len: int = 1
     resnet_type: str = '50'
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'])
 
 @dataclass
 class TRCR60_CL4_25_PL1_RN34_MED3_V2(BaseConfig):
@@ -196,7 +197,7 @@ class TRCR60_CL4_25_PL1_RN34_MED3_V2(BaseConfig):
     condition_len: int = 3
     pred_len: int = 1
     resnet_type: str = '34'
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'])
 
 @dataclass
 class TRCR60_CL4_25_PL1_RN50_MED3_V2(BaseConfig):
@@ -205,7 +206,7 @@ class TRCR60_CL4_25_PL1_RN50_MED3_V2(BaseConfig):
     condition_len: int = 3
     pred_len: int = 1
     resnet_type: str = '50'
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'])
 
 @dataclass
 class TRCR60_CL4_25_PL1_RN50_MED3_B32_V2(BaseConfig):
@@ -215,7 +216,7 @@ class TRCR60_CL4_25_PL1_RN50_MED3_B32_V2(BaseConfig):
     pred_len: int = 1
     resnet_type: str = '50'
     batch_size: int = 32
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'])
 
 @dataclass
 class TRCR60_CL4_25_PL1_RN34_MED3_B32_V2(BaseConfig):
@@ -225,7 +226,7 @@ class TRCR60_CL4_25_PL1_RN34_MED3_B32_V2(BaseConfig):
     pred_len: int = 1
     resnet_type: str = '34'
     batch_size: int = 32
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_3'])
 
 
 @dataclass
@@ -236,7 +237,7 @@ class TRCR60_CL3_20_PL1_RN34_MED3_RN34_B64_OS(BaseConfig):
     pred_len: int = 1
     resnet_type: str = '34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'])
     oversample: bool = True
 
 
@@ -248,7 +249,7 @@ class TRCR60_CL3_20_PL1_MED3_RN50_B64_OS(BaseConfig):
     pred_len: int = 1
     resnet_type: str = '50'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'])
     oversample: bool = True
 
 @dataclass
@@ -261,7 +262,7 @@ class TRCR60_CL3_20_PL1_MED3_UNet34_B64_OS(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'])
     oversample: bool = True
 
 @dataclass
@@ -274,7 +275,7 @@ class TRCR60_CL3_20_PL1_MED3_UNet34_B64_OS_RotCond(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 250
@@ -289,7 +290,7 @@ class TRCR50_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 250
@@ -304,7 +305,7 @@ class TRCR50_CL3_15_PL1_MED3_UNet18_B64_OS_RotCond(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet18'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 250
@@ -319,7 +320,7 @@ class TRCR50_CL3_15_PL1_MED3_UNet50_B64_OS_RotCond(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet50'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 250
@@ -334,7 +335,7 @@ class TRCR50_CL3_15_PL1_MED3_UNet101_B64_OS_RotCond(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet101'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 250
@@ -349,7 +350,7 @@ class TRCR40_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 250
@@ -364,7 +365,7 @@ class TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 250
@@ -379,7 +380,7 @@ class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 250
@@ -394,7 +395,7 @@ class TRCR40_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond_Hard2(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 125
@@ -409,7 +410,7 @@ class TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond_Hard2(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 125
@@ -424,7 +425,7 @@ class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 125
@@ -439,7 +440,7 @@ class TRCR28_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 125
@@ -454,7 +455,7 @@ class TRCR24_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 125
@@ -469,7 +470,7 @@ class TRCR40_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond_Adj1(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 125
@@ -484,7 +485,7 @@ class TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond_Adj1(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 125
@@ -499,7 +500,7 @@ class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Adj1(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1'])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 125
@@ -514,8 +515,9 @@ class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_WReal(BaseConfig):
     img_width: int = 96
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
-    real_dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_1/real_data_for_tracer'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_1/real_data_for_tracer'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.8, 0.2])
+    # real_dataset_dir: List[str] = []
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 125
@@ -531,17 +533,34 @@ class TRC_HW128(BaseConfig):
     oversample_rate: float = 0.8
     resnet_type: str = 'UNet34'
     batch_size: int = 64
-    dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2'
-    real_dataset_dir: str = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_1/real_data_for_tracer'
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_1/real_data_for_tracer']    )
+    dataset_weights: List[float] = field(default_factory=lambda: [0.8, 0.2])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 125
     real_sample_rate: float = 0.2
 
 @dataclass
+class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_Medley(BaseConfig):
+    crop_width: int = 32
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_1/real_data_for_tracer'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.25, 0.25, 0.25, 0.15])
+    oversample: bool = True
+    oversample_rate: float = 0.95
+    rot_cond: bool = True
+    epochs: int = 125
+
+@dataclass
 class UNDER_OVER(BaseConfig):
     expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
-    dataset_dir: str = get_dataset_dir(ExperimentTypes.CLASSIFY_OVER_UNDER)
+    dataset_dir: str = field(default_factory=lambda: [get_dataset_dir(ExperimentTypes.CLASSIFY_OVER_UNDER)])
     classes: int = 1
     img_height: int = 20
     img_width: int = 20
@@ -562,7 +581,7 @@ class UNDER_OVER(BaseConfig):
 @dataclass
 class UNDER_OVER_NONE(BaseConfig):
     expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER_NONE
-    dataset_dir: str = get_dataset_dir(ExperimentTypes.CLASSIFY_OVER_UNDER_NONE)
+    dataset_dir: str = field(default_factory=lambda: [get_dataset_dir(ExperimentTypes.CLASSIFY_OVER_UNDER_NONE)])
     classes: int = 3
     img_height: int = 20
     img_width: int = 20
@@ -607,7 +626,8 @@ TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Adj1,
 TRCR28_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2, 
 TRCR24_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2,
 TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_WReal, 
-TRC_HW128, 
+TRC_HW128,
+TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_Medley,
 UNDER_OVER,
 UNDER_OVER_NONE]
 
