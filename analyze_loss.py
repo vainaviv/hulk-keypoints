@@ -16,13 +16,13 @@ import os
 # plt.savefig("losses.png")
 
 # npy file-based method
-files_to_inspect = ['./checkpoints/2023-01-08-23-45-16_UNDER_OVER_NONE_under_over_none/test_losses_2023-01-08-23-45-16_UNDER_OVER_NONE_under_over_none.npy', 
-                    './checkpoints/2023-01-08-23-45-16_UNDER_OVER_NONE_under_over_none/train_losses_2023-01-08-23-45-16_UNDER_OVER_NONE_under_over_none.npy']
+files_to_inspect = ['/home/vainavi/hulk-keypoints/checkpoints/2023-01-10-05-11-46_TRC_HW128/test_losses_2023-01-10-05-11-46_TRC_HW128.npy', 
+                    '/home/vainavi/hulk-keypoints/checkpoints/2023-01-10-05-11-46_TRC_HW128/train_losses_2023-01-10-05-11-46_TRC_HW128.npy']
 losses = [np.load(file_to_inspect) for file_to_inspect in files_to_inspect]
 
 # smooth losses
 # losses = np.convolve(losses, np.ones((80,))/80, mode='valid')
 for i, loss in enumerate(losses):
-    plt.plot(loss, label=files_to_inspect[i])
+    plt.plot(loss, label=files_to_inspect[i].split('/')[-1])
 plt.legend()
 plt.savefig(f"losses_smoothed_compared.png")

@@ -110,7 +110,7 @@ def trace(image, start_points, viz=True, exact_path_len=None, model=None):
         crop, cond_pixels_in_crop, top_left = test_dataset.get_crop_and_cond_pixels(image, condition_pixels, center_around_last=True)
         ymin, xmin = np.array(top_left) - test_dataset.crop_width
 
-        model_input, _, cable_mask, angle = test_dataset.get_trp_model_input(crop, cond_pixels_in_crop, test_dataset.img_transform, center_around_last=True)
+        model_input, _, cable_mask, angle = test_dataset.get_trp_model_input(crop, cond_pixels_in_crop, center_around_last=True)
 
         crop_eroded = cv2.erode((cable_mask).astype(np.uint8), np.ones((2, 2)), iterations=1)
         # print("Model input prep time: ", time.time() - tm)
@@ -236,7 +236,7 @@ else:
 
 if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
     if not real_world_trace:
-        image_folder = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_medium_2/test'
+        image_folder = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2/test'
         images = os.listdir(image_folder)
     else:
         image_folder = ''
@@ -299,6 +299,7 @@ else:
     hits = 0
     total = 0
     for i, f in enumerate(test_dataset):
+        print(i)
         img_t = f[0]
         if (len(img_t.shape) < 4):
             img_t = img_t.unsqueeze(0)
@@ -354,7 +355,6 @@ else:
         elif is_point_pred(expt_type):
             argmax_yx = np.unravel_index(np.argmax(output.detach().cpu().numpy()[0, 0, ...]), output.detach().cpu().numpy()[0, 0, ...].shape)
             output_yx = np.unravel_index(np.argmax(f[1][0].detach().cpu().numpy()), f[1][0].detach().cpu().numpy().shape)
-            print("argmax_yx", argmax_yx)
             output_heatmap = output.detach().cpu().numpy()[0, 0, ...]
             output_image = f[0][0:3, ...].detach().cpu().numpy().transpose(1,2,0)
             # output_image[:, :, 2] = output_heatmap * 255
