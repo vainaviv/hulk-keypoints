@@ -308,7 +308,7 @@ else:
         # plt.savefig(f'{output_folder_name}/input_img_{i}.png'.format(i=i))
 
         # plot one heatmap for each model with matplotlib
-        plt.figure()
+        # plt.figure()
 
         if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
             pass

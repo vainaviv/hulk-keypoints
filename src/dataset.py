@@ -518,7 +518,12 @@ if __name__ == '__main__':
     os.mkdir(os.path.join(dataset_test_path, 'none'))
     # UNDER OVER
     test_config = UNDER_OVER_NONE()
-    test_dataset = KeypointsDataset('/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none2/test',
+    # test_dataset = KeypointsDataset('/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none2/test',
+    #                                 transform, 
+    #                                 augment=True, 
+    #                                 config=test_config)
+
+    test_dataset = KeypointsDataset('/home/mkparu/hulk-keypoints/processed_sim_data/under_over_none2test',
                                     transform, 
                                     augment=True, 
                                     config=test_config)
