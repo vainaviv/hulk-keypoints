@@ -124,37 +124,40 @@ def get_gauss(w, h, sigma, U, V):
     return torch.zeros(1, h, w).cuda().double()
 
 class KeypointsDataset(Dataset):
-    def __init__(self, folder, transform, augment=True, sweep=True, seed=1, real_world=False, config=None):
+    def __init__(self, folder, transform, augment=True, sweep=True, seed=1, config=None):
         self.img_height = config.img_height
         self.img_width = config.img_width
         self.gauss_sigma = config.gauss_sigma
         self.transform = transform
         self.sharpen = config.sharpen
 
-        transform_list = augmentation_list if augment else no_augmentation_list
-        transform_list.extend([iaa.WithBrightnessChannels(iaa.Add((-10, 30)))])
-        if not real_world and not augment:
+        real_world_transform_list = augmentation_list if augment else no_augmentation_list
+        sim_transform_list = list(real_world_transform_list)
+        sim_transform_list.extend([iaa.WithBrightnessChannels(iaa.Add((-10, 30)))])
+        if not augment:
             if self.sharpen:
                 kernel = np.array([[0, -1, 0],
                     [-1, 5,-1],
                     [0, -1, 0]])
-                transform_list.extend([iaa.AdditiveGaussianNoise(scale=(4, 4)),
+                sim_transform_list.extend([iaa.AdditiveGaussianNoise(scale=(4, 4)),
                 iaa.Convolve(matrix=kernel)])
             else:
-                transform_list.extend([iaa.AdditiveGaussianNoise(scale=(12, 12))])
-                # transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.025, 0.025))])
-        elif not real_world and augment:
+                sim_transform_list.extend([iaa.AdditiveGaussianNoise(scale=(12, 12))])
+        elif augment:
             if self.sharpen:
                 kernel = np.array([[0, -1, 0],
                     [-1, 5,-1],
                     [0, -1, 0]])
-                transform_list.extend([iaa.AdditiveGaussianNoise(scale=(2, 6)), 
+                sim_transform_list.extend([iaa.AdditiveGaussianNoise(scale=(2, 6)), 
                 iaa.Convolve(matrix=kernel)])
             else:
-                transform_list.extend([iaa.AdditiveGaussianNoise(scale=(10, 14))])
-                # transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.05))])
-        transform_list.append(iaa.Resize({"height": self.img_height, "width": self.img_width}))
-        self.img_transform = iaa.Sequential(transform_list, random_order=False)
+                sim_transform_list.extend([iaa.AdditiveGaussianNoise(scale=(10, 14))])
+        
+        sim_transform_list.append(iaa.Resize({"height": self.img_height, "width": self.img_width}))
+        real_world_transform_list.append(iaa.Resize({"height": self.img_height, "width": self.img_width}))
+
+        self.sim_img_transform = iaa.Sequential(sim_transform_list, random_order=False)
+        self.real_img_transform = iaa.Sequential(real_world_transform_list, random_order=False)
         self.augment = augment
         self.condition_len = config.condition_len
         self.crop_width = config.crop_width
@@ -166,7 +169,7 @@ class KeypointsDataset(Dataset):
         self.oversample = config.oversample
         self.oversample_rate = config.oversample_rate
         self.rot_cond = config.rot_cond
-        self.real_world = real_world
+        self.dataset_real = config.dataset_real
 
         self.data = []
         self.expt_type = config.expt_type
@@ -197,7 +200,7 @@ class KeypointsDataset(Dataset):
         def is_in_bounds(pixel):
             return pixel[0] >= 0 and pixel[0] < img_size[0] and pixel[1] >= 0 and pixel[1] < img_size[1]
         def get_rand_spacing(spacing):
-            return spacing * np.random.uniform(0.7, 1.3) if randomize_spacing else spacing
+            return spacing * np.random.uniform(0.8, 1.2) if randomize_spacing else spacing
         # get evenly spaced points
         last_point = np.array(pixels[start_idx]).squeeze()
         points = [last_point]
@@ -206,11 +209,11 @@ class KeypointsDataset(Dataset):
         rand_spacing = get_rand_spacing(spacing)
         while len(points) < num_points and start_idx > 0 and start_idx < len(pixels):
             start_idx -= (int(backward) * 2 - 1)
-            spacing = np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point)
-            if spacing > rand_spacing:
+            cur_spacing = np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point)
+            if cur_spacing > rand_spacing and cur_spacing < 2*rand_spacing:
                 last_point = np.array(pixels[start_idx]).squeeze()
                 rand_spacing = get_rand_spacing(spacing)
-                if is_in_bounds(last_point) and spacing < 20:
+                if is_in_bounds(last_point):
                     points.append(last_point)
                 else:
                     return np.array([])
@@ -235,14 +238,10 @@ class KeypointsDataset(Dataset):
             img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
         return img, angle
 
-    def get_trp_model_input(self, crop, crop_points, center_around_last=False):
+    def get_trp_model_input(self, crop, crop_points, center_around_last=False, is_real_example=False):
         kpts = KeypointsOnImage.from_xy_array(crop_points, shape=crop.shape)
-        img, kpts = self.call_img_transform(img=crop, kpts=kpts)
-        # if self.sharpen and not self.real_world:
-        #     kernel = np.array([[0, -1, 0],
-        #             [-1, 5,-1],
-        #             [0, -1, 0]])
-        #     img = cv2.filter2D(src=img, ddepth=-1, kernel=kernel)
+        img, kpts = self.call_img_transform(img=crop, kpts=kpts, is_real_example=is_real_example)
+
         points = []
         for k in kpts:
             points.append([k.x,k.y])
@@ -263,13 +262,11 @@ class KeypointsDataset(Dataset):
             else:
                 dir_vec = points[-self.pred_len-1] - points[-self.pred_len-2]
             angle = np.arctan2(dir_vec[1], dir_vec[0])
-            # print(angle * 180 / np.pi)
+
             # rotate image specific angle using cv2.rotate
             M = cv2.getRotationMatrix2D((img.shape[1]/2, img.shape[0]/2), angle*180/np.pi, 1)
             img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
 
-            # put a gaussian blob around the center of the image for positional encoding
-            # img[:, :, 0] = gauss_2d_batch_efficient_np(img.shape[0], img.shape[1], self.gauss_sigma, np.array([img.shape[0]/2]), np.array([img.shape[1]/2]), [1], normalize=True)
 
         # rotate all points by angle around center of image
         points = points - np.array([img.shape[1]/2, img.shape[0]/2])
@@ -355,47 +352,42 @@ class KeypointsDataset(Dataset):
         spline[xnew, ynew] = weights
         spline = np.expand_dims(spline, axis=2)
         spline = np.tile(spline, 3)
-        spline_dilated = cv2.dilate(spline, np.ones((2,2), np.uint8), iterations=1)
+        spline_dilated = cv2.dilate(spline, np.ones((3,3), np.uint8), iterations=1)
         return spline_dilated[:, :, 0]
 
-    def call_img_transform(self, img, kpts=None):
+    def call_img_transform(self, img, kpts=None, is_real_example=False):
+        img_transform = self.real_img_transform if is_real_example else self.sim_img_transform
         img = img.copy()
         img = (img * 255.0).astype(np.uint8)
         if kpts:
-            img, keypoints = self.img_transform(image=img, keypoints=kpts)
+            img, keypoints = img_transform(image=img, keypoints=kpts)
             img = (img / 255.0).astype(np.float32)
             return img, keypoints
         else:
-            img = self.img_transform(image=img)
+            img = img_transform(image=img)
             img = (img / 255.0).astype(np.float32)
             return img
 
     def __getitem__(self, data_index):
-        # start_time = time.time()
         # ignore data_index and get random data
         folder_to_sample = np.random.choice(np.arange(len(self.folder_sizes)), p=self.folder_weights)
         data_index = int(self.folder_sizes[:folder_to_sample].sum() + self.folder_counts[folder_to_sample])
         self.folder_counts[folder_to_sample] += 1
         self.folder_counts[folder_to_sample] = self.folder_counts[folder_to_sample] % self.folder_sizes[folder_to_sample]
+        is_real_example = self.dataset_real[folder_to_sample]
 
         loaded_data = np.load(self.data[data_index], allow_pickle=True).item()
-        dataset_start_time = time.time()
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             img = loaded_data['img'][:, :, :3]
             if img.max() > 1:
                 img = (img / 255.0).astype(np.float32)
             cable_mask = np.ones(img.shape[:2])
             cable_mask[img[:, :, 1] <= 0.3] = 0.0
-            # col, row = np.where(cable_mask > 0.0)
-            # darken = np.random.choice(np.arange(0, len(col), dtype=int), size=len(col)//5, replace=False)
-            # noise = np.expand_dims(np.random.normal(0.05, 0.05, len(darken)), axis=-1)
-            # noise = np.tile(noise, 3)
-            # img[col[darken], row[darken]] -= noise
+
             pixels = loaded_data['pixels']
             dense_points = loaded_data['dense_points']
-            crop = np.zeros(1)
             iters = 0
-            while True: #not np.array_equal(crop.shape, np.array([self.crop_span, self.crop_span, 3])):
+            while True:
                 if self.oversample and len(dense_points) > 0 and np.random.random() < self.oversample_rate:
                     start_idx = np.random.choice(dense_points)
                 else:
@@ -406,6 +398,7 @@ class KeypointsDataset(Dataset):
                 if iters > 10:
                     return self.__getitem__(np.random.randint(0, len(self.data)))
                 iters += 1
+
             # get crop and crop-relative condition pixels
             if self.augment:
                 # pass
@@ -488,7 +481,7 @@ class KeypointsDataset(Dataset):
             label = torch.as_tensor(loaded_data['under_over']).double().cuda()
 
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
-            combined, points, cable_mask, _ = self.get_trp_model_input(img, cond_pix_array)
+            combined, points, cable_mask, _ = self.get_trp_model_input(img, cond_pix_array, is_real_example=is_real_example)
 
             if self.pred_len == 1:
                 label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights, normalize=True))
@@ -571,7 +564,7 @@ if __name__ == '__main__':
 
 
     # TRACE PREDICTION
-    test_config = TRCR32_CL3_12_PL1_RotCond_Sharp_Hard2_WReal()
+    test_config = TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_Medley() #TRCR32_CL3_12_PL1_RotCond_Sharp_Hard2_WReal()
     test_dataset2 = KeypointsDataset([os.path.join(dir, 'test') for dir in test_config.dataset_dir],
                                     transform,
                                     augment=True, 

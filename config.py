@@ -57,6 +57,7 @@ class BaseConfig:
     expt_type: str = ExperimentTypes.TRACE_PREDICTION
     dataset_dir: List[str] = field(default_factory=lambda: [get_dataset_dir(ExperimentTypes.TRACE_PREDICTION)])
     dataset_weights: List[float] = field(default_factory=lambda: [1.0])
+    dataset_real: List[bool] = field(default_factory=lambda: [False])
     img_height: int = 100
     img_width: int = 100
     crop_width: int = 80
@@ -519,6 +520,7 @@ class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_WReal(BaseConfig):
     batch_size: int = 64
     dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_1/real_data_for_tracer'])
     dataset_weights: List[float] = field(default_factory=lambda: [0.8, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, True])
     # real_dataset_dir: List[str] = []
     oversample: bool = True
     rot_cond: bool = True
@@ -536,6 +538,7 @@ class TRCR32_CL3_12_PL1_RotCond_Sharp_Hard2_WReal(BaseConfig):
     batch_size: int = 64
     dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_1/real_data_for_tracer'])
     dataset_weights: List[float] = field(default_factory=lambda: [0.8, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, True])
     # real_dataset_dir: List[str] = []
     oversample: bool = True
     rot_cond: bool = True
@@ -555,6 +558,7 @@ class TRC_HW128(BaseConfig):
     batch_size: int = 64
     dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_1/real_data_for_tracer']    )
     dataset_weights: List[float] = field(default_factory=lambda: [0.8, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, True])
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 125
@@ -572,6 +576,7 @@ class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_Medley(BaseConfig):
     batch_size: int = 64
     dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_1/real_data_for_tracer'])
     dataset_weights: List[float] = field(default_factory=lambda: [0.25, 0.25, 0.25, 0.15])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True])
     oversample: bool = True
     oversample_rate: float = 0.95
     rot_cond: bool = True
