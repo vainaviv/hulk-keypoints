@@ -129,13 +129,30 @@ class KeypointsDataset(Dataset):
         self.img_width = config.img_width
         self.gauss_sigma = config.gauss_sigma
         self.transform = transform
+        self.sharpen = config.sharpen
 
         transform_list = augmentation_list if augment else no_augmentation_list
+        transform_list.extend([iaa.WithBrightnessChannels(iaa.Add((-10, 30)))])
         if not real_world and not augment:
-            transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.025, 0.025)), iaa.GaussianBlur(sigma=(0.3, 0.3))])
+            if self.sharpen:
+                kernel = np.array([[0, -1, 0],
+                    [-1, 5,-1],
+                    [0, -1, 0]])
+                transform_list.extend([iaa.AdditiveGaussianNoise(scale=(4, 4)),
+                iaa.Convolve(matrix=kernel)])
+            else:
+                transform_list.extend([iaa.AdditiveGaussianNoise(scale=(12, 12))])
+                # transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.025, 0.025))])
         elif not real_world and augment:
-            # transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.05)), iaa.GaussianBlur(sigma=(0.1, 0.5))])
-            transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.02)), iaa.GaussianBlur(sigma=(0.1, 0.3))])
+            if self.sharpen:
+                kernel = np.array([[0, -1, 0],
+                    [-1, 5,-1],
+                    [0, -1, 0]])
+                transform_list.extend([iaa.AdditiveGaussianNoise(scale=(2, 6)), 
+                iaa.Convolve(matrix=kernel)])
+            else:
+                transform_list.extend([iaa.AdditiveGaussianNoise(scale=(10, 14))])
+                # transform_list.extend([iaa.AdditiveGaussianNoise(scale=(0.01, 0.05))])
         transform_list.append(iaa.Resize({"height": self.img_height, "width": self.img_width}))
         self.img_transform = iaa.Sequential(transform_list, random_order=False)
         self.augment = augment
@@ -175,12 +192,6 @@ class KeypointsDataset(Dataset):
             else:
                 raise FileNotFoundError(f'Folder {folder} does not exist')
         self.folder_sizes = np.array(self.folder_sizes)
-        # else:
-        #     count = 0
-        #     for fname in sorted(os.listdir(folder)):
-        #         self.data.append(os.path.join(folder, fname))
-        #         count += 1
-        #     self.last_folder_size = count
 
     def _get_evenly_spaced_points(self, pixels, num_points, start_idx, spacing, img_size, backward=True, randomize_spacing=True):
         def is_in_bounds(pixel):
@@ -224,13 +235,14 @@ class KeypointsDataset(Dataset):
             img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
         return img, angle
 
-    def get_trp_model_input(self, crop, crop_points, aug_transform, center_around_last=False):
+    def get_trp_model_input(self, crop, crop_points, center_around_last=False):
         kpts = KeypointsOnImage.from_xy_array(crop_points, shape=crop.shape)
-        img, kpts = aug_transform(image=crop, keypoints=kpts)
-        kernel = np.array([[0, -1, 0],
-                   [-1, 5,-1],
-                   [0, -1, 0]])
-        img = cv2.filter2D(src=img, ddepth=-1, kernel=kernel)
+        img, kpts = self.call_img_transform(img=crop, kpts=kpts)
+        # if self.sharpen and not self.real_world:
+        #     kernel = np.array([[0, -1, 0],
+        #             [-1, 5,-1],
+        #             [0, -1, 0]])
+        #     img = cv2.filter2D(src=img, ddepth=-1, kernel=kernel)
         points = []
         for k in kpts:
             points.append([k.x,k.y])
@@ -346,6 +358,18 @@ class KeypointsDataset(Dataset):
         spline_dilated = cv2.dilate(spline, np.ones((2,2), np.uint8), iterations=1)
         return spline_dilated[:, :, 0]
 
+    def call_img_transform(self, img, kpts=None):
+        img = img.copy()
+        img = (img * 255.0).astype(np.uint8)
+        if kpts:
+            img, keypoints = self.img_transform(image=img, keypoints=kpts)
+            img = (img / 255.0).astype(np.float32)
+            return img, keypoints
+        else:
+            img = self.img_transform(image=img)
+            img = (img / 255.0).astype(np.float32)
+            return img
+
     def __getitem__(self, data_index):
         # start_time = time.time()
         # ignore data_index and get random data
@@ -425,7 +449,7 @@ class KeypointsDataset(Dataset):
 
             # getting final keypoints (final_kpts) post-transformation
             kpts_on_image = KeypointsOnImage.from_xy_array(kpts_array, shape=img.shape)
-            img, transformed_kpts = self.img_transform(image=img, keypoints=kpts_on_image)
+            img, transformed_kpts = self.call_img_transform(img, kpts=kpts_on_image) #self.img_transform(image=img, keypoints=kpts_on_image)
             final_kpts = []
             for k in transformed_kpts:
                 final_kpts.append([k.x, k.y])
@@ -451,7 +475,7 @@ class KeypointsDataset(Dataset):
             cable_mask = np.ones(img.shape[:2])
             cable_mask[img[:, :, 1] < 0.35] = 0
             if self.augment:
-                img = self.img_transform(image=img)
+                img = self.call_img_transform(img) #self.img_transform(image=img)
             if self.sweep:
                 img[:, :, 0] = self.draw_spline(img, condition_pixels[:, 1], condition_pixels[:, 0], label=True) #* cable_mask
             else:
@@ -464,7 +488,7 @@ class KeypointsDataset(Dataset):
             label = torch.as_tensor(loaded_data['under_over']).double().cuda()
 
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
-            combined, points, cable_mask, _ = self.get_trp_model_input(img, cond_pix_array, self.img_transform)
+            combined, points, cable_mask, _ = self.get_trp_model_input(img, cond_pix_array)
 
             if self.pred_len == 1:
                 label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, points[-self.pred_len:, 0], points[-self.pred_len:, 1], weights=self.label_weights, normalize=True))
@@ -489,7 +513,7 @@ class KeypointsDataset(Dataset):
                 aug_input_concat_tuple = (img, condition_with_cable, end_mask)
 
         if self.expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION:
-            pull_with_cable_and_img = self.img_transform(image=np.concatenate(aug_input_concat_tuple, axis=2))
+            pull_with_cable_and_img = self.call_img_transform(np.concatenate(aug_input_concat_tuple, axis=2)) #self.img_transform(image=np.concatenate(aug_input_concat_tuple, axis=2))
             # split into img and mask again
             img = pull_with_cable_and_img[:, :, 0:3].copy()
             condition_with_cable = pull_with_cable_and_img[:, :, 3:6].copy()
@@ -547,8 +571,8 @@ if __name__ == '__main__':
 
 
     # TRACE PREDICTION
-    test_config = TRC_HW128()
-    test_dataset2 = KeypointsDataset(os.path.join(test_config.dataset_dir, 'test'),
+    test_config = TRCR32_CL3_12_PL1_RotCond_Sharp_Hard2_WReal()
+    test_dataset2 = KeypointsDataset([os.path.join(dir, 'test') for dir in test_config.dataset_dir],
                                     transform,
                                     augment=True, 
                                     config=test_config)

@@ -110,7 +110,7 @@ def trace(image, start_points, viz=True, exact_path_len=None, model=None):
         crop, cond_pixels_in_crop, top_left = test_dataset.get_crop_and_cond_pixels(image, condition_pixels, center_around_last=True)
         ymin, xmin = np.array(top_left) - test_dataset.crop_width
 
-        model_input, _, cable_mask, angle = test_dataset.get_trp_model_input(crop, cond_pixels_in_crop, test_dataset.img_transform, center_around_last=True)
+        model_input, _, cable_mask, angle = test_dataset.get_trp_model_input(crop, cond_pixels_in_crop, center_around_last=True)
 
         crop_eroded = cv2.erode((cable_mask).astype(np.uint8), np.ones((2, 2)), iterations=1)
         # print("Model input prep time: ", time.time() - tm)

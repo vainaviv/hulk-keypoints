@@ -76,6 +76,7 @@ class BaseConfig:
     oversample_rate: float = 0.8
     oversample_factor: float = 1.0
     rot_cond: bool = False
+    sharpen: bool = False
 
 @dataclass
 class TRCR80(BaseConfig):
@@ -522,6 +523,24 @@ class TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_WReal(BaseConfig):
     oversample: bool = True
     rot_cond: bool = True
     epochs: int = 125
+
+@dataclass
+class TRCR32_CL3_12_PL1_RotCond_Sharp_Hard2_WReal(BaseConfig):
+    crop_width: int = 32
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_1/real_data_for_tracer'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.8, 0.2])
+    # real_dataset_dir: List[str] = []
+    oversample: bool = True
+    rot_cond: bool = True
+    epochs: int = 125
+    sharpen: bool = True
 
 @dataclass
 class TRC_HW128(BaseConfig):
