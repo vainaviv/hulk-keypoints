@@ -133,25 +133,20 @@ class KeypointsDataset(Dataset):
 
         real_world_transform_list = augmentation_list if augment else no_augmentation_list
         sim_transform_list = list(real_world_transform_list)
-        sim_transform_list.extend([iaa.WithBrightnessChannels(iaa.Add((-10, 30)))])
-        if not augment:
-            if self.sharpen:
-                kernel = np.array([[0, -1, 0],
-                    [-1, 5,-1],
-                    [0, -1, 0]])
-                sim_transform_list.extend([iaa.AdditiveGaussianNoise(scale=(4, 4)),
-                iaa.Convolve(matrix=kernel)])
-            else:
-                sim_transform_list.extend([iaa.AdditiveGaussianNoise(scale=(12, 12))])
-        elif augment:
-            if self.sharpen:
-                kernel = np.array([[0, -1, 0],
-                    [-1, 5,-1],
-                    [0, -1, 0]])
-                sim_transform_list.extend([iaa.AdditiveGaussianNoise(scale=(2, 6)), 
-                iaa.Convolve(matrix=kernel)])
-            else:
-                sim_transform_list.extend([iaa.AdditiveGaussianNoise(scale=(10, 14))])
+        # sim_transform_list.extend([])
+        brightness_avg = 10
+        if self.sharpen:
+            kernel = np.array([[0, -0.25, 0],
+                    [-0.25, 2,-0.25],
+                    [0, -0.25, 0]])
+            noise_avg = 4
+            sim_transform_list.extend([iaa.Convolve(matrix=kernel)])
+        else:
+            noise_avg = 6
+        aug_delta = 2 if augment else 0
+        brightness_deta = 5 if augment else 0
+        sim_transform_list.extend([iaa.AdditiveGaussianNoise(scale=(noise_avg - aug_delta, noise_avg + aug_delta)),
+        iaa.WithBrightnessChannels(iaa.Add((brightness_avg - brightness_deta, brightness_avg + brightness_deta)))])
         
         sim_transform_list.append(iaa.Resize({"height": self.img_height, "width": self.img_width}))
         real_world_transform_list.append(iaa.Resize({"height": self.img_height, "width": self.img_width}))
@@ -370,6 +365,8 @@ class KeypointsDataset(Dataset):
 
     def __getitem__(self, data_index):
         # ignore data_index and get random data
+        if data_index >= self.__len__():
+            raise IndexError()
         folder_to_sample = np.random.choice(np.arange(len(self.folder_sizes)), p=self.folder_weights)
         data_index = int(self.folder_sizes[:folder_to_sample].sum() + self.folder_counts[folder_to_sample])
         self.folder_counts[folder_to_sample] += 1
@@ -379,12 +376,18 @@ class KeypointsDataset(Dataset):
         loaded_data = np.load(self.data[data_index], allow_pickle=True).item()
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
             img = loaded_data['img'][:, :, :3]
+
+            if not is_real_example:
+                delta = 0.8 #np.random.uniform(low=0.8, high=1.0)
+                img = cv2.resize(img, (int(img.shape[0]*delta), int(img.shape[1]*delta)))
+                for idx in loaded_data['pixels'].keys():
+                    loaded_data['pixels'][idx] = [(int(loaded_data['pixels'][idx][0][0]*delta), int(loaded_data['pixels'][idx][0][1]*delta))]
+                
             if img.max() > 1:
                 img = (img / 255.0).astype(np.float32)
+            pixels = loaded_data['pixels']
             cable_mask = np.ones(img.shape[:2])
             cable_mask[img[:, :, 1] <= 0.3] = 0.0
-
-            pixels = loaded_data['pixels']
             dense_points = loaded_data['dense_points']
             iters = 0
             while True:
@@ -400,7 +403,7 @@ class KeypointsDataset(Dataset):
                 iters += 1
 
             # get crop and crop-relative condition pixels
-            if self.augment:
+            if self.augment and not is_real_example:
                 # pass
                 jitter = np.random.randint(-2, 3, size=condition_pixels.shape) * 0
                 jitter[-self.pred_len:] = 0
@@ -564,10 +567,10 @@ if __name__ == '__main__':
 
 
     # TRACE PREDICTION
-    test_config = TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_Medley() #TRCR32_CL3_12_PL1_RotCond_Sharp_Hard2_WReal()
+    test_config = TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_Medley_MoreReal_Sharp() #TRCR32_CL3_12_PL1_RotCond_Sharp_Hard2_WReal()
     test_dataset2 = KeypointsDataset([os.path.join(dir, 'test') for dir in test_config.dataset_dir],
                                     transform,
-                                    augment=True, 
+                                    augment=False, 
                                     config=test_config)
     test_data = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
     for i_batch, sample_batched in enumerate(test_data):

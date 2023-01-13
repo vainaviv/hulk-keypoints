@@ -220,8 +220,15 @@ transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-real_path = os.path.join(config.dataset_dir, 'real_test')
-if os.path.exists(real_path):
+real = False
+real_paths = []
+for dir in config.dataset_dir:
+    real_path = os.path.join(dir, 'real_test')
+    if os.path.exists(real_path):
+        real=True
+        real_paths.append(real_path)
+
+if real:
     test_dataset = KeypointsDataset(real_path, 
                                     transform,
                                     augment=False, 
@@ -229,7 +236,7 @@ if os.path.exists(real_path):
                                     oversample=True,
                                     config=config)
 else:
-    test_dataset = KeypointsDataset('%s/test'%config.dataset_dir,
+    test_dataset = KeypointsDataset(['%s/test'%dir for dir in config.dataset_dir],
                                     transform, 
                                     augment=False, 
                                     config=config)
@@ -300,6 +307,7 @@ else:
     total = 0
     for i, f in enumerate(test_dataset):
         print(i)
+        f = list(f)
         img_t = f[0]
         if (len(img_t.shape) < 4):
             img_t = img_t.unsqueeze(0)
@@ -372,7 +380,7 @@ else:
             plt.imshow(overlay)
 
             save_path = os.path.join(failure_folder_name, f'output_img_{i}.png')
-            if np.linalg.norm((np.array(argmax_yx) - np.array(output_yx)), 2) < 5:
+            if np.linalg.norm((np.array(argmax_yx) - np.array(output_yx)), 2) < 5*(config.img_height/96.0):
                 hits += 1
                 save_path = os.path.join(success_folder_name, f'output_img_{i}.png')
             plt.savefig(save_path)

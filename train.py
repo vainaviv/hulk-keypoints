@@ -89,8 +89,8 @@ def fit(train_data, test_data, model, epochs, optimizer, checkpoint_path = ''):
             test_epochs.append(epoch)
             test_losses.append(test_loss_per_batch)
 
-            np.save(os.path.join(checkpoint_path, f"test_losses_{expt_name}.npy"), test_losses)
-            np.save(os.path.join(checkpoint_path, f"train_losses_{expt_name}.npy"), train_losses)
+            np.save(os.path.join(checkpoint_path, "test_losses.npy"), test_losses)
+            np.save(os.path.join(checkpoint_path, "train_losses.npy"), train_losses)
 
             if len(test_losses) <= 1 or test_loss_per_batch < np.min(test_losses[:-1]) or epoch - last_checkpoint_epoch >= config.min_checkpoint_freq:
                 torch.save(keypoints.state_dict(), os.path.join(checkpoint_path, f'model_{epoch}_{test_loss_per_batch:.5f}.pth'))
