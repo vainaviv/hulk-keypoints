@@ -26,7 +26,8 @@ def get_dataset_dir(expt_type):
     elif expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER:
         return '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_crossing_set2'
     elif expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
-        return '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none2'
+        # return '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none2'
+        return '/home/mkparu/hulk-keypoints/processed_sim_data/under_over_none2'
 
 def is_crop_task(expt_type):
     return expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE or expt_type == ExperimentTypes.OPPOSITE_ENDPOINT_PREDICTION
