@@ -11,6 +11,7 @@ class TracerKnotDetector():
         self.output_vis_dir = '/home/jainilajmera/hulk-keypoints/test_tkd/'
         self.uon_crop_size = 20
         self.graspability = Graspability()
+        self.knot_detector = KnotDetector()
 
     def _visualize(self):
         file_name = 'full_img'
@@ -71,16 +72,16 @@ class TracerKnotDetector():
     def determine_pinch(self):
         idx = -1
         pinch = self.pixels_so_far[idx]
-        while not self.graspability.find_pixel_point_graspability(pinch, self.pixels_so_far): #TODO: need to tune this, also need full trace up to this point
+        while not self.graspability.find_pixel_point_graspability(pinch, self.pixels_so_far): #TODO: need to tune graspability
             idx -= 1
             pinch = self.pixels_so_far[idx]
         return pinch 
 
     def determine_cage(self):
-        # vainavi TODO: go back until you're at the trace part that corresponds to over crossing
-        idx = -1
-        # then trace from there forward and stop once you're in a graspable region
+        # go back until you're at the trace part that corresponds to over crossing
+        idx = self.knot_detector.get_crossing_pos(self.pixels_so_far[-1])
         cage = self.pixels_so_far[idx]
+        # then trace from there forward and stop once you're in a graspable region
         while not self.graspability.find_pixel_point_graspability(cage, self.pixels_so_far):
             idx += 1
             cage = self.pixels_so_far[idx]
