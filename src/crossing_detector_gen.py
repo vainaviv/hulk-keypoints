@@ -247,7 +247,7 @@ for file in files:
         #         num_removed += 1
         #         continue
 
-        #     #if either this pixel or the on crossing it is light, do not include
+        #     # if either this pixel or the on crossing it is light, do not include
         #     # if(cable_mask[int(cropped_pixel[0])][int(cropped_pixel[1])] == 0 or cable_mask[int(cropped_other_pixel[0])][int(cropped_other_pixel[1])] == 0):
         #     #     print("crossing is not bright enough")
         #     #     removed_crossings.append(crossing)
