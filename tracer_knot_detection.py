@@ -68,22 +68,22 @@ class TracerKnotDetector():
     
         return spline_pixels
 
-    def determine_pinch(self, trace_so_far):
+    def determine_pinch(self):
         idx = -1
-        pinch = trace_so_far[idx]
-        while not self.graspability.find_pixel_point_graspability(pinch, trace_so_far): #TODO: need to tune this, also need full trace up to this point
+        pinch = self.pixels_so_far[idx]
+        while not self.graspability.find_pixel_point_graspability(pinch, self.pixels_so_far): #TODO: need to tune this, also need full trace up to this point
             idx -= 1
-            pinch = trace_so_far[idx]
+            pinch = self.pixels_so_far[idx]
         return pinch 
 
-    def determine_cage(self, trace_so_far):
+    def determine_cage(self):
         # vainavi TODO: go back until you're at the trace part that corresponds to over crossing
         idx = -1
         # then trace from there forward and stop once you're in a graspable region
-        cage = trace_so_far[idx]
-        while not self.graspability.find_pixel_point_graspability(cage, trace_so_far):
+        cage = self.pixels_so_far[idx]
+        while not self.graspability.find_pixel_point_graspability(cage, self.pixels_so_far):
             idx += 1
-            cage = trace_so_far[idx]
+            cage = self.pixels_so_far[idx]
         return cage
 
     def trace_and_detect_knot(self):
