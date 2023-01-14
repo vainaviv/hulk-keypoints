@@ -22,6 +22,8 @@ from annot_real_img import REAL_WORLD_DICT
 import pickle as pkl
 import shutil
 
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
+
 def visualize_heatmap_on_image(img, heatmap):
     argmax = list(np.unravel_index(np.argmax(heatmap), heatmap.shape))[::-1]
     # heatmap = cv2.resize(heatmap, (img.shape[1], img.shape[0]))
@@ -63,6 +65,7 @@ parser.add_argument('--checkpoint_path', type=str, default='')
 parser.add_argument('--checkpoint_file_name', type=str, default='')
 parser.add_argument('--trace_if_trp', action='store_true', default=False)
 parser.add_argument('--real_world_trace', action='store_true', default=False)
+parser.add_argument('--eval_real', action='store_true', default=False)
 
 flags = parser.parse_args()
 
@@ -90,7 +93,7 @@ else:
     checkpoint_file_name = os.path.join(checkpoint_path, checkpoint_file_name)
 
 # laod up all the parameters from the checkpoint
-config = load_config_class(checkpoint_path)
+config = load_config_class(checkpoint_path) #TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_WReal()
 expt_type = config.expt_type
 
 print("Using checkpoint: ", checkpoint_file_name)
@@ -104,7 +107,6 @@ def trace(image, start_points, viz=True, exact_path_len=None, model=None):
     disp_img = (image.copy() * 255.0).astype(np.uint8)
 
     for iter in range(exact_path_len):
-        print(iter)
         condition_pixels = [p for p in path[-num_condition_points:]]
         
         crop, cond_pixels_in_crop, top_left = test_dataset.get_crop_and_cond_pixels(image, condition_pixels, center_around_last=True)
@@ -180,35 +182,45 @@ def visualize_path(img, path, black=False):
 
 expt_name = os.path.normpath(checkpoint_path).split(os.sep)[-1]
 output_folder_name = f'preds/preds_{expt_name}'
-if os.path.exists(output_folder_name):
-    shutil.rmtree(output_folder_name)
-os.mkdir(output_folder_name)
-success_folder_name = os.path.join(output_folder_name, 'success')
-if not os.path.exists(success_folder_name):
+if not os.path.exists(output_folder_name):
+    os.mkdir(output_folder_name)
+
+if not flags.trace_if_trp:
+    success_folder_name = os.path.join(output_folder_name, 'success')
+    if os.path.exists(success_folder_name):
+        shutil.rmtree(success_folder_name)
     os.mkdir(success_folder_name)
-failure_folder_name = os.path.join(output_folder_name, 'failure')
-if not os.path.exists(failure_folder_name):
+    failure_folder_name = os.path.join(output_folder_name, 'failure')
+    if os.path.exists(failure_folder_name):
+        shutil.rmtree(failure_folder_name)
     os.mkdir(failure_folder_name)
+else:
+    trace_folder_name = os.path.join(output_folder_name, 'full_traces')
+    if os.path.exists(trace_folder_name):
+        shutil.rmtree(trace_folder_name)
+    os.mkdir(trace_folder_name)
 
 # cuda
 use_cuda = torch.cuda.is_available()
 if use_cuda:
-    torch.cuda.set_device(0)
-    os.environ["CUDA_VISIBLE_DEVICES"]="0"
+    # torch.cuda.set_device(2)
+    # os.environ["CUDA_VISIBLE_DEVICES"]="3"
+    pass
 
 # model
 keypoints_models = []
 # for model_ckpt in model_ckpts:
 if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
-    keypoints = ClassificationModel(num_classes=config.classes, img_height=config.img_height, img_width=config.img_width, channels=3).cuda()
+    keypoints = ClassificationModel(num_classes=config.classes, img_height=config.img_height, img_width=config.img_width, channels=3)
 elif is_point_pred(expt_type):
-    keypoints = KeypointsGauss(1, img_height=config.img_height, img_width=config.img_width, channels=3, resnet_type=config.resnet_type, pretrained=config.pretrained).cuda()
-keypoints.load_state_dict(torch.load(checkpoint_file_name))
-keypoints_models.append(keypoints)
+    keypoints = KeypointsGauss(1, img_height=config.img_height, img_width=config.img_width, channels=3, resnet_type=config.resnet_type, pretrained=config.pretrained)
 
+keypoints_models.append(keypoints)
 if use_cuda:
     for keypoints in keypoints_models:
         keypoints = keypoints.cuda()
+
+keypoints.load_state_dict(torch.load(checkpoint_file_name))
 
 predictions = []
 
@@ -219,21 +231,27 @@ for keypoints in keypoints_models:
 transform = transform = transforms.Compose([
     transforms.ToTensor()
 ])
-
 real = False
-real_paths = []
-for dir in config.dataset_dir:
-    real_path = os.path.join(dir, 'real_test')
-    if os.path.exists(real_path):
-        real=True
-        real_paths.append(real_path)
+if flags.eval_real:
+    real_paths = []
+    for dir in config.dataset_dir:
+        real_path = os.path.join(dir, 'real_test')
+        if os.path.exists(real_path):
+            real=True
+            real_paths.append(real_path)
+    for i, real_bool in enumerate(config.dataset_real):
+        if real_bool:
+            real_paths.append(os.path.join(config.dataset_dir[i], 'test'))
+            real = True
+
+real = True
+real_paths  = ['/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test']
 
 if real:
-    test_dataset = KeypointsDataset(real_path, 
+    test_dataset = KeypointsDataset(real_paths, 
                                     transform,
-                                    augment=False, 
-                                    real_world=True,
-                                    oversample=True,
+                                    augment=False,
+                                    real_only=True,
                                     config=config)
 else:
     test_dataset = KeypointsDataset(['%s/test'%dir for dir in config.dataset_dir],
@@ -247,13 +265,24 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
         images = os.listdir(image_folder)
     else:
         image_folder = ''
-        trace_annots = '/home/vainavi/hulk-keypoints/logs/real_trace_test.pkl'
-        with open(trace_annots, 'rb') as pickle_file:
-            REAL_WORLD_DICT = pkl.load(pickle_file)
+        # trace_annots = '/home/vainavi/hulk-keypoints/logs/real_trace_test.pkl'
+        # with open(trace_annots, 'rb') as pickle_file:
+        #     more_real_world = pkl.load(pickle_file)
+        #     for key in more_real_world.keys():
+        #         REAL_WORLD_DICT[key] = more_real_world[key]
+        REAL_WORLD_DICT = {}
+        even_more_real_world = '/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test'
+        for file in os.listdir(even_more_real_world):
+                file_path = os.path.join(even_more_real_world, file)
+                spline = np.load(file_path, allow_pickle=True).item()['pixels']
+                REAL_WORLD_DICT[file_path] = spline
         images = list(REAL_WORLD_DICT.keys())
+        images.sort()
 
     for i, image in enumerate(images):
         # if images[i] == '/home/vainavi/hulk-keypoints/eval_imgs/00004.png':
+        #     continue
+        # if int(images[i][-9:-4]) < 100:
         #     continue
         print(images[i])
         # if i < :
@@ -264,7 +293,12 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
             img = loaded_img['img'][:, :, :3]
             pixels = loaded_img['pixels']
         else:
-            img = cv2.imread(os.path.join(image_folder, image)) #np.load(os.path.join(image_folder, image), allow_pickle=True)
+            if image.endswith('.npy'):
+                img = np.load(os.path.join(image_folder, image), allow_pickle=True)
+                if 'real_data_for_tracer' in image:
+                    img = img.item()['img'][:, :, :3]
+            else:
+                img = cv2.imread(os.path.join(image_folder, image))
             pixels = center_pixels_on_cable(img, REAL_WORLD_DICT[image])[..., ::-1]
 
         # now get starting points
@@ -276,7 +310,10 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
                 break
 
         # print(start_idx, pixels)
-        starting_points = test_dataset._get_evenly_spaced_points(pixels, config.condition_len, start_idx + 1, config.cond_point_dist_px, img.shape, backward=False, randomize_spacing=False)
+        try:
+            starting_points = test_dataset._get_evenly_spaced_points(pixels, config.condition_len, start_idx + 1, config.cond_point_dist_px, img.shape, backward=False, randomize_spacing=False)
+        except:
+            starting_points = []
         if len(starting_points) < config.condition_len:
             print("Not enough starting points")
             continue
@@ -298,7 +335,7 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
 
         img_cp = (img.copy() * 255.0).astype(np.uint8)
         trace_viz = visualize_path(img_cp, spline)
-        plt.imsave(f'preds/full_trace_results/trace_{i}.png', trace_viz)
+        plt.imsave(f'{trace_folder_name}/trace_{i}.png', trace_viz)
 
 else:
     preds = []
@@ -312,20 +349,20 @@ else:
         if (len(img_t.shape) < 4):
             img_t = img_t.unsqueeze(0)
 
-        # plt.clf()
+        plt.clf()
         # plt.imshow(img_t[0].squeeze().detach().cpu().numpy().transpose(1,2,0))
         # plt.savefig(f'{output_folder_name}/input_img_{i}.png'.format(i=i))
 
         # plot one heatmap for each model with matplotlib
         # plt.figure()
 
-        if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
-            pass
-        else: 
-            input_img_np = img_t.detach().cpu().numpy()[0, 0:3, ...]
-            plt.clf()
-            plt.imshow(input_img_np.transpose(1,2,0))
-            plt.savefig(f'{output_folder_name}/input_img_{i}.png')
+        # if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
+        #     pass
+        # else: 
+        #     input_img_np = img_t.detach().cpu().numpy()[0, 0:3, ...]
+        #     plt.clf()
+        #     plt.imshow(input_img_np.transpose(1,2,0))
+        #     plt.savefig(f'{output_folder_name}/input_img_{i}.png')
 
         heatmaps = []
         # create len(predictions) subplots
@@ -380,7 +417,7 @@ else:
             plt.imshow(overlay)
 
             save_path = os.path.join(failure_folder_name, f'output_img_{i}.png')
-            if np.linalg.norm((np.array(argmax_yx) - np.array(output_yx)), 2) < 5*(config.img_height/96.0):
+            if np.linalg.norm((np.array(argmax_yx) - np.array(output_yx)), 2) < 5*(8.0/12): #*(config.img_height/96.0):
                 hits += 1
                 save_path = os.path.join(success_folder_name, f'output_img_{i}.png')
             plt.savefig(save_path)

@@ -124,7 +124,7 @@ def get_gauss(w, h, sigma, U, V):
     return torch.zeros(1, h, w).cuda().double()
 
 class KeypointsDataset(Dataset):
-    def __init__(self, folder, transform, augment=True, sweep=True, seed=1, config=None):
+    def __init__(self, folder, transform, augment=True, sweep=True, seed=1, real_only=False, config=None):
         self.img_height = config.img_height
         self.img_width = config.img_width
         self.gauss_sigma = config.gauss_sigma
@@ -164,7 +164,7 @@ class KeypointsDataset(Dataset):
         self.oversample = config.oversample
         self.oversample_rate = config.oversample_rate
         self.rot_cond = config.rot_cond
-        self.dataset_real = config.dataset_real
+        self.dataset_real = config.dataset_real if not real_only else [True for _ in range(len(folder))]
 
         self.data = []
         self.expt_type = config.expt_type
@@ -173,7 +173,8 @@ class KeypointsDataset(Dataset):
         self.label_weights = np.ones(self.pred_len) # np.geomspace(1, 0.5, self.pred_len)
 
         self.folder_sizes = []
-        self.folder_weights = np.array(config.dataset_weights)/np.sum(config.dataset_weights)
+        dataset_weights = config.dataset_weights if not real_only else [1.0 for _ in range(len(folder))]
+        self.folder_weights = np.array(dataset_weights)/np.sum(dataset_weights)
         self.folder_counts = np.zeros(len(self.folder_weights))
         # if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
         folders = folder
