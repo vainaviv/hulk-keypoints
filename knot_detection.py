@@ -31,6 +31,7 @@ class KnotDetector:
             return
         
         # simplify if same crossing is immediately re-encountered (over -> under or under -> over)
+        # TODO: check popping
         prev_crossing = self.crossings_stack.pop()
         prev_x, prev_y = prev_crossing['loc']
         curr_x, curr_y = seg['loc']
@@ -54,8 +55,8 @@ class KnotDetector:
         Only accounts for trivial loops.
         '''
 
-        # no knot encountered if < 3 crossings have been seen
-        if len(self.crossings_stack) < 3:
+        # no knot encountered if < 4 crossings have been seen
+        if len(self.crossings_stack) < 4:
             return False
             
         crossing = self.crossings_stack[-1]
@@ -64,6 +65,12 @@ class KnotDetector:
         if pos == -1:
             return False
 
+        # intermediate crossing = crossing in between start and end crossing (exclusive)
+        # no knot encountered if every intermediate crossing is the same
+        first_intermediate_id = self.crossings_stack[pos + 1]
+        if all([intermediate_crossing['ID'] == first_intermediate_id for intermediate_crossing in self.crossings_stack[pos + 1:-1]]):
+            return False
+                    
         self.knot = self.crossings_stack[pos:]
         return True
 
@@ -113,7 +120,6 @@ def test_knot_detector_basic(detector):
     ]
 
     assert detector.detect_knot(segs) == [{'loc': (20, 21), 'ID': 0}, {'loc': (30, 29), 'ID': 1}, {'loc': (40, 39), 'ID': 0}, {'loc': (21, 20), 'ID': 1}]
-
 
 if __name__ == '__main__':
     detector = KnotDetector()
