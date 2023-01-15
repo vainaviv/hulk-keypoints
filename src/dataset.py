@@ -477,7 +477,7 @@ class KeypointsDataset(Dataset):
                 img[:, :, 0] = self.draw_spline(img, condition_pixels[:, 1], condition_pixels[:, 0], label=True) #* cable_mask
             else:
                 img[:, :, 0] = gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, condition_pixels[:-self.pred_len,0], condition_pixels[:-self.pred_len,1], weights=self.weights)
-            if self.real_world:
+            if is_real_example:
                 img = img[1:, 1:, :]
                 img = cv2.resize(img, (2*self.crop_width, 2*self.crop_width))
             img, _= self.rotate_condition(img, condition_pixels, center_around_last=True, index=data_index)
@@ -544,54 +544,42 @@ if __name__ == '__main__':
     os.mkdir(os.path.join(dataset_test_path, 'under'))
     os.mkdir(os.path.join(dataset_test_path, 'over'))
     os.mkdir(os.path.join(dataset_test_path, 'none'))
-    # UNDER OVER
-    test_config = UNDER_OVER_NONE()
-    # test_dataset = KeypointsDataset('/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none2/test',
-    #                                 transform, 
-    #                                 augment=True, 
-    #                                 config=test_config)
 
-    test_dataset = KeypointsDataset('/home/mkparu/hulk-keypoints/processed_sim_data/under_over_none2test',
+    # UNDER OVER
+    test_config = UNDER_OVER()
+    test_dataset = KeypointsDataset(['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard2/test'],
                                     transform, 
                                     augment=True, 
                                     config=test_config)
     test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
 
-    # UNDER OVER
-    # test_config = UNDER_OVER_NONE()
-    # test_dataset = KeypointsDataset('/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none2/test',
-    #                                 transform, 
-    #                                 augment=True, 
-    #                                 config=test_config)
-    # test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
-
-    # for i_batch, sample_batched in enumerate(test_data):
-    #     print(i_batch)
-    #     img, label = sample_batched
-    #     label = int(label.detach().squeeze().cpu().numpy().item())
-    #     img = img.squeeze(0)
-    #     img = (img.cpu().detach().numpy().transpose(1, 2, 0) * 255)
-    #     if label == 0:
-    #         cv2.imwrite(f'./dataset_py_test/under/test-img_{i_batch:05d}.png', img[...,::-1])
-    #     elif label == 1:
-    #         cv2.imwrite(f'./dataset_py_test/over/test-img_{i_batch:05d}.png', img[...,::-1])
-    #     else:
-    #         cv2.imwrite(f'./dataset_py_test/none/test-img_{i_batch:05d}.png', img[...,::-1])
+    for i_batch, sample_batched in enumerate(test_data):
+        print(i_batch)
+        img, label = sample_batched
+        label = int(label.detach().squeeze().cpu().numpy().item())
+        img = img.squeeze(0)
+        img = (img.cpu().detach().numpy().transpose(1, 2, 0) * 255)
+        if label == 0:
+            cv2.imwrite(f'./dataset_py_test/under/test-img_{i_batch:05d}.png', img[...,::-1])
+        elif label == 1:
+            cv2.imwrite(f'./dataset_py_test/over/test-img_{i_batch:05d}.png', img[...,::-1])
+        else:
+            cv2.imwrite(f'./dataset_py_test/none/test-img_{i_batch:05d}.png', img[...,::-1])
 
 
     # TRACE PREDICTION
-    test_config = TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_Medley_MoreReal_Sharp() #TRCR32_CL3_12_PL1_RotCond_Sharp_Hard2_WReal()
-    test_dataset2 = KeypointsDataset([os.path.join(dir, 'test') for dir in test_config.dataset_dir],
-                                    transform,
-                                    augment=False, 
-                                    config=test_config)
-    test_data = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
-    for i_batch, sample_batched in enumerate(test_data):
-        print(i_batch)
-        img, gauss = sample_batched
-        gauss = gauss.squeeze(0)
-        img = img.squeeze(0)
-        vis_gauss(img, gauss, i_batch)
+    # test_config = TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_Medley_MoreReal_Sharp() #TRCR32_CL3_12_PL1_RotCond_Sharp_Hard2_WReal()
+    # test_dataset2 = KeypointsDataset([os.path.join(dir, 'test') for dir in test_config.dataset_dir],
+    #                                 transform,
+    #                                 augment=False, 
+    #                                 config=test_config)
+    # test_data = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
+    # for i_batch, sample_batched in enumerate(test_data):
+    #     print(i_batch)
+    #     img, gauss = sample_batched
+    #     gauss = gauss.squeeze(0)
+    #     img = img.squeeze(0)
+    #     vis_gauss(img, gauss, i_batch)
 
 
     # # TRACE PREDICTION
@@ -616,24 +604,3 @@ if __name__ == '__main__':
     #     gauss = gauss.squeeze(0)
     #     img = img.squeeze(0)
     #     vis_gauss(img, gauss, i_batch)
-    
-    # CAGE PINCH PREDICTION
-    # test_config = CAP600()
-    # test_dataset3 = KeypointsDataset('/home/mkparu/rope-rendering/data_processing/post_processed_sim_data/crop_cage_pinch_dataset/train',
-    #                                 test_config.img_height,
-    #                                 test_config.img_width,
-    #                                 transform,
-    #                                 gauss_sigma=test_config.gauss_sigma, 
-    #                                 augment=True, 
-    #                                 condition_len=test_config.condition_len, 
-    #                                 crop_width=test_config.crop_width, 
-    #                                 spacing=test_config.cond_point_dist_px,
-    #                                 expt_type=test_config.expt_type, 
-    #                                 pred_len=test_config.pred_len)
-    # test_data3 = DataLoader(test_dataset3, batch_size=1, shuffle=True, num_workers=1)
-    # for i_batch, sample_batched in enumerate(test_data3):
-    #     print(i_batch)
-    #     img, gauss = sample_batched
-    #     gauss = gauss.squeeze(0)
-    #     img = img.squeeze(0)
-    #     vis_gauss_input_output(img, gauss, i_batch)

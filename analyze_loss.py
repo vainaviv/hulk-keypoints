@@ -16,8 +16,8 @@ import os
 # plt.savefig("losses.png")
 
 # npy file-based method
-files_to_inspect = ['/home/vainavi/hulk-keypoints/checkpoints/2023-01-13-23-02-52_TRCR28_CL3_8_PL1_MED3_UNet50_B64_OS_RotCond_Medley_MoreReal_Sharp/test_losses.npy', 
-                    '/home/vainavi/hulk-keypoints/checkpoints/2023-01-13-23-02-52_TRCR28_CL3_8_PL1_MED3_UNet50_B64_OS_RotCond_Medley_MoreReal_Sharp/train_losses.npy']
+files_to_inspect = ['/home/vainavi/hulk-keypoints/checkpoints/2023-01-14-19-39-06_TRCR32_CL3_12_PL1_MED3_UNet50_B64_OS_RotCond_Hard2_Medley_02Real_Sharp/test_losses.npy', 
+                    '/home/vainavi/hulk-keypoints/checkpoints/2023-01-14-19-39-06_TRCR32_CL3_12_PL1_MED3_UNet50_B64_OS_RotCond_Hard2_Medley_02Real_Sharp/train_losses.npy']
 losses = [np.load(file_to_inspect) for file_to_inspect in files_to_inspect]
 
 # smooth losses

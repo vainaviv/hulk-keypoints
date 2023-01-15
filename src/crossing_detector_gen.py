@@ -15,21 +15,12 @@ DIST_THRESH = 0.1
 NOT_CROSSING_THRESH = 10
 COS_ANGLE_THRESH = 0.85
 
-input_file_path = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1/test/'
-
-
-#vainavi dataset
-#train: 47263 , test: 1029
-# out_file_path = '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_none2/test'
-
-#train: 48394, test: 1182
-#new dataset (with crossings w line seg, no extra crop filter and no cos angle)
-#train: 48394, test: 1182
-# out_file_path = '/home/mkparu/hulk-keypoints/processed_sim_data/under_over_none2/test'
+input_file_path = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2/train/'
 
 #newest dataset w new crossing gen and filters
 #train: 48132 , test: 1669
-out_file_path = '/home/mkparu/hulk-keypoints/processed_sim_data/under_over_none_with_filter2/train'
+out_file_path = '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard2/train'
+limit = 10000 # for test, for train 5000 per
 
 
 #calculates the cosine angle between two line segments
@@ -57,7 +48,14 @@ if not os.path.exists(out_file_path):
     os.makedirs(out_file_path)
 
 files = os.listdir(input_file_path)
+under_done = False
+over_done = False
+num_under = 0
+num_over = 0
+num_none = 0
 for file in files:
+    if under_done and over_done:
+        break
     print(file)
     if not file.endswith('.npy'):
         continue
@@ -153,59 +151,65 @@ for file in files:
     # cv2.imwrite(output_vis_dir + file_name + '.png', data_img)
 
     ################### Get not crossings
-    num_crossings = len(crossings)
-    non_crossing_info = np.zeros((pixels.shape[0], 2), dtype=np.int32) - 1 
-    for i, point in enumerate(pixels):
-        part1 = pixels[0:max(0, i-NUM_STEPS_MIN_FOR_CROSSING)]
-        part2 = pixels[min(i+NUM_STEPS_MIN_FOR_CROSSING, len(pixels)):]
-        if part1.shape[0] == 0:
-            pixels_all = part2
-        elif part2.shape[0] == 0:
-            pixels_all = part1
-        else:
-            pixels_all = np.vstack((part1, part2))
-        min_dist_all, argmin_pt_all = np.min(np.linalg.norm(pixels_all - point, axis=1)), np.argmin(np.linalg.norm(pixels_all - point, axis=1), axis=0)
-        if min_dist_all > NOT_CROSSING_THRESH:
-            non_crossing_info[i] = [argmin_pt_all, (2)] #2 = neither under or over
+    # num_crossings = len(crossings)
+    # non_crossing_info = np.zeros((pixels.shape[0], 2), dtype=np.int32) - 1 
+    # for i, point in enumerate(pixels):
+    #     part1 = pixels[0:max(0, i-NUM_STEPS_MIN_FOR_CROSSING)]
+    #     part2 = pixels[min(i+NUM_STEPS_MIN_FOR_CROSSING, len(pixels)):]
+    #     if part1.shape[0] == 0:
+    #         pixels_all = part2
+    #     elif part2.shape[0] == 0:
+    #         pixels_all = part1
+    #     else:
+    #         pixels_all = np.vstack((part1, part2))
+    #     min_dist_all, argmin_pt_all = np.min(np.linalg.norm(pixels_all - point, axis=1)), np.argmin(np.linalg.norm(pixels_all - point, axis=1), axis=0)
+    #     if min_dist_all > NOT_CROSSING_THRESH:
+    #         non_crossing_info[i] = [argmin_pt_all, (2)] #2 = neither under or over
 
-    spans = []
-    cur_span = None
-    for i, crossing in enumerate(non_crossing_info):
-        if crossing[0] != -1:
-            if cur_span is None:
-                cur_span = [i]
-            else:
-                cur_span.append(i)
-        else:
-            if cur_span is not None:
-                spans.append(cur_span)
-                cur_span = None
-    num_non_crossings = 0
-    for span in spans:
-        if num_non_crossings > int(num_crossings/2.5):
-            break
-        crossings.append(np.median(span))
-        num_non_crossings += 1
+    # spans = []
+    # cur_span = None
+    # for i, crossing in enumerate(non_crossing_info):
+    #     if crossing[0] != -1:
+    #         if cur_span is None:
+    #             cur_span = [i]
+    #         else:
+    #             cur_span.append(i)
+    #     else:
+    #         if cur_span is not None:
+    #             spans.append(cur_span)
+    #             cur_span = None
+    # num_non_crossings = 0
+    # for span in spans:
+    #     if num_non_crossings > int(num_crossings/2.5):
+    #         break
+    #     crossings.append(np.median(span))
+    #     num_non_crossings += 1
     ###################
     
     # save the crossings
     crossings_dicts = []
-    num_under = 0
-    num_over = 0
-    num_none = 0
     for crossing in crossings:
         crossing_pixel = pixels[int(crossing)]
         crossing_dict = {}
-        crossing_dict['under_over'] = crossing_info[int(crossing)][1]
-        if crossing_dict['under_over'] == -1:
-            crossing_dict['under_over'] = non_crossing_info[int(crossing)][1]
-        uon = crossing_dict['under_over']
+        # if crossing_dict['under_over'] == -1:
+        #     crossing_dict['under_over'] = non_crossing_info[int(crossing)][1]
+        uon = crossing_info[int(crossing)][1]
         if uon == 0:
+            if num_under > limit:
+                under_done = True
+                continue
             num_under += 1
         elif uon == 1:
+            if num_over > limit:
+                over_done = True
+                continue
             num_over += 1
         elif uon == 2:
+            if num_none > limit:
+                continue
             num_none += 1
+
+        crossing_dict['under_over'] = uon
 
         crop_size = 10
 
@@ -274,9 +278,9 @@ for file in files:
         crossing_dict['spline_pixels'] = spline_pixels
         crossings_dicts.append(crossing_dict)
 
-    # print("under: ", num_under)
-    # print("over: ", num_over)
-    # print("none: ", num_none)
+    print("under: ", num_under)
+    print("over: ", num_over)
+    print("none: ", num_none)
 
     # find all contiguous segments in crossing info
     for i, crossing in enumerate(crossings_dicts):

@@ -417,7 +417,7 @@ else:
             plt.imshow(overlay)
 
             save_path = os.path.join(failure_folder_name, f'output_img_{i}.png')
-            if np.linalg.norm((np.array(argmax_yx) - np.array(output_yx)), 2) < 5*(8.0/12): #*(config.img_height/96.0):
+            if np.linalg.norm((np.array(argmax_yx) - np.array(output_yx)), 2) < 5: #*(config.img_height/96.0):
                 hits += 1
                 save_path = os.path.join(success_folder_name, f'output_img_{i}.png')
             plt.savefig(save_path)
