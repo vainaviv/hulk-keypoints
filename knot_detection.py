@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 class KnotDetector:
     def __init__(self) -> None:
         self.crossings_stack = []
-        self.loc_to_crossing = {}
         self.eps = 3.0
         self.knot = []
 
@@ -26,7 +25,6 @@ class KnotDetector:
 
         if not self.crossings_stack:
             curr_x, curr_y = seg['loc']
-            self.loc_to_crossing[(curr_x, curr_y)] = seg
             self.crossings_stack.append(seg)
             return
         
@@ -36,13 +34,10 @@ class KnotDetector:
         prev_x, prev_y = prev_crossing['loc']
         curr_x, curr_y = seg['loc']
         prev_id, curr_id = prev_crossing['ID'], seg['ID']
-        self.loc_to_crossing.pop((prev_x, prev_y))
 
         if abs(curr_x - prev_x) <= self.eps and abs(curr_y - prev_y) <= self.eps and prev_id != curr_id:
             return
 
-        self.loc_to_crossing[(prev_x, prev_y)] = prev_crossing
-        self.loc_to_crossing[(curr_x, curr_y)] = seg
         self.crossings_stack.append(prev_crossing)
         self.crossings_stack.append(seg)
 
@@ -54,9 +49,8 @@ class KnotDetector:
         Checks if the latest crossing results in a knot.
         Only accounts for trivial loops.
         '''
-
-        # no knot encountered if < 3 crossings have been seen
-        if len(self.crossings_stack) < 3:
+        # no knot encountered if < 4 crossings have been seen (?)
+        if len(self.crossings_stack) < 4:
             return False
             
         crossing = self.crossings_stack[-1]
@@ -65,8 +59,8 @@ class KnotDetector:
         if pos == -1:
             return False
 
-        #no knot encountered if O......U
-        if(self.crossings_stack[pos]['ID'] == 1 and self.crossings_stack[-1]['ID'] == 0):
+        # no knot encountered if O...U (?)
+        if self.crossings_stack[pos]['ID'] == 1 and self.crossings_stack[-1]['ID'] == 0:
             return False
 
         # intermediate crossing = crossing in between start and end crossing (exclusive)
@@ -125,7 +119,7 @@ def test_knot_detector_basic(detector):
 
     assert detector.detect_knot(segs) == [{'loc': (20, 21), 'ID': 0}, {'loc': (30, 29), 'ID': 1}, {'loc': (40, 39), 'ID': 0}, {'loc': (21, 20), 'ID': 1}]
 
-#make sure O...U is not counted as a knot - same as other input with swapped U and O
+# make sure O...U is not counted as a knot - same as other input with swapped U and O
 def test_knot_detector_edge_case(detector):
     segs = [
         {'loc': (0, 0), 'ID': 1}, # O at P0
@@ -140,7 +134,6 @@ def test_knot_detector_edge_case(detector):
         {'loc': (9, 10), 'ID': 0} # U at P1
     ]
     assert detector.detect_knot(segs) == [{'loc': (30, 29), 'ID': 0}, {'loc': (40, 39), 'ID': 1}, {'loc': (21, 20), 'ID': 0}, {'loc': (29, 30), 'ID': 1}]
-
 
 if __name__ == '__main__':
     detector = KnotDetector()
