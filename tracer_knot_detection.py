@@ -2,40 +2,46 @@ from knot_detection import KnotDetector
 import numpy as np
 import cv2
 from src.graspability import Graspability
+from src.dataset import KeypointsDataset
+from config import *
+from torchvision import transforms, utils
 
 class TracerKnotDetector():
     def __init__(self, test_data):
         self.img = test_data['img']
         self.pixels = test_data['pixels']
-        self.pixels_so_far = []
+        self.pixels_so_far = self.pixels[:5]
         self.output_vis_dir = '/home/jainilajmera/hulk-keypoints/test_tkd/'
         
         self.uon_crop_size = 20
-        self.uon_augment = True
-        self.uon_sweep = True
-        self.uon_real_world = True
 
         self.graspability = Graspability()
         self.knot_detector = KnotDetector()
 
+        self.uon_config = UNDER_OVER_NONE()
+        self.kpts_uon = KeypointsDataset('',
+                                    transform=transforms.Compose([transforms.ToTensor()]), 
+                                    augment=True, 
+                                    config=self.uon_config)
+
     def _getuonitem(self, uon_data):
-        uon_img = uon_data['crop_img'][:, :, :3].copy()
+        uon_img = (uon_data['crop_img'][:, :, :3]).copy()
         condition_pixels = np.array(uon_data['spline_pixels'], dtype=np.float64)
         if uon_img.max() > 1:
             uon_img = (uon_img / 255.0).astype(np.float32)
         cable_mask = np.ones(uon_img.shape[:2])
         cable_mask[uon_img[:, :, 1] < 0.35] = 0
-        if self.uon_augment:
-            uon_img = self.call_img_transform(uon_img)
-        if self.uon_sweep:
-            uon_img[:, :, 0] = self.draw_spline(uon_img, condition_pixels[:, 1], condition_pixels[:, 0], label=True)
+        if self.kpts_uon.augment:
+            uon_img = self.kpts_uon.call_img_transform(uon_img)
+
+        if self.kpts_uon.sweep:
+            uon_img[:, :, 0] = self.kpts_uon.draw_spline(uon_img, condition_pixels[:, 1], condition_pixels[:, 0], label=True)
         else:
-            uon_img[:, :, 0] = gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, condition_pixels[:-self.pred_len,0], condition_pixels[:-self.pred_len,1], weights=self.weights)
-        if self.uon_real_world:
-            uon_img = uon_img[1:, 1:, :]
-            uon_imgimg = cv2.resize(uon_img, (2 * self.crop_width, 2 * self.crop_width))
-        uon_img, _= self.rotate_condition(uon_img, condition_pixels, center_around_last=True, index=data_index)
-        uon_model_input = transform(uon_img.copy()).cuda()
+            uon_img[:, :, 0] = gauss_2d_batch_efficient_np(self.kpts_uon.crop_span, self.kpts_uon.crop_span, self.kpts_uon.gauss_sigma, condition_pixels[:-self.kpts_uon.pred_len,0], condition_pixels[:-self.kpts_uon.pred_len,1], weights=self.kpts_uon.weights)
+
+        uon_img, _= self.kpts_uon.rotate_condition(uon_img, condition_pixels, center_around_last=True)
+        uon_model_input = self.kpts_uon.transform(uon_img.copy()).cuda()
+
         return uon_model_input
 
     def _visualize(self):
@@ -57,7 +63,7 @@ class TracerKnotDetector():
         return self.pixels[step]
 
     def _get_pixel_so_far_at(self, idx):
-        if step not in range(len(self.pixels_so_far)):
+        if idx not in range(len(self.pixels_so_far)):
             raise Exception('Index not in range!')
         return self.pixels_so_far[idx]
 
@@ -67,7 +73,7 @@ class TracerKnotDetector():
         latest_trace_pixel = self._get_pixel_at(latest_step)
         while np.linalg.norm(latest_trace_pixel - center_pixel, ord=np.inf) <= crop_size // 2:
             if latest_step not in range(len(self.pixels_so_far)):
-                self.pixels_so_far.append(latest_trace_pixel)
+                self.pixels_so_far = np.append(self.pixels_so_far, np.array([latest_trace_pixel]), axis=0)
             latest_step += 1
             if latest_step not in range(len(self.pixels)):
                 return
@@ -115,12 +121,12 @@ class TracerKnotDetector():
 
     def trace_and_detect_knot(self):
         # go pixel wise 
-        for model_step in range(len(self.pixels)):
+        for model_step in range(5, len(self.pixels)):
             # have not reached model step in trace yet
             if model_step not in range(len(self.pixels_so_far)):
-                self.pixels_so_far.append(self._get_pixel_at(model_step))
+                self.pixels_so_far = np.append(self.pixels_so_far, np.array([self._get_pixel_at(model_step)]), axis=0)
             
-            center_pixel = self.pixels_so_far[model_step]            
+            center_pixel = self._get_pixel_so_far_at(model_step)          
             # trace a little extra (buffer) to get pixels for conditioning
             self._get_buffer_pixels(center_pixel, model_step + 1, self.uon_crop_size)
             
@@ -132,7 +138,13 @@ class TracerKnotDetector():
             # get input to UON classifier
             uon_model_input = self._getuonitem(uon_data)
 
-            # keep tracing till you;re within 20 x 20 at current pixel - then stop and feed that crop in 
+            # saving input in np form to check crop
+            # uon_model_img = uon_model_input.squeeze(0)
+            # uon_model_img = uon_model_img.cpu().detach().numpy().transpose(1, 2, 0) * 255
+            # cv2.imwrite("test_uon_input_{}.png".format(model_step), uon_model_img[..., ::-1])
+
+            # call model on input to uon
+
 
 if __name__ == '__main__':
     test_data = np.load("/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test/00000.npy", allow_pickle=True).item()
