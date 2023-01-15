@@ -33,12 +33,10 @@ class TracerKnotDetector():
         cable_mask[uon_img[:, :, 1] < 0.35] = 0
         if self.kpts_uon.augment:
             uon_img = self.kpts_uon.call_img_transform(uon_img)
-
         if self.kpts_uon.sweep:
             uon_img[:, :, 0] = self.kpts_uon.draw_spline(uon_img, condition_pixels[:, 1], condition_pixels[:, 0], label=True)
         else:
             uon_img[:, :, 0] = gauss_2d_batch_efficient_np(self.kpts_uon.crop_span, self.kpts_uon.crop_span, self.kpts_uon.gauss_sigma, condition_pixels[:-self.kpts_uon.pred_len,0], condition_pixels[:-self.kpts_uon.pred_len,1], weights=self.kpts_uon.weights)
-
         uon_img, _= self.kpts_uon.rotate_condition(uon_img, condition_pixels, center_around_last=True)
         uon_model_input = self.kpts_uon.transform(uon_img.copy()).cuda()
 
@@ -144,7 +142,6 @@ class TracerKnotDetector():
             # cv2.imwrite("test_uon_input_{}.png".format(model_step), uon_model_img[..., ::-1])
 
             # call model on input to uon
-
 
 if __name__ == '__main__':
     test_data = np.load("/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test/00000.npy", allow_pickle=True).item()
