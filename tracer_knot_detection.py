@@ -1,10 +1,14 @@
-from knot_detection import KnotDetector
 import numpy as np
 import cv2
+import torch
+from knot_detection import KnotDetector
 from src.graspability import Graspability
 from src.dataset import KeypointsDataset
+from src.model import ClassificationModel
+from src.prediction import Prediction
 from config import *
 from torchvision import transforms, utils
+import time
 
 class TracerKnotDetector():
     def __init__(self, test_data):
@@ -13,16 +17,21 @@ class TracerKnotDetector():
         self.pixels_so_far = self.pixels[:5]
         self.output_vis_dir = '/home/jainilajmera/hulk-keypoints/test_tkd/'
         
-        self.uon_crop_size = 20
-
         self.graspability = Graspability()
         self.knot_detector = KnotDetector()
 
+        self.uon_crop_size = 20
         self.uon_config = UNDER_OVER_NONE()
-        self.kpts_uon = KeypointsDataset('',
+        self.uon_kpts = KeypointsDataset('',
                                     transform=transforms.Compose([transforms.ToTensor()]), 
                                     augment=True, 
                                     config=self.uon_config)
+        self.uon_model = ClassificationModel(num_classes=self.uon_config.classes, img_height=self.uon_config.img_height, img_width=self.uon_config.img_width, channels=3)
+        self.uon_model.load_state_dict(torch.load('/home/mkparu/hulk-keypoints/checkpoints/2023-01-11-02-15-52_UNDER_OVER_NONE_all_crossings_regen_test/model_11_0.12860.pth'))
+
+        self.uo_config = UNDER_OVER()
+        self.uo_model = ClassificationModel(num_classes=self.uo_config.classes, img_height=self.uo_config.img_height, img_width=self.uo_config.img_width, channels=3)
+        self.uo_model.load_state_dict(torch.load('/home/vainavi/hulk-keypoints/checkpoints/2023-01-06-23-11-13_UNDER_OVER_under_over_2/model_6_0.40145.pth'))
 
     def _getuonitem(self, uon_data):
         uon_img = (uon_data['crop_img'][:, :, :3]).copy()
@@ -31,23 +40,31 @@ class TracerKnotDetector():
             uon_img = (uon_img / 255.0).astype(np.float32)
         cable_mask = np.ones(uon_img.shape[:2])
         cable_mask[uon_img[:, :, 1] < 0.35] = 0
-        if self.kpts_uon.augment:
-            uon_img = self.kpts_uon.call_img_transform(uon_img)
-        if self.kpts_uon.sweep:
-            uon_img[:, :, 0] = self.kpts_uon.draw_spline(uon_img, condition_pixels[:, 1], condition_pixels[:, 0], label=True)
+        if self.uon_kpts.augment:
+            uon_img = self.uon_kpts.call_img_transform(uon_img)
+        if self.uon_kpts.sweep:
+            uon_img[:, :, 0] = self.uon_kpts.draw_spline(uon_img, condition_pixels[:, 1], condition_pixels[:, 0], label=True)
         else:
-            uon_img[:, :, 0] = gauss_2d_batch_efficient_np(self.kpts_uon.crop_span, self.kpts_uon.crop_span, self.kpts_uon.gauss_sigma, condition_pixels[:-self.kpts_uon.pred_len,0], condition_pixels[:-self.kpts_uon.pred_len,1], weights=self.kpts_uon.weights)
-        uon_img, _= self.kpts_uon.rotate_condition(uon_img, condition_pixels, center_around_last=True)
-        uon_model_input = self.kpts_uon.transform(uon_img.copy()).cuda()
-
+            uon_img[:, :, 0] = gauss_2d_batch_efficient_np(self.uon_kpts.crop_span, self.uon_kpts.crop_span, self.uon_kpts.gauss_sigma, condition_pixels[:-self.uon_kpts.pred_len,0], condition_pixels[:-self.uon_kpts.pred_len,1], weights=self.uon_kpts.weights)
+        uon_img, _= self.uon_kpts.rotate_condition(uon_img, condition_pixels, center_around_last=True)
+        uon_model_input = self.uon_kpts.transform(uon_img.copy())
         return uon_model_input
 
-    def _visualize(self):
+    def _visualize(self, img, file_name):
+        cv2.imwrite(self.output_vis_dir + file_name + '.png', img)
+
+    def _visualize_full(self):
         file_name = 'full_img'
         clr = (255, 0, 0)
         for x, y in self.pixels:
             cv2.circle(self.img, (x, y), 3, clr, -1)
         cv2.imwrite(self.output_vis_dir + file_name + '.png', self.img)
+
+    def _visualize_tensor(self, tensor, file_name):
+        img = tensor.clone().detach()
+        img = img.squeeze(0)
+        img = img.cpu().detach().numpy().transpose(1, 2, 0) * 255
+        cv2.imwrite(self.output_vis_dir + file_name, img[..., ::-1])
 
     def _crop_img(self, img, center_pixel, crop_size):
         x, y = center_pixel
@@ -119,6 +136,8 @@ class TracerKnotDetector():
 
     def trace_and_detect_knot(self):
         # go pixel wise 
+        use_cuda = torch.cuda.is_available()
+
         for model_step in range(5, len(self.pixels)):
             # have not reached model step in trace yet
             if model_step not in range(len(self.pixels_so_far)):
@@ -132,16 +151,23 @@ class TracerKnotDetector():
             uon_data = {}
             uon_data['crop_img'] = self._crop_img(self.img, center_pixel, self.uon_crop_size)
             uon_data['spline_pixels'] = self._get_spline_pixels(model_step, self.uon_crop_size)
+            self._visualize(uon_data['crop_img'], f'uon_{model_step}_p.png')
 
             # get input to UON classifier
             uon_model_input = self._getuonitem(uon_data)
+            self._visualize_tensor(uon_model_input, f'uon_{model_step}.png')
 
-            # saving input in np form to check crop
-            # uon_model_img = uon_model_input.squeeze(0)
-            # uon_model_img = uon_model_img.cpu().detach().numpy().transpose(1, 2, 0) * 255
-            # cv2.imwrite("test_uon_input_{}.png".format(model_step), uon_model_img[..., ::-1])
+            # call model
+            predictor = Prediction(self.uon_model, self.uon_config.num_keypoints, self.uon_config.img_height, self.uon_config.img_width, use_cuda)
+            pred = np.argmax(predictor.predict(uon_model_input).detach().numpy())
 
-            # call model on input to uon
+            if pred != 2:
+                uo_model_input = uon_model_input
+                predictor = Prediction(self.uo_model, self.uo_config.num_keypoints, self.uo_config.img_height, self.uo_config.img_width, use_cuda)
+                updated_pred = np.argmax(predictor.predict(uo_model_input).detach().numpy())
+                print(model_step, pred, updated_pred)
+            else:
+                print(model_step, pred)
 
 if __name__ == '__main__':
     test_data = np.load("/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test/00000.npy", allow_pickle=True).item()
