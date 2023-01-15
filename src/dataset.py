@@ -464,6 +464,7 @@ class KeypointsDataset(Dataset):
             label = torch.as_tensor(gauss_2d_batch_efficient_np(self.img_width, self.img_height, self.gauss_sigma, final_kpts[-self.pred_len:, 0], final_kpts[-self.pred_len:, 1], weights=self.label_weights))
             label = label
             label = label.unsqueeze_(0).cuda()
+        
         elif self.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or self.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
             img = (loaded_data['crop_img'][:, :, :3]).copy()
             condition_pixels = np.array(loaded_data['spline_pixels'], dtype=np.float64)
