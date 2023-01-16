@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
 import cv2
@@ -7,10 +8,14 @@ import numpy as np
 
 class Prediction:
     def __init__(self, model, num_keypoints, img_height, img_width, use_cuda):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model
+        self.model = nn.DataParallel(model)
+        self.model.to(self.device)
+
         self.num_keypoints = num_keypoints
-        self.img_height  = img_height
-        self.img_width   = img_width
+        self.img_height = img_height
+        self.img_width = img_width
         self.use_cuda = use_cuda
         
     def predict(self, imgs):
