@@ -147,7 +147,7 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
         
         self.avgpool = nn.AvgPool2d(7)
-        self.fc = nn.Linear(4608, num_classes)
+        self.fc = nn.LazyLinear(num_classes)
         
         if self.fully_conv:
             self.avgpool = nn.AvgPool2d(7, padding=3, stride=1)
@@ -232,7 +232,7 @@ class ResNet(nn.Module):
         if not self.fully_conv:
             x = x.view(x.size(0), -1)
 
-        x = self.fc(x)
+        x = self.fc(x) 
 
         return x
 

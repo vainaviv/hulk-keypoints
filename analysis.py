@@ -212,7 +212,7 @@ if use_cuda:
 keypoints_models = []
 # for model_ckpt in model_ckpts:
 if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
-    keypoints = ClassificationModel(num_classes=config.classes, img_height=config.img_height, img_width=config.img_width, channels=3)
+    keypoints = ClassificationModel(num_classes=config.classes, img_height=config.img_height, img_width=config.img_width, resnet_type=config.resnet_type, channels=3)
 elif is_point_pred(expt_type):
     keypoints = KeypointsGauss(1, img_height=config.img_height, img_width=config.img_width, channels=3, resnet_type=config.resnet_type, pretrained=config.pretrained)
 
@@ -246,7 +246,10 @@ if flags.eval_real:
             real = True
 
 real = True
-real_paths  = ['/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test']
+if config.expt_type == ExperimentTypes.TRACE_PREDICTION:
+    real_paths  = ['/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test']
+elif config.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or config.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
+    real_paths = ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_crossing_set2/real_test']
 
 if real:
     test_dataset = KeypointsDataset(real_paths, 

@@ -140,7 +140,7 @@ if use_cuda:
 
 # model
 if not is_point_pred(config.expt_type):
-    keypoints = ClassificationModel(num_classes=config.classes, img_height=config.img_height, img_width=config.img_width).cuda()
+    keypoints = ClassificationModel(num_classes=config.classes, img_height=config.img_height, img_width=config.img_width, resnet_type=config.resnet_type).cuda()
 else:
     keypoints = KeypointsGauss(num_keypoints=1, img_height=config.img_height, img_width=config.img_width, resnet_type=config.resnet_type, pretrained=config.pretrained).cuda()
 

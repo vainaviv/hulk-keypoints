@@ -51,6 +51,29 @@ class Resnet34_Classifier(nn.Module):
         x = self.resnet34_classifier(x)
         return x
 
+class Resnet50_Classifier(nn.Module):
+    def __init__(self, num_classes=1, channels=3, pretrained=False):
+        super(Resnet50_Classifier, self).__init__()
+        # Load the pretrained weights, remove avg pool
+        # layer and get the output stride of 8
+        resnet50_classifier = resnet50(fully_conv=False,
+                                       channels=channels,
+                                       num_classes=num_classes,
+                                       pretrained=pretrained,
+                                       output_stride=8,
+                                       remove_avg_pool_layer=True)
+
+        self.resnet50_classifier = resnet50_classifier
+        self._normal_initialization(self.resnet50_classifier.fc)
+        
+    def _normal_initialization(self, layer):
+        layer.weight.data.normal_(0, 0.01)
+        layer.bias.data.zero_()
+        
+    def forward(self, x):
+        x = self.resnet50_classifier(x)
+        return x
+
 class Resnet50_8s(nn.Module):
     def __init__(self, num_classes=1000, channels=4, pretrained=False):
         super(Resnet50_8s, self).__init__()
