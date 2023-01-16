@@ -276,6 +276,7 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
                 file_path = os.path.join(even_more_real_world, file)
                 spline = np.load(file_path, allow_pickle=True).item()['pixels']
                 REAL_WORLD_DICT[file_path] = spline
+        # REAL_WORLD_DICT = {k: v for k, v in REAL_WORLD_DICT.items() if k.endswith('00102.npy')}
         images = list(REAL_WORLD_DICT.keys())
         images.sort()
 

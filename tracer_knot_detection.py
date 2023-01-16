@@ -9,7 +9,7 @@ from torchvision import transforms, utils
 from knot_detection import KnotDetector
 from src.graspability import Graspability
 from src.dataset import KeypointsDataset
-from src.model import ClassificationModel
+from src.model import ClassificationModel, KeypointsGauss
 from src.prediction import Prediction
 from config import *
 
