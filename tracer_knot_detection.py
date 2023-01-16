@@ -165,9 +165,6 @@ class TracerKnotDetector():
         else:
             return self.detector.encounter_seg({'loc': (avg_x, avg_y), 'ID': 0})
 
-
-
-
     def _determine_pinch(self):
         idx = -1
         pinch = self._get_pixel_so_far_at(idx)
@@ -227,9 +224,15 @@ class TracerKnotDetector():
                         return knot_output
                     self.local_crossing_stream = []
                 first_step = False
+        return -1
             
-
-        
+    def full_pipeline(self):
+        knot = self.trace_and_detect_knot()
+        if knot == -1:
+            return -1, -1 #Done untangling!
+        pinch = self._determine_pinch()
+        cage = self._determine_cage()
+        return pinch, cage
             
 if __name__ == '__main__':
     test_data = np.load("/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test/00000.npy", allow_pickle=True).item()
