@@ -112,15 +112,15 @@ def trace(image, start_points, viz=True, exact_path_len=None, model=None):
         crop, cond_pixels_in_crop, top_left = test_dataset.get_crop_and_cond_pixels(image, condition_pixels, center_around_last=True)
         # print('cond pixels', cond_pixels_in_crop)
         ymin, xmin = np.array(top_left) - test_dataset.crop_width
-
         model_input, _, cable_mask, angle = test_dataset.get_trp_model_input(crop, cond_pixels_in_crop, center_around_last=True, is_real_example=real)
 
         crop_eroded = cv2.erode((cable_mask).astype(np.uint8), np.ones((2, 2)), iterations=1)
         # print("Model input prep time: ", time.time() - tm)
 
-        if viz:
-            cv2.imshow('model input', model_input.detach().cpu().numpy().transpose(1, 2, 0))
-            cv2.waitKey(1)
+        if True:
+            # cv2.imshow('model input', model_input.detach().cpu().numpy().transpose(1, 2, 0))
+            # cv2.waitKey(1)
+            plt.imsave(f'./model_inputs/model_input_{iter}.png', model_input.detach().cpu().numpy().transpose(1, 2, 0))
 
         model_output = model(model_input.unsqueeze(0)).detach().cpu().numpy().squeeze()
         model_output *= crop_eroded.squeeze()
@@ -285,7 +285,7 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
         images.sort()
 
         # filter REAL_WORLD_DICT into only the image I care about
-        REAL_WORLD_DICT = {k: v for k, v in REAL_WORLD_DICT.items() if k.endswith('00104.npy')}
+        # REAL_WORLD_DICT = {k: v for k, v in REAL_WORLD_DICT.items() if k.endswith('00104.npy')}
         # print(REAL_WORLD_DICT)
 
     for i, image in enumerate(images):
@@ -293,7 +293,7 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
         #     continue
         # if int(images[i][-9:-4]) < 100:
         #     continue
-        # print(images[i])
+        print(images[i])
         if image not in REAL_WORLD_DICT:
             continue
         # if i < :
@@ -338,7 +338,7 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
         if img.max() > 1:
             img = (img / 255.0).astype(np.float32)
 
-        spline = trace(img, starting_points, exact_path_len=6, model=keypoints_models[0], viz=False)
+        spline = trace(img, starting_points, exact_path_len=80, model=keypoints_models[0], viz=False)
         # plt.imshow(img)
         # for pt in spline:
         #     plt.scatter(pt[1], pt[0], c='r')
