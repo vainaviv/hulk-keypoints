@@ -7,11 +7,13 @@ from datetime import datetime
 import numpy as np
 
 class Prediction:
-    def __init__(self, model, num_keypoints, img_height, img_width, use_cuda):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def __init__(self, model, num_keypoints, img_height, img_width, use_cuda=True, parallelize=False):
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = model
-        self.model = nn.DataParallel(model)
-        self.model.to(self.device)
+
+        if parallelize:
+            self.model = nn.DataParallel(model)
+            self.model.to(self.device)
 
         self.num_keypoints = num_keypoints
         self.img_height = img_height

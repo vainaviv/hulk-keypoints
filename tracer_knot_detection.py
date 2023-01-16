@@ -14,10 +14,6 @@ from src.model import ClassificationModel, KeypointsGauss
 from src.prediction import Prediction
 from config import *
 
-# os.environ['CUDA_VISIBLE_DEVICES'] = '7'
-# use_cuda = torch.cuda.is_available()
-use_cuda = True
-
 class TracerKnotDetector():
     def __init__(self, test_data):
         self.img = test_data['img']
@@ -149,14 +145,14 @@ class TracerKnotDetector():
         return spline_pixels
 
     def _predict_uon(self, uon_model_input):
-        predictor = Prediction(self.uon_model, self.uon_config.num_keypoints, self.uon_config.img_height, self.uon_config.img_width, use_cuda)
+        predictor = Prediction(self.uon_model, self.uon_config.num_keypoints, self.uon_config.img_height, self.uon_config.img_width, parallelize=True)
         prediction_prob_arr = predictor.predict(uon_model_input).cpu().detach().numpy().squeeze()
         pred = np.argmax(prediction_prob_arr)
         prediction_prob = prediction_prob_arr[pred]
         # calls separate model for under / over
         if pred != 2:
             uo_model_input = uon_model_input
-            predictor = Prediction(self.uo_model, self.uo_config.num_keypoints, self.uo_config.img_height, self.uo_config.img_width, use_cuda)
+            predictor = Prediction(self.uo_model, self.uo_config.num_keypoints, self.uo_config.img_height, self.uo_config.img_width, parallelize=True)
             updated_prediction_prob = predictor.predict(uo_model_input).cpu().detach().numpy().squeeze()
             if updated_prediction_prob >= 0.5:
                 return 1, updated_prediction_prob
@@ -275,6 +271,8 @@ class TracerKnotDetector():
             
 if __name__ == '__main__':    
     args = sys.argv[1:]
+    if not args:
+        raise Exception('Please provide the file number (e.g. 00000) as a command-line argument!')
     data_index = args[0]
     test_data = np.load(f"/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test/{data_index}.npy", allow_pickle=True).item()
     tkd = TracerKnotDetector(test_data)
