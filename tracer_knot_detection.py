@@ -226,7 +226,7 @@ class TracerKnotDetector():
                 first_step = False
         return -1
             
-    def full_pipeline(self):
+    def perception_pipeline(self):
         knot = self.trace_and_detect_knot()
         if knot == -1:
             return -1, -1 #Done untangling!
