@@ -246,7 +246,7 @@ class Tracer:
         if img.max() > 1:
             img = (img / 255.0).astype(np.float32)
         spline = self.trace(img, starting_points, exact_path_len=path_len, model=self.trace_model, viz=viz)
-        if True:
+        if viz:
             img_cp = (img.copy() * 255.0).astype(np.uint8)
             trace_viz = self.visualize_path(img_cp, spline.copy())
             plt.imsave(f'./trace_test/trace_{idx}.png', trace_viz)
