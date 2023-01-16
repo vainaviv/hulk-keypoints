@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 class KnotDetector:
     def __init__(self) -> None:
         self.crossings_stack = []
-        self.eps = 3.0
+        # self.eps = 3.0
+        self.eps = 10
         self.knot = []
 
     def encounter_seg(self, seg) -> list | None:
@@ -84,7 +85,9 @@ class KnotDetector:
         for pos in range(len(self.crossings_stack) - 1):
             prev_x, prev_y = self.crossings_stack[pos]['loc']
             prev_id = self.crossings_stack[pos]['ID']
-            if abs(curr_x - prev_x) <= self.eps and abs(curr_y - prev_y) <= self.eps and prev_id != curr_id:
+            # if abs(curr_x - prev_x) <= self.eps and abs(curr_y - prev_y) <= self.eps and prev_id != curr_id:
+            #     return pos
+            if np.linalg.norm(np.array([curr_x, curr_y])-np.array([prev_x, prev_y])) <= 10:
                 return pos
         
         return -1
