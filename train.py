@@ -150,7 +150,7 @@ if checkpoint_path != '':
     keypoints.load_state_dict(torch.load(checkpoint_path))
 
 # optimizer
-optimizer = optim.Adam(keypoints.parameters(), lr=1.0e-5, weight_decay=1.0e-4)
+optimizer = optim.Adam(keypoints.parameters(), lr=config.learning_rate, weight_decay=1.0e-4)
 
 # save the config to a file
 save_config_params(save_dir, config)
