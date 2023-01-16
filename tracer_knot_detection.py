@@ -9,7 +9,7 @@ from torchvision import transforms, utils
 from knot_detection import KnotDetector
 from src.graspability import Graspability
 from src.dataset import KeypointsDataset
-from src.model import ClassificationModel
+from src.model import ClassificationModel, KeypointsGauss
 from src.prediction import Prediction
 from config import *
 
@@ -227,9 +227,16 @@ class TracerKnotDetector():
                     if knot_output is not None:
                         return knot_output
                     self.local_crossing_stream = []
+                first_step = False
+        return -1
             
-            first_step = False
-            
+    def perception_pipeline(self):
+        knot = self.trace_and_detect_knot()
+        if knot == -1:
+            return -1, -1 #Done untangling!
+        pinch = self._determine_pinch()
+        cage = self._determine_cage()
+        return pinch, cage
             
 if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = '7'

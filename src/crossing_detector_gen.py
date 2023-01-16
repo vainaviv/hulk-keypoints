@@ -15,11 +15,11 @@ DIST_THRESH = 0.1
 NOT_CROSSING_THRESH = 10
 COS_ANGLE_THRESH = 0.85
 
-input_file_path = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2/train/'
+input_file_path = '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_1/train/'
 
 #newest dataset w new crossing gen and filters
 #train: 48132 , test: 1669
-out_file_path = '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard2/train'
+out_file_path = '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1/train'
 limit = 10000 # for test, for train 5000 per
 
 
