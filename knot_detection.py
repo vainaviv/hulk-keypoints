@@ -50,8 +50,8 @@ class KnotDetector:
         Checks if the latest crossing results in a knot.
         Only accounts for trivial loops.
         '''
-        # no knot encountered if < 4 crossings have been seen (?)
-        if len(self.crossings_stack) < 4:
+        # no knot encountered if < 3 crossings have been seen (?)
+        if len(self.crossings_stack) < 3:
             return False
             
         crossing = self.crossings_stack[-1]
@@ -65,9 +65,8 @@ class KnotDetector:
             return False
 
         # intermediate crossing = crossing in between start and end crossing (exclusive)
-        # no knot encountered if every intermediate crossing is the same
-        first_intermediate_id = self.crossings_stack[pos + 1]
-        if all([intermediate_crossing['ID'] == first_intermediate_id for intermediate_crossing in self.crossings_stack[pos + 1:-1]]):
+        # no knot encountered if every intermediate crossing is an undercrossing
+        if all([intermediate_crossing['ID'] == 0 for intermediate_crossing in self.crossings_stack[pos + 1:-1]]):
             return False
                     
         self.knot = self.crossings_stack[pos:]

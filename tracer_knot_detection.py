@@ -172,9 +172,9 @@ class TracerKnotDetector():
         weighted_sum = 0
         for crossing_dict in self.local_crossing_stream:
             if crossing_dict['uon'] == 0:
-                weighted_sum -= crossing_dict['confidence']
+                weighted_sum -= crossing_dict['prob']
             else:
-                weighted_sum += crossing_dict['confidence']
+                weighted_sum += crossing_dict['prob']
             x_arr.append(crossing_dict['center_pixel'][0])
             y_arr.append(crossing_dict['center_pixel'][1])
         
@@ -230,11 +230,11 @@ class TracerKnotDetector():
             self._visualize_tensor(uon_model_input, f'uon_{model_step}.png')
 
             # predict UON on input
-            uon, confidence = self._predict_uon(uon_model_input)
-            print(model_step, uon, center_pixel, confidence)
+            uon, prob = self._predict_uon(uon_model_input)
+            print(model_step, uon, center_pixel, prob)
 
             if uon != 2:
-                self.local_crossing_stream.append({'center_pixel': center_pixel, 'uon': uon, 'confidence': confidence})
+                self.local_crossing_stream.append({'center_pixel': center_pixel, 'uon': uon, 'prob': prob})
             
             elif uon == 2 and len(self.local_crossing_stream) > 0:
                 if len(self.local_crossing_stream) == 1 and first_step == False:
