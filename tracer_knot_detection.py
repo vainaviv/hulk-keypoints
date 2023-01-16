@@ -13,14 +13,14 @@ from src.model import ClassificationModel
 from src.prediction import Prediction
 from config import *
 
-os.environ["CUDA_VISIBLE_DEVICES"]="7"
+os.environ['CUDA_VISIBLE_DEVICES'] = '7'
 
 class TracerKnotDetector():
     def __init__(self, test_data):
         self.img = test_data['img']
         self.pixels = test_data['pixels']
         self.pixels_so_far = self.pixels[:5]
-        self.output_vis_dir = '/home/mkparu/hulk-keypoints/test_tkd/'
+        self.output_vis_dir = '/home/jainilajmera/hulk-keypoints/test_tkd/'
         if not os.path.exists(self.output_vis_dir):
             os.makedirs(self.output_vis_dir)
         
@@ -128,11 +128,11 @@ class TracerKnotDetector():
         return spline_pixels
 
     def _predict_uon(self, uon_model_input):
-        use_cuda = torch.cuda.is_available()
         predictor = Prediction(self.uon_model, self.uon_config.num_keypoints, self.uon_config.img_height, self.uon_config.img_width, use_cuda)
         prediction_prob_arr = predictor.predict(uon_model_input).detach().numpy().squeeze()
         pred = np.argmax(prediction_prob_arr)
-        # calls separate model for under/over
+        prediction_prob = prediction_prob_arr[pred]
+        # calls separate model for under / over
         if pred != 2:
             uo_model_input = uon_model_input
             predictor = Prediction(self.uo_model, self.uo_config.num_keypoints, self.uo_config.img_height, self.uo_config.img_width, use_cuda)
@@ -140,18 +140,18 @@ class TracerKnotDetector():
             if updated_prediction_prob >= 0.5:
                 return 1, updated_prediction_prob
             else: 
-                return 0, 1-updated_prediction_prob
+                return 0, 1 - updated_prediction_prob
         else:
-            return pred, prediction_prob_arr[pred]
+            return pred, prediction_prob
     
     def _vote_and_process_under_over_crossing(self):
-        #using 1, -1 instead of 1 0 so the confidence matters for U as well
+        # using 1, -1 instead of 1, 0 so the confidence matters for U as well
         avg_x = 0
         avg_y = 0
         weighted_sum = 0
         for crossing_dict in self.local_crossing_stream:
-            if(crossing_dict["uon"] == 0):
-                weighted_sum += crossing_dict["confidence"]* -1
+            if crossing_dict['uon'] == 0:
+                weighted_sum -= crossing_dict['confidence']
             else:
                 weighted_sum += crossing_dict["confidence"]
             avg_x += crossing_dict["center_pixel"][0]
@@ -160,13 +160,10 @@ class TracerKnotDetector():
         avg_x = avg_x // len(self.local_crossing_stream)
         avg_y = avg_y // len(self.local_crossing_stream)
 
-        if(weighted_sum > 0):
+        if weighted_sum > 0:
             return self.detector.encounter_seg({'loc': (avg_x, avg_y), 'ID': 1})
         else:
             return self.detector.encounter_seg({'loc': (avg_x, avg_y), 'ID': 0})
-
-
-
 
     def _determine_pinch(self):
         idx = -1
@@ -203,35 +200,40 @@ class TracerKnotDetector():
             uon_data = {}
             uon_data['crop_img'] = self._crop_img(self.img, center_pixel, self.uon_crop_size)
             uon_data['spline_pixels'] = self._get_spline_pixels(model_step, self.uon_crop_size)
-            self._visualize(uon_data['crop_img'], f'uon_{model_step}_p.png')
+            # self._visualize(uon_data['crop_img'], f'uon_{model_step}_p.png')
 
             # get input to UON classifier
             uon_model_input = self._getuonitem(uon_data)
-            self._visualize_tensor(uon_model_input, f'uon_{model_step}.png')
+            # self._visualize_tensor(uon_model_input, f'uon_{model_step}.png')
 
             # predict UON on input
             uon, confidence = self._predict_uon(uon_model_input)
             print(model_step, uon, confidence)
 
             if uon != 2:
-                self.local_crossing_stream.append({"center_pixel": center_pixel, "uon": uon, "confidence": confidence})
+                self.local_crossing_stream.append({
+                    'center_pixel': center_pixel, 
+                    'uon': uon, 
+                    'confidence': confidence
+                })
             
             elif uon == 2 and len(self.local_crossing_stream) > 0:
                 if len(self.local_crossing_stream) == 1 and first_step == False:
-                    #single under / over crossing - ignore and proceed
+                    # single under / over crossing - ignore and proceed
                     self.local_crossing_stream = []
                 else:
                     knot_output = self._vote_and_process_under_over_crossing()
-                    #meaning a knot is detected
+                    # a knot is detected
                     if knot_output is not None:
                         return knot_output
                     self.local_crossing_stream = []
-                first_step = False
             
-
-        
+            first_step = False
+            
             
 if __name__ == '__main__':
+    os.environ['CUDA_VISIBLE_DEVICES'] = '7'
+    use_cuda = torch.cuda.is_available()
     test_data = np.load("/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test/00000.npy", allow_pickle=True).item()
     tkd = TracerKnotDetector(test_data)
     print(tkd.trace_and_detect_knot())
