@@ -4,6 +4,7 @@ import time
 import shutil
 import os
 import sys
+import argparse
 import torch
 from torchvision import transforms, utils
 
@@ -14,11 +15,14 @@ from src.model import ClassificationModel, KeypointsGauss
 from src.prediction import Prediction
 from config import *
 
+
+
 class TracerKnotDetector():
-    def __init__(self, test_data):
+    def __init__(self, test_data, parallel=True):
         self.img = test_data['img']
         self.pixels = test_data['pixels']
         self.pixels_so_far = self.pixels[:5]
+        self.parallel = parallel
         self.output_vis_dir = './test_tkd/'
         if os.path.exists(self.output_vis_dir):
             shutil.rmtree(self.output_vis_dir)
@@ -76,6 +80,7 @@ class TracerKnotDetector():
             raise Exception('No knot detected for visualization!')
         img = self.img.copy()
         file_name = 'knot_img'
+        #red for over crossing, blue for under (colors flipped bc cv2)
         u_clr = (255, 0, 0)
         o_clr = (0, 0, 255)
         ctr = 0
@@ -84,9 +89,10 @@ class TracerKnotDetector():
             x, y = crossing['loc']
             if crossing['ID'] == 0:
                 cv2.circle(img, (x, y), 3, u_clr, -1)
+                cv2.putText(img, str(ctr), (x, y), cv2.FONT_HERSHEY_PLAIN, 1, u_clr)
             if crossing['ID'] == 1:
                 cv2.circle(img, (x, y), 3, o_clr, -1)
-            cv2.putText(img, str(ctr), (x, y), cv2.FONT_HERSHEY_PLAIN, 1, 255)
+                cv2.putText(img, str(ctr), (x, y), cv2.FONT_HERSHEY_PLAIN, 1, o_clr)
         cv2.imwrite(self.output_vis_dir + file_name + '.png', img)
 
     def _visualize_tensor(self, tensor, file_name):
@@ -145,14 +151,14 @@ class TracerKnotDetector():
         return spline_pixels
 
     def _predict_uon(self, uon_model_input):
-        predictor = Prediction(self.uon_model, self.uon_config.num_keypoints, self.uon_config.img_height, self.uon_config.img_width, parallelize=True)
+        predictor = Prediction(self.uon_model, self.uon_config.num_keypoints, self.uon_config.img_height, self.uon_config.img_width, parallelize=self.parallel)
         prediction_prob_arr = predictor.predict(uon_model_input).cpu().detach().numpy().squeeze()
         pred = np.argmax(prediction_prob_arr)
         prediction_prob = prediction_prob_arr[pred]
         # calls separate model for under / over
         if pred != 2:
             uo_model_input = uon_model_input
-            predictor = Prediction(self.uo_model, self.uo_config.num_keypoints, self.uo_config.img_height, self.uo_config.img_width, parallelize=True)
+            predictor = Prediction(self.uo_model, self.uo_config.num_keypoints, self.uo_config.img_height, self.uo_config.img_width, parallelize=self.parallel)
             updated_prediction_prob = predictor.predict(uo_model_input).cpu().detach().numpy().squeeze()
             if updated_prediction_prob >= 0.5:
                 return 1, updated_prediction_prob
@@ -256,6 +262,7 @@ class TracerKnotDetector():
                             # a knot is detected
                             self.knot = knot_output
                             return
+                    print(self.detector.crossings_stack)
                     self.local_crossing_stream = []
             
             if uon == 2:
@@ -269,14 +276,23 @@ class TracerKnotDetector():
         cage = self._determine_cage()
         return pinch, cage
             
-if __name__ == '__main__':    
-    args = sys.argv[1:]
-    if not args:
-        raise Exception('Please provide the file number (e.g. 00000) as a command-line argument!')
-    data_index = args[0]
-    test_data = np.load(f"/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test/{data_index}.npy", allow_pickle=True).item()
-    tkd = TracerKnotDetector(test_data)
-    print(data_index)
+if __name__ == '__main__':
+    # parse command line flags
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data_index', type=str, default='')
+    parser.add_argument('--parallel', action='store_true', default=False)
+
+    flags = parser.parse_args()
+    data_index = flags.data_index 
+    parallel = flags.parallel
+
+    if data_index == '':
+        raise Exception('Please provide the file number (e.g. --data_index 00000) as a command-line argument!')
+
+    data_path = f"/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test/{data_index}.npy"
+    test_data = np.load(data_path, allow_pickle=True).item()
+    tkd = TracerKnotDetector(test_data, parallel=parallel)
+    print(data_path)
     print()
     tkd._visualize_full()
     tkd.trace_and_detect_knot()

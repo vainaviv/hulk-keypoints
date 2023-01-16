@@ -13,6 +13,7 @@ class Prediction:
 
         if parallelize:
             self.model = nn.DataParallel(model)
+            # self.model = nn.parallel.DistributedDataParallel(model)
             self.model.to(self.device)
 
         self.num_keypoints = num_keypoints
