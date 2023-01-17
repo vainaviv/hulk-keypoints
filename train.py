@@ -109,24 +109,14 @@ if not os.path.exists(save_dir):
 def append_to_folders(folder_name, append='train'):
     return [os.path.join(folder, append) for folder in folder_name]
 
-if config.expt_type == 'trp':
-    train_dataset = KeypointsDataset(append_to_folders(config.dataset_dir, 'train'),
-                                    transform, 
-                                    augment=True, 
-                                    config=config)
-    test_dataset = KeypointsDataset(append_to_folders(config.dataset_dir, 'test'),
-                                    transform, 
-                                    augment=False,
-                                    config=config)
-else:
-    train_dataset = KeypointsDataset(append_to_folders(config.dataset_dir, 'train'),
-                                    transform,
-                                    augment=True, 
-                                    config=config)
-    test_dataset = KeypointsDataset(append_to_folders(config.dataset_dir, 'test'),
-                                    transform, 
-                                    augment=False, 
-                                    config=config)
+train_dataset = KeypointsDataset(append_to_folders(config.dataset_dir, 'train'),
+                                transform, 
+                                augment=True, 
+                                config=config)
+test_dataset = KeypointsDataset(append_to_folders(config.dataset_dir, 'test'),
+                                transform, 
+                                augment=False,
+                                config=config)
 
 train_data = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, num_workers=workers)
 test_data = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=True, num_workers=workers)

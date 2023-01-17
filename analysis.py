@@ -405,8 +405,9 @@ else:
             plt.savefig(save_path)
             plt.clf()
             input_img_np = img_t.detach().cpu().numpy()[0, 1, ...]
-            plt.imshow(input_img_np)
-            plt.savefig(save_path_og)
+            # plt.imshow(input_img_np * 255.0)
+            # plt.savefig(save_path_og)
+            cv2.imwrite(save_path_og, input_img_np * 255.0)
         
         elif is_point_pred(expt_type):
             argmax_yx = np.unravel_index(np.argmax(output.detach().cpu().numpy()[0, 0, ...]), output.detach().cpu().numpy()[0, 0, ...].shape)
