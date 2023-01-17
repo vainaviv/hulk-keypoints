@@ -24,6 +24,7 @@ class Tracer:
         augs.append(iaa.Resize({"height": self.trace_config.img_height, "width": self.trace_config.img_width}))
         self.real_img_transform = iaa.Sequential(augs, random_order=False)
         self.transform = transforms.Compose([transforms.ToTensor()])
+        self.buffer = 5
 
     def _get_evenly_spaced_points(self, pixels, num_points, start_idx, spacing, img_size, backward=True, randomize_spacing=True):
         def is_in_bounds(pixel):
@@ -220,6 +221,9 @@ class Tracer:
             global_yx = np.array([argmax_yx[0] + ymin, argmax_yx[1] + xmin]).astype(int)
             path.append(global_yx)
 
+            if global_yx[0] > image.shape[0] - self.buffer or global_yx[0] < self.buffer or global_yx[1] > image.shape[1] - self.buffer or global_yx[1] < self.buffer:
+                return path 
+
             disp_img = cv2.circle(disp_img, (global_yx[1], global_yx[0]), 1, (0, 0, 255), 2)
             # add line from previous to current point
             if len(path) > 1:
@@ -282,8 +286,5 @@ if __name__ == '__main__':
         test_data = np.load(os.path.join(eval_folder, data), allow_pickle=True).item()
         img = test_data['img']
         start_pixels = test_data['pixels'][:10]
-        for j in range(15):
-            spline = tracer._trace(img, start_pixels, path_len=10, viz=False, idx=j)
-            start_pixels = np.append(start_pixels, spline, axis=0)
-        raise Exception()
+        spline = tracer._trace(img, start_pixels, path_len=200, viz=False, idx=i)
     

@@ -7,6 +7,7 @@ import sys
 import argparse
 import torch
 from torchvision import transforms, utils
+from scipy import interpolate
 
 from knot_detection import KnotDetector
 from src.graspability import Graspability
@@ -16,13 +17,12 @@ from src.prediction import Prediction
 from config import *
 from tracer import Tracer
 
-
 class TracerKnotDetector():
     def __init__(self, test_data, parallel=True):
         self.img = test_data['img']
-        self.pixels = test_data['pixels']
-        self.starting_pix = 10
-        self.pixels_so_far = self.pixels[:self.starting_pix]
+        self.pixels = [] #test_data['pixels']
+        self.start_pixs = 10
+        self.pixels_so_far = test_data['pixels'][:self.start_pixs]
         self.parallel = parallel
         self.output_vis_dir = './test_tkd/'
         if os.path.exists(self.output_vis_dir):
@@ -45,7 +45,7 @@ class TracerKnotDetector():
 
         self.uo_config = UNDER_OVER_RNet50()
         self.uo_model = ClassificationModel(num_classes=self.uo_config.classes, img_height=self.uo_config.img_height, img_width=self.uo_config.img_width, channels=3)
-        self.uo_model.load_state_dict(torch.load('/home/vainavi/hulk-keypoints/checkpoints/2023-01-17-00-57-01_UNDER_OVER_RNet34_lr1e5_medley_03Hard2/model_7_0.27108.pth'))
+        self.uo_model.load_state_dict(torch.load('/home/vainavi/hulk-keypoints/checkpoints/2023-01-06-23-11-13_UNDER_OVER_under_over_2/model_6_0.40145.pth'))
 
         self.tracer = Tracer()
 
@@ -126,19 +126,17 @@ class TracerKnotDetector():
         latest_trace_pixel = self._get_pixel_at(latest_step)
         while np.linalg.norm(latest_trace_pixel - center_pixel, ord=np.inf) <= crop_size // 2:
             if latest_step not in range(len(self.pixels_so_far)):
-                self.pixels_so_far = np.append(self.pixels_so_far, np.array([latest_trace_pixel]), axis=0) #TODO: a little confused what this is doing
+                self.pixels_so_far = np.append(self.pixels_so_far, np.array([latest_trace_pixel]), axis=0)
             latest_step += 1
             if latest_step not in range(len(self.pixels)):
                 return
             latest_trace_pixel = self._get_pixel_at(latest_step)
-        print("pixels so far length after getting buffer pixels: ", len(self.pixels_so_far))
 
     def _get_spline_pixels(self, center_idx, crop_size):
         # add all spline pixels before and after the crossing pixel that are within the crop size
         spline_pixels = []
         center_pixel = self._get_pixel_so_far_at(center_idx)
         top_left_pixel = np.array([int(center_pixel[0]) -  crop_size // 2, int(center_pixel[1]) - crop_size // 2])
-
         for curr_idx in range(center_idx + 1, len(self.pixels_so_far)):
             if np.linalg.norm(self._get_pixel_so_far_at(curr_idx) - center_pixel, ord=np.inf) > crop_size // 2:
                 break
@@ -213,27 +211,47 @@ class TracerKnotDetector():
             cage = self._get_pixel_so_far_at(idx)
         return cage
 
+    def interpolate_trace(self):
+        k = self.pixels.shape[0] - 1 if self.pixels.shape[0] < 4 else 3
+        x = self.pixels[:, 1]
+        y = self.pixels[:, 0]
+        tck, u = interpolate.splprep([x, y], s=0, k=k)
+        xnew, ynew = interpolate.splev(np.linspace(0, 1, len(x)*2), tck, der=0)
+        xnew = np.array(xnew, dtype=int)
+        ynew = np.array(ynew, dtype=int)
+
+        x_in = np.where(xnew < self.img.shape[0])
+        xnew = xnew[x_in[0]]
+        ynew = ynew[x_in[0]]
+        x_in = np.where(xnew >= 0)
+        xnew = xnew[x_in[0]]
+        ynew = ynew[x_in[0]]
+        y_in = np.where(ynew < self.img.shape[1])
+        xnew = xnew[y_in[0]]
+        ynew = ynew[y_in[0]]
+        y_in = np.where(ynew >= 0)
+        xnew = xnew[y_in[0]]
+        ynew = ynew[y_in[0]]
+        self.pixels = np.vstack((ynew.T,xnew.T)).T
+
     def trace_and_detect_knot(self):
+        self.pixels = self.tracer._trace(self.img, self.pixels_so_far, path_len=200)
+        self.interpolate_trace()
         # go pixel wise 
         first_step = True
-        path_len = 10
-        for model_step in range(self.starting_pix-1, len(self.pixels), path_len): #every 10 steps collect more trace
+        for model_step in range(self.start_pixs, len(self.pixels)):
             # have not reached model step in trace yet
             if model_step not in range(len(self.pixels_so_far)):
-                spline = self.tracer._trace(self.img, self.pixels_so_far, path_len=path_len, viz=True) #turn off viz later
-                self.pixels_so_far = np.append(self.pixels_so_far, spline, axis=0)
-                print(len(self.pixels_so_far))
-                # self.pixels_so_far = np.append(self.pixels_so_far, np.array([self._get_pixel_at(model_step)]), axis=0)
+                self.pixels_so_far = np.append(self.pixels_so_far, np.array([self._get_pixel_at(model_step)]), axis=0)
             
-            print(model_step)
-            center_pixel = self._get_pixel_so_far_at(max(model_step, len(self.pixels_so_far)-1))
+            center_pixel = self._get_pixel_so_far_at(model_step)          
             # trace a little extra (buffer) to get pixels for conditioning
             self._get_buffer_pixels(center_pixel, model_step + 1, self.uon_crop_size)
             
             # generate a 20 x 20 crop around the pixel
             uon_data = {}
             uon_data['crop_img'] = self._crop_img(self.img, center_pixel, self.uon_crop_size)
-            uon_data['spline_pixels'] = self._get_spline_pixels(model_step, self.uon_crop_size) #TODO: right now this is None
+            uon_data['spline_pixels'] = self._get_spline_pixels(model_step, self.uon_crop_size)
             self._visualize(uon_data['crop_img'], f'uon_{model_step}_p.png')
 
             # get input to UON classifier
@@ -309,12 +327,3 @@ if __name__ == '__main__':
         print()
         print(tkd.knot)
         tkd._visualize_knot()
-
-
-
-
-
-
-
-
-
