@@ -14,14 +14,15 @@ from src.dataset import KeypointsDataset
 from src.model import ClassificationModel, KeypointsGauss
 from src.prediction import Prediction
 from config import *
-
+from tracer import Tracer
 
 
 class TracerKnotDetector():
     def __init__(self, test_data, parallel=True):
         self.img = test_data['img']
         self.pixels = test_data['pixels']
-        self.pixels_so_far = self.pixels[:5]
+        self.starting_pix = 10
+        self.pixels_so_far = self.pixels[:self.starting_pix]
         self.parallel = parallel
         self.output_vis_dir = './test_tkd/'
         if os.path.exists(self.output_vis_dir):
@@ -44,7 +45,9 @@ class TracerKnotDetector():
 
         self.uo_config = UNDER_OVER_RNet50()
         self.uo_model = ClassificationModel(num_classes=self.uo_config.classes, img_height=self.uo_config.img_height, img_width=self.uo_config.img_width, channels=3)
-        self.uo_model.load_state_dict(torch.load('/home/vainavi/hulk-keypoints/checkpoints/2023-01-06-23-11-13_UNDER_OVER_under_over_2/model_6_0.40145.pth'))
+        self.uo_model.load_state_dict(torch.load('/home/vainavi/hulk-keypoints/checkpoints/2023-01-17-00-57-01_UNDER_OVER_RNet34_lr1e5_medley_03Hard2/model_7_0.27108.pth'))
+
+        self.tracer = Tracer()
 
     def _getuonitem(self, uon_data):
         uon_img = (uon_data['crop_img'][:, :, :3]).copy()
@@ -123,11 +126,12 @@ class TracerKnotDetector():
         latest_trace_pixel = self._get_pixel_at(latest_step)
         while np.linalg.norm(latest_trace_pixel - center_pixel, ord=np.inf) <= crop_size // 2:
             if latest_step not in range(len(self.pixels_so_far)):
-                self.pixels_so_far = np.append(self.pixels_so_far, np.array([latest_trace_pixel]), axis=0)
+                self.pixels_so_far = np.append(self.pixels_so_far, np.array([latest_trace_pixel]), axis=0) #TODO: a little confused what this is doing
             latest_step += 1
             if latest_step not in range(len(self.pixels)):
                 return
             latest_trace_pixel = self._get_pixel_at(latest_step)
+        print("pixels so far length after getting buffer pixels: ", len(self.pixels_so_far))
 
     def _get_spline_pixels(self, center_idx, crop_size):
         # add all spline pixels before and after the crossing pixel that are within the crop size
@@ -212,19 +216,24 @@ class TracerKnotDetector():
     def trace_and_detect_knot(self):
         # go pixel wise 
         first_step = True
-        for model_step in range(5, len(self.pixels)):
+        path_len = 10
+        for model_step in range(self.starting_pix-1, len(self.pixels), path_len): #every 10 steps collect more trace
             # have not reached model step in trace yet
             if model_step not in range(len(self.pixels_so_far)):
-                self.pixels_so_far = np.append(self.pixels_so_far, np.array([self._get_pixel_at(model_step)]), axis=0)
+                spline = self.tracer._trace(self.img, self.pixels_so_far, path_len=path_len, viz=True) #turn off viz later
+                self.pixels_so_far = np.append(self.pixels_so_far, spline, axis=0)
+                print(len(self.pixels_so_far))
+                # self.pixels_so_far = np.append(self.pixels_so_far, np.array([self._get_pixel_at(model_step)]), axis=0)
             
-            center_pixel = self._get_pixel_so_far_at(model_step)          
+            print(model_step)
+            center_pixel = self._get_pixel_so_far_at(max(model_step, len(self.pixels_so_far)-1))
             # trace a little extra (buffer) to get pixels for conditioning
             self._get_buffer_pixels(center_pixel, model_step + 1, self.uon_crop_size)
             
             # generate a 20 x 20 crop around the pixel
             uon_data = {}
             uon_data['crop_img'] = self._crop_img(self.img, center_pixel, self.uon_crop_size)
-            uon_data['spline_pixels'] = self._get_spline_pixels(model_step, self.uon_crop_size)
+            uon_data['spline_pixels'] = self._get_spline_pixels(model_step, self.uon_crop_size) #TODO: right now this is None
             self._visualize(uon_data['crop_img'], f'uon_{model_step}_p.png')
 
             # get input to UON classifier
