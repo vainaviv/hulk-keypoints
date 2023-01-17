@@ -8,6 +8,7 @@ import argparse
 import torch
 from torchvision import transforms, utils
 from scipy import interpolate
+import matplotlib.pyplot as plt
 
 from knot_detection import KnotDetector
 from src.graspability import Graspability
@@ -43,9 +44,9 @@ class TracerKnotDetector():
         self.uon_model = ClassificationModel(num_classes=self.uon_config.classes, img_height=self.uon_config.img_height, img_width=self.uon_config.img_width, channels=3)
         self.uon_model.load_state_dict(torch.load('/home/mkparu/hulk-keypoints/checkpoints/2023-01-11-02-15-52_UNDER_OVER_NONE_all_crossings_regen_test/model_11_0.12860.pth'))
 
-        self.uo_config = UNDER_OVER_RNet50()
+        self.uo_config = UNDER_OVER_RNet34_lr1e5_medley_03Hard2
         self.uo_model = ClassificationModel(num_classes=self.uo_config.classes, img_height=self.uo_config.img_height, img_width=self.uo_config.img_width, channels=3)
-        self.uo_model.load_state_dict(torch.load('/home/vainavi/hulk-keypoints/checkpoints/2023-01-06-23-11-13_UNDER_OVER_under_over_2/model_6_0.40145.pth'))
+        self.uo_model.load_state_dict(torch.load('/home/vainavi/hulk-keypoints/checkpoints/2023-01-17-00-57-01_UNDER_OVER_RNet34_lr1e5_medley_03Hard2/model_7_0.27108.pth'))
 
         self.tracer = Tracer()
 
@@ -67,6 +68,24 @@ class TracerKnotDetector():
         return uon_model_input
 
     def _visualize(self, img, file_name):
+        cv2.imwrite(self.output_vis_dir + file_name + '.png', img)
+
+    def _visualize_crossings(self):
+        img = self.img.copy()
+        file_name = 'crossings_img'
+        # red for over crossing, blue for under (colors flipped bc cv2)
+        u_clr = (255, 0, 0)
+        o_clr = (0, 0, 255)
+        ctr = 0
+        for crossing in self.detector.crossings_stack:
+            ctr += 1
+            x, y = crossing['loc']
+            if crossing['ID'] == 0:
+                cv2.circle(img, (x, y), 3, u_clr, -1)
+                cv2.putText(img, str(ctr), (x, y), cv2.FONT_HERSHEY_PLAIN, 1, u_clr)
+            if crossing['ID'] == 1:
+                cv2.circle(img, (x, y), 3, o_clr, -1)
+                cv2.putText(img, str(ctr), (x, y), cv2.FONT_HERSHEY_PLAIN, 1, o_clr)
         cv2.imwrite(self.output_vis_dir + file_name + '.png', img)
 
     def _visualize_full(self):
@@ -289,7 +308,6 @@ class TracerKnotDetector():
                             # a knot is detected
                             self.knot = knot_output
                             return
-                    print(self.detector.crossings_stack)
                     self.local_crossing_stream = []
             
             if uon == 2:
@@ -321,8 +339,9 @@ if __name__ == '__main__':
     tkd = TracerKnotDetector(test_data, parallel=parallel)
     print(data_path)
     print()
-    tkd._visualize_full()
     tkd.trace_and_detect_knot()
+    tkd._visualize_full()
+    tkd._visualize_crossings()
     if tkd.knot:
         print()
         print(tkd.knot)
