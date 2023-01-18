@@ -2,27 +2,53 @@ import enum
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-
+import cv2
+import argparse
 
 class Graspability():
     def __init__(self):
-        self.radius = 20 #TODO: tune
-        self.trace_thresh = 100 #TODO: tune
+        self.radius = 10 #TODO: tune
+        self.i = 0
 
-    def find_trace_dist(self, point1, point2, pixel_point_to_idx ):
-        return abs(pixel_point_to_idx[point1] - pixel_point_to_idx[point2])
-
-    def find_pixel_point_graspability(self, point, trace):
+    def find_pixel_point_graspability(self, point, img):
             total_points = 4*(self.radius**2)
-            points_outside_trace_threshold = 0
-            start_point_x = point[0] - self.radius
-            start_point_y = point[1] - self.radius
+            crop = img[point[1]-self.radius:point[1]+self.radius, point[0]-self.radius:point[0]+self.radius, :]
+            cv2.imwrite(f'./crops/crop_{self.i}.png', crop)
+            self.i += 1
+            crop_mask = (crop[:, :, 0] > 100)
+            if np.sum(crop_mask) <= 110:     
+                return 1
+            else:
+                return 0      
 
-            for i in range(start_point_x, start_point_x + 2*self.radius):
-                for j in range(start_point_y, start_point_y  + 2*self.radius):
-                    neigh =(i,j)
-                    if neigh in trace:
-                        #if the neighboring pixel is in the rope trace and is within 
-                        if(self.find_trace_dist(point, neigh, trace) > self.trace_thresh):
-                            points_outside_trace_threshold += 1
-            return points_outside_trace_threshold / total_points
+if __name__ == '__main__':
+    # parse command line flags
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data_index', type=str, default='')
+
+    flags = parser.parse_args()
+    data_index = flags.data_index 
+
+    if data_index == '':
+        raise Exception('Please provide the file number (e.g. --data_index 00000) as a command-line argument!')
+
+    data_path = f"/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/train/{data_index}.npy"
+    test_data = np.load(data_path, allow_pickle=True).item()
+    g = Graspability()
+    img = test_data['img']
+    for i in range(20):
+        point = test_data['pixels'][i]
+        g.find_pixel_point_graspability(point, img)
+        # cv2.imwrite(f'./crops/crop_{i}.png', img[point[1]-g.radius:point[1]+g.radius, point[0]-g.radius:point[0]+g.radius, :])
+
+    # tkd._set_data(test_data['img'], test_data['pixels'][:10], test_data['pixels'])
+    # print(data_path)
+    # print()
+    # tkd.perception_pipeline()
+    # tkd._visualize_full()
+    # tkd._visualize_crossings()
+    # if tkd.knot:
+    #     print()
+    #     print("knot: ", tkd.knot)
+    #     print("knot confidence: ", tkd._get_knot_confidence())
+    #     tkd._visualize_knot()
