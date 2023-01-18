@@ -109,24 +109,14 @@ if not os.path.exists(save_dir):
 def append_to_folders(folder_name, append='train'):
     return [os.path.join(folder, append) for folder in folder_name]
 
-if config.expt_type == 'trp':
-    train_dataset = KeypointsDataset(append_to_folders(config.dataset_dir, 'train'),
-                                    transform, 
-                                    augment=True, 
-                                    config=config)
-    test_dataset = KeypointsDataset(append_to_folders(config.dataset_dir, 'test'),
-                                    transform, 
-                                    augment=False,
-                                    config=config)
-else:
-    train_dataset = KeypointsDataset(append_to_folders(config.dataset_dir, 'train'),
-                                    transform,
-                                    augment=True, 
-                                    config=config)
-    test_dataset = KeypointsDataset(append_to_folders(config.dataset_dir, 'test'),
-                                    transform, 
-                                    augment=False, 
-                                    config=config)
+train_dataset = KeypointsDataset(append_to_folders(config.dataset_dir, 'train'),
+                                transform, 
+                                augment=True, 
+                                config=config)
+test_dataset = KeypointsDataset(append_to_folders(config.dataset_dir, 'test'),
+                                transform, 
+                                augment=False,
+                                config=config)
 
 train_data = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, num_workers=workers)
 test_data = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=True, num_workers=workers)
@@ -140,7 +130,7 @@ if use_cuda:
 
 # model
 if not is_point_pred(config.expt_type):
-    keypoints = ClassificationModel(num_classes=config.classes, img_height=config.img_height, img_width=config.img_width).cuda()
+    keypoints = ClassificationModel(num_classes=config.classes, img_height=config.img_height, img_width=config.img_width, resnet_type=config.resnet_type).cuda()
 else:
     keypoints = KeypointsGauss(num_keypoints=1, img_height=config.img_height, img_width=config.img_width, resnet_type=config.resnet_type, pretrained=config.pretrained).cuda()
 

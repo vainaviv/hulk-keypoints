@@ -3,29 +3,37 @@ import cv2
 import time
 import shutil
 import os
+import sys
+import argparse
 import torch
 from torchvision import transforms, utils
+from scipy import interpolate
+import matplotlib.pyplot as plt
 
 from knot_detection import KnotDetector
 from src.graspability import Graspability
 from src.dataset import KeypointsDataset
-from src.model import ClassificationModel
+from src.model import ClassificationModel, KeypointsGauss
 from src.prediction import Prediction
 from config import *
-
-os.environ["CUDA_VISIBLE_DEVICES"]="7"
+from tracer import Tracer
 
 class TracerKnotDetector():
-    def __init__(self, test_data):
+    def __init__(self, test_data, parallel=True):
         self.img = test_data['img']
-        self.pixels = test_data['pixels']
-        self.pixels_so_far = self.pixels[:5]
-        self.output_vis_dir = '/home/mkparu/hulk-keypoints/test_tkd/'
-        if not os.path.exists(self.output_vis_dir):
-            os.makedirs(self.output_vis_dir)
+        self.pixels = [] #test_data['pixels']
+        self.start_pixs = 10
+        self.starting_pixels_for_trace = test_data['pixels'][:self.start_pixs]
+        self.parallel = parallel
+        self.output_vis_dir = './test_tkd/'
+        if os.path.exists(self.output_vis_dir):
+            shutil.rmtree(self.output_vis_dir)
+        os.makedirs(self.output_vis_dir)
         
         self.graspability = Graspability()
-        self.knot_detector = KnotDetector()
+        self.local_crossing_stream = []
+        self.detector = KnotDetector()
+        self.knot = None
 
         self.uon_crop_size = 20
         self.uon_config = UNDER_OVER_NONE()
@@ -36,13 +44,11 @@ class TracerKnotDetector():
         self.uon_model = ClassificationModel(num_classes=self.uon_config.classes, img_height=self.uon_config.img_height, img_width=self.uon_config.img_width, channels=3)
         self.uon_model.load_state_dict(torch.load('/home/mkparu/hulk-keypoints/checkpoints/2023-01-11-02-15-52_UNDER_OVER_NONE_all_crossings_regen_test/model_11_0.12860.pth'))
 
-        self.uo_config = UNDER_OVER_RNet50()
+        self.uo_config = UNDER_OVER_RNet34_lr1e5_medley_03Hard2
         self.uo_model = ClassificationModel(num_classes=self.uo_config.classes, img_height=self.uo_config.img_height, img_width=self.uo_config.img_width, channels=3)
-        self.uo_model.load_state_dict(torch.load('/home/vainavi/hulk-keypoints/checkpoints/2023-01-06-23-11-13_UNDER_OVER_under_over_2/model_6_0.40145.pth'))
+        self.uo_model.load_state_dict(torch.load('/home/vainavi/hulk-keypoints/checkpoints/2023-01-17-00-57-01_UNDER_OVER_RNet34_lr1e5_medley_03Hard2/model_7_0.27108.pth'))
 
-        self.local_crossing_stream = []
-        self.detector = KnotDetector()
-
+        self.tracer = Tracer()
 
     def _getuonitem(self, uon_data):
         uon_img = (uon_data['crop_img'][:, :, :3]).copy()
@@ -64,13 +70,52 @@ class TracerKnotDetector():
     def _visualize(self, img, file_name):
         cv2.imwrite(self.output_vis_dir + file_name + '.png', img)
 
+    def _visualize_crossings(self):
+        img = self.img.copy()
+        file_name = 'crossings_img'
+        # red for over crossing, blue for under (colors flipped bc cv2)
+        u_clr = (255, 0, 0)
+        o_clr = (0, 0, 255)
+        ctr = 0
+        for crossing in self.detector.crossings_stack:
+            ctr += 1
+            x, y = crossing['loc']
+            if crossing['ID'] == 0:
+                cv2.circle(img, (x, y), 3, u_clr, -1)
+                cv2.putText(img, str(ctr), (x+2, y+2), cv2.FONT_HERSHEY_PLAIN, 1, u_clr)
+            if crossing['ID'] == 1:
+                cv2.circle(img, (x, y), 3, o_clr, -1)
+                cv2.putText(img, str(ctr), (x-2, y-2), cv2.FONT_HERSHEY_PLAIN, 1, o_clr)
+        cv2.imwrite(self.output_vis_dir + file_name + '.png', img)
+
     def _visualize_full(self):
+        img = self.img.copy()
         file_name = 'full_img'
-        cv2.imwrite(self.output_vis_dir + file_name + '.png', self.img)
+        cv2.imwrite(self.output_vis_dir + file_name + '.png', img)
         clr = (255, 0, 0)
         for x, y in self.pixels:
-            cv2.circle(self.img, (x, y), 3, clr, -1)
-        cv2.imwrite(self.output_vis_dir + file_name + 'with_trace' + '.png', self.img)
+            cv2.circle(img, (x, y), 3, clr, -1)
+        cv2.imwrite(self.output_vis_dir + file_name + '_with_trace' + '.png', img)
+
+    def _visualize_knot(self):
+        if not self.knot:
+            raise Exception('No knot detected for visualization!')
+        img = self.img.copy()
+        file_name = 'knot_img'
+        #red for over crossing, blue for under (colors flipped bc cv2)
+        u_clr = (255, 0, 0)
+        o_clr = (0, 0, 255)
+        ctr = 0
+        for crossing in self.knot:
+            ctr += 1
+            x, y = crossing['loc']
+            if crossing['ID'] == 0:
+                cv2.circle(img, (x, y), 3, u_clr, -1)
+                cv2.putText(img, str(ctr), (x, y), cv2.FONT_HERSHEY_PLAIN, 1, u_clr)
+            if crossing['ID'] == 1:
+                cv2.circle(img, (x, y), 3, o_clr, -1)
+                cv2.putText(img, str(ctr), (x, y), cv2.FONT_HERSHEY_PLAIN, 1, o_clr)
+        cv2.imwrite(self.output_vis_dir + file_name + '.png', img)
 
     def _visualize_tensor(self, tensor, file_name):
         img = tensor.clone().detach()
@@ -89,117 +134,129 @@ class TracerKnotDetector():
             raise Exception('Step not in range!')
         return self.pixels[step]
 
-    def _get_pixel_so_far_at(self, idx):
-        if idx not in range(len(self.pixels_so_far)):
-            raise Exception('Index not in range!')
-        return self.pixels_so_far[idx]
-
-    def _get_buffer_pixels(self, center_pixel, latest_step, crop_size):
-        if latest_step not in range(len(self.pixels)):
-            return
-        latest_trace_pixel = self._get_pixel_at(latest_step)
-        while np.linalg.norm(latest_trace_pixel - center_pixel, ord=np.inf) <= crop_size // 2:
-            if latest_step not in range(len(self.pixels_so_far)):
-                self.pixels_so_far = np.append(self.pixels_so_far, np.array([latest_trace_pixel]), axis=0)
-            latest_step += 1
-            if latest_step not in range(len(self.pixels)):
-                return
-            latest_trace_pixel = self._get_pixel_at(latest_step)
-
     def _get_spline_pixels(self, center_idx, crop_size):
         # add all spline pixels before and after the crossing pixel that are within the crop size
         spline_pixels = []
-        center_pixel = self._get_pixel_so_far_at(center_idx)
+        center_pixel = self._get_pixel_at(center_idx)
         top_left_pixel = np.array([int(center_pixel[0]) -  crop_size // 2, int(center_pixel[1]) - crop_size // 2])
-
-        for curr_idx in range(center_idx + 1, len(self.pixels_so_far)):
-            if np.linalg.norm(self._get_pixel_so_far_at(curr_idx) - center_pixel, ord=np.inf) > crop_size // 2:
+        for curr_idx in range(center_idx + 1, len(self.pixels)):
+            if np.linalg.norm(self._get_pixel_at(curr_idx) - center_pixel, ord=np.inf) > crop_size // 2:
                 break
-            spline_pixels.append(self._get_pixel_so_far_at(curr_idx) - top_left_pixel)
+            spline_pixels.append(self._get_pixel_at(curr_idx) - top_left_pixel)
 
         for curr_idx in range(center_idx, 0, -1):
-            if np.linalg.norm(self._get_pixel_so_far_at(curr_idx) - center_pixel, ord=np.inf) > crop_size // 2:
+            if np.linalg.norm(self._get_pixel_at(curr_idx) - center_pixel, ord=np.inf) > crop_size // 2:
                 break
-            spline_pixels.insert(0, self._get_pixel_so_far_at(curr_idx) - top_left_pixel)
-        
+            spline_pixels.insert(0, self._get_pixel_at(curr_idx) - top_left_pixel)
         if len(spline_pixels) < 2:
             return
     
         return spline_pixels
 
     def _predict_uon(self, uon_model_input):
-        use_cuda = torch.cuda.is_available()
-        predictor = Prediction(self.uon_model, self.uon_config.num_keypoints, self.uon_config.img_height, self.uon_config.img_width, use_cuda)
-        prediction_prob_arr = predictor.predict(uon_model_input).detach().numpy().squeeze()
+        predictor = Prediction(self.uon_model, self.uon_config.num_keypoints, self.uon_config.img_height, self.uon_config.img_width, parallelize=self.parallel)
+        prediction_prob_arr = predictor.predict(uon_model_input).cpu().detach().numpy().squeeze()
         pred = np.argmax(prediction_prob_arr)
-        # calls separate model for under/over
+        prediction_prob = prediction_prob_arr[pred]
+        # calls separate model for under / over
         if pred != 2:
             uo_model_input = uon_model_input
-            predictor = Prediction(self.uo_model, self.uo_config.num_keypoints, self.uo_config.img_height, self.uo_config.img_width, use_cuda)
-            updated_prediction_prob = predictor.predict(uo_model_input).detach().numpy().squeeze()
+            predictor = Prediction(self.uo_model, self.uo_config.num_keypoints, self.uo_config.img_height, self.uo_config.img_width, parallelize=self.parallel)
+            updated_prediction_prob = predictor.predict(uo_model_input).cpu().detach().numpy().squeeze()
             if updated_prediction_prob >= 0.5:
                 return 1, updated_prediction_prob
             else: 
-                return 0, 1-updated_prediction_prob
+                return 0, 1 - updated_prediction_prob
         else:
-            return pred, prediction_prob_arr[pred]
+            return pred, prediction_prob
     
     def _vote_and_process_under_over_crossing(self):
-        #using 1, -1 instead of 1 0 so the confidence matters for U as well
-        avg_x = 0
-        avg_y = 0
+        # using 1, -1 instead of 1, 0 so the confidence matters for U as well
+        x_arr = []
+        y_arr = []
         weighted_sum = 0
         for crossing_dict in self.local_crossing_stream:
-            if(crossing_dict["uon"] == 0):
-                weighted_sum += crossing_dict["confidence"]* -1
+            if crossing_dict['uon'] == 0:
+                weighted_sum -= crossing_dict['prob']
             else:
-                weighted_sum += crossing_dict["confidence"]
-            avg_x += crossing_dict["center_pixel"][0]
-            avg_y += crossing_dict["center_pixel"][1]
+                weighted_sum += crossing_dict['prob']
+            x_arr.append(crossing_dict['center_pixel'][0])
+            y_arr.append(crossing_dict['center_pixel'][1])
         
-        avg_x = avg_x // len(self.local_crossing_stream)
-        avg_y = avg_y // len(self.local_crossing_stream)
+        x_arr, y_arr = np.array(x_arr), np.array(y_arr)
+        avg_x, avg_y = int(np.mean(x_arr)), int(np.mean(y_arr))
+        med_x, med_y = int(np.median(x_arr)), int(np.median(y_arr))
+        weighted_sum = weighted_sum / len(self.local_crossing_stream)
 
-        if(weighted_sum > 0):
-            return self.detector.encounter_seg({'loc': (avg_x, avg_y), 'ID': 1})
+        if weighted_sum >= 0:
+            return self.detector.encounter_seg({'loc': (avg_x, avg_y), 'ID': 1, 'confidence': weighted_sum})
         else:
-            return self.detector.encounter_seg({'loc': (avg_x, avg_y), 'ID': 0})
-
+            return self.detector.encounter_seg({'loc': (avg_x, avg_y), 'ID': 0, 'confidence': -weighted_sum})
+    
+    def _get_knot_confidence(self):
+        return self.knot[-1]['confidence'] * self.knot[0]['confidence']
+    
     def _determine_pinch(self):
         idx = -1
-        pinch = self._get_pixel_so_far_at(idx)
+        pinch = self._get_pixel_at(idx)
         # TODO: need to tune graspability
-        while not self.graspability.find_pixel_point_graspability(pinch, self.pixels_so_far): 
+        while not self.graspability.find_pixel_point_graspability(pinch, self.pixels): 
             idx -= 1
-            pinch = self._get_pixel_so_far_at(idx)
+            pinch = self._get_pixel_at(idx)
         return pinch 
 
     def _determine_cage(self):
         # go back until you're at the trace part that corresponds to overcrossing
-        idx = self.knot_detector.get_crossing_pos(self.pixels_so_far[-1])
-        cage = self._get_pixel_so_far_at(idx)
+        idx = self.detector.get_crossing_pos(self.pixels[-1])
+        cage = self._get_pixel_at(idx)
         # then trace from there forward and stop once you're in a graspable region
-        while not self.graspability.find_pixel_point_graspability(cage, self.pixels_so_far):
+        while not self.graspability.find_pixel_point_graspability(cage, self.pixels):
             idx += 1
-            cage = self._get_pixel_so_far_at(idx)
+            cage = self._get_pixel_at(idx)
         return cage
 
+    def interpolate_trace(self):
+        k = self.pixels.shape[0] - 1 if self.pixels.shape[0] < 4 else 3
+        x = self.pixels[:, 1]
+        y = self.pixels[:, 0]
+        tck, u = interpolate.splprep([x, y], s=0, k=k)
+        xnew, ynew = interpolate.splev(np.linspace(0, 1, len(x)*2), tck, der=0)
+        xnew = np.array(xnew, dtype=int)
+        ynew = np.array(ynew, dtype=int)
+
+        x_in = np.where(xnew < self.img.shape[0])
+        xnew = xnew[x_in[0]]
+        ynew = ynew[x_in[0]]
+        x_in = np.where(xnew >= 0)
+        xnew = xnew[x_in[0]]
+        ynew = ynew[x_in[0]]
+        y_in = np.where(ynew < self.img.shape[1])
+        xnew = xnew[y_in[0]]
+        ynew = ynew[y_in[0]]
+        y_in = np.where(ynew >= 0)
+        xnew = xnew[y_in[0]]
+        ynew = ynew[y_in[0]]
+        self.pixels = np.vstack((ynew.T,xnew.T)).T
+
     def trace_and_detect_knot(self):
+        self.pixels = self.tracer._trace(self.img, self.starting_pixels_for_trace, path_len=200)
+        self.interpolate_trace()
         # go pixel wise 
         first_step = True
-        for model_step in range(5, len(self.pixels)):
-            # have not reached model step in trace yet
-            if model_step not in range(len(self.pixels_so_far)):
-                self.pixels_so_far = np.append(self.pixels_so_far, np.array([self._get_pixel_at(model_step)]), axis=0)
+       
+        # for model_step in range(self.start_pixs, len(self.pixels)):
+        for model_step in range(len(self.pixels)):
+            center_pixel = self._get_pixel_at(model_step)          
             
-            center_pixel = self._get_pixel_so_far_at(model_step)          
-            # trace a little extra (buffer) to get pixels for conditioning
-            self._get_buffer_pixels(center_pixel, model_step + 1, self.uon_crop_size)
-            
-            # generate a 20 x 20 crop around the pixel
+            # generate a 20 x 20 crop around the pixel and get spline pixels
             uon_data = {}
             uon_data['crop_img'] = self._crop_img(self.img, center_pixel, self.uon_crop_size)
-            uon_data['spline_pixels'] = self._get_spline_pixels(model_step, self.uon_crop_size)
+            spline_pixels = self._get_spline_pixels(model_step, self.uon_crop_size)
+            #at the very start of the trace
+            if(spline_pixels is None): 
+                continue
+            uon_data['spline_pixels'] = spline_pixels
+
             self._visualize(uon_data['crop_img'], f'uon_{model_step}_p.png')
 
             # get input to UON classifier
@@ -207,44 +264,72 @@ class TracerKnotDetector():
             self._visualize_tensor(uon_model_input, f'uon_{model_step}.png')
 
             # predict UON on input
-            uon, confidence = self._predict_uon(uon_model_input)
-            print(model_step, uon, confidence)
+            uon, prob = self._predict_uon(uon_model_input)
+            print(model_step, uon, center_pixel, prob)
 
             if uon != 2:
-                self.local_crossing_stream.append({"center_pixel": center_pixel, "uon": uon, "confidence": confidence})
+                self.local_crossing_stream.append({'center_pixel': center_pixel, 'uon': uon, 'prob': prob})
             
             elif uon == 2 and len(self.local_crossing_stream) > 0:
                 if len(self.local_crossing_stream) == 1 and first_step == False:
-                    #single under / over crossing - ignore and proceed
+                    # single under / over crossing - ignore and proceed
                     self.local_crossing_stream = []
                 else:
+                    # two under / over crossings (>2 WIP?)
+                    next_crossing_stream = []
+                    if len(self.local_crossing_stream) > 4:
+                        crossing_border = (len(self.local_crossing_stream) + 1) // 2
+                        next_crossing_stream = self.local_crossing_stream[crossing_border:]
+                        self.local_crossing_stream = self.local_crossing_stream[:crossing_border]
                     knot_output = self._vote_and_process_under_over_crossing()
-                    #meaning a knot is detected
-                    if knot_output is not None:
-                        return knot_output
+                    if knot_output: 
+                        # a knot is detected
+                        self.knot = knot_output
+                        return
+                    # process second crossing, if it exists
+                    if next_crossing_stream:
+                        self.local_crossing_stream = next_crossing_stream
+                        knot_output = self._vote_and_process_under_over_crossing()
+                        if knot_output:
+                            # a knot is detected
+                            self.knot = knot_output
+                            return
                     self.local_crossing_stream = []
-                first_step = False
-        return -1
             
+            if uon == 2:
+                first_step = False
+    
     def perception_pipeline(self):
-        knot = self.trace_and_detect_knot()
-        if knot == -1:
-            return -1, -1 #Done untangling!
+        self.trace_and_detect_knot()
+        if not self.knot:
+            return -1, -1 # Done untangling!
         pinch = self._determine_pinch()
         cage = self._determine_cage()
         return pinch, cage
             
 if __name__ == '__main__':
-    test_data = np.load("/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test/00000.npy", allow_pickle=True).item()
-    tkd = TracerKnotDetector(test_data)
-    print(tkd.trace_and_detect_knot())
-    # tkd._visualize_full()
+    # parse command line flags
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data_index', type=str, default='')
+    parser.add_argument('--parallel', action='store_true', default=False)
 
+    flags = parser.parse_args()
+    data_index = flags.data_index 
+    parallel = flags.parallel
 
+    if data_index == '':
+        raise Exception('Please provide the file number (e.g. --data_index 00000) as a command-line argument!')
 
-
-
-
-
-
-
+    data_path = f"/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/train/{data_index}.npy"
+    test_data = np.load(data_path, allow_pickle=True).item()
+    tkd = TracerKnotDetector(test_data, parallel=parallel)
+    print(data_path)
+    print()
+    tkd.trace_and_detect_knot()
+    tkd._visualize_full()
+    tkd._visualize_crossings()
+    if tkd.knot:
+        print()
+        print(tkd.knot)
+        print(tkd._get_knot_confidence())
+        tkd._visualize_knot()

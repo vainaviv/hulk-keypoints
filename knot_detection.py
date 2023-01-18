@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 class KnotDetector:
     def __init__(self) -> None:
         self.crossings_stack = []
-        # self.eps = 3.0
         self.eps = 10
         self.knot = []
 
@@ -18,9 +17,10 @@ class KnotDetector:
         Returns a list of crossings that constitute the knot if knot is encountered at current segment. 
         Else, returns None.
         '''
-        # seg must be in following format: {'loc': (x, y), 'ID': 0/1/2}
+        # seg must be in following format: {'loc': (x, y), 'ID': 0/1/2, 'confidence': [0, 1]}
         # ID options: 0 (under), 1 (over), 2 (not a crossing)
         # skip if not a crossing
+
         if seg['ID'] == 2:
             return
 
@@ -36,7 +36,7 @@ class KnotDetector:
         curr_x, curr_y = seg['loc']
         prev_id, curr_id = prev_crossing['ID'], seg['ID']
 
-        if abs(curr_x - prev_x) <= self.eps and abs(curr_y - prev_y) <= self.eps and prev_id != curr_id:
+        if np.linalg.norm(np.array([curr_x, curr_y]) - np.array([prev_x, prev_y])) <= self.eps:
             return
 
         self.crossings_stack.append(prev_crossing)
@@ -50,8 +50,8 @@ class KnotDetector:
         Checks if the latest crossing results in a knot.
         Only accounts for trivial loops.
         '''
-        # no knot encountered if < 4 crossings have been seen (?)
-        if len(self.crossings_stack) < 4:
+        # no knot encountered if < 3 crossings have been seen (?)
+        if len(self.crossings_stack) < 3:
             return False
             
         crossing = self.crossings_stack[-1]
@@ -65,9 +65,8 @@ class KnotDetector:
             return False
 
         # intermediate crossing = crossing in between start and end crossing (exclusive)
-        # no knot encountered if every intermediate crossing is the same
-        first_intermediate_id = self.crossings_stack[pos + 1]
-        if all([intermediate_crossing['ID'] == first_intermediate_id for intermediate_crossing in self.crossings_stack[pos + 1:-1]]):
+        # no knot encountered if every intermediate crossing is an undercrossing
+        if all([intermediate_crossing['ID'] == 0 for intermediate_crossing in self.crossings_stack[pos + 1:-1]]):
             return False
                     
         self.knot = self.crossings_stack[pos:]
@@ -81,13 +80,24 @@ class KnotDetector:
         curr_x, curr_y = crossing['loc']
         curr_id = crossing['ID']
 
+        # print(crossing)
+        # print(self.crossings_stack)
+        # print()
+
         # only look at crossings prior to most recently added crossing
         for pos in range(len(self.crossings_stack) - 1):
-            prev_x, prev_y = self.crossings_stack[pos]['loc']
-            prev_id = self.crossings_stack[pos]['ID']
-            # if abs(curr_x - prev_x) <= self.eps and abs(curr_y - prev_y) <= self.eps and prev_id != curr_id:
-            #     return pos
-            if np.linalg.norm(np.array([curr_x, curr_y])-np.array([prev_x, prev_y])) <= 10:
+            prev_crossing = self.crossings_stack[pos]
+            prev_x, prev_y = prev_crossing['loc']
+            prev_id = prev_crossing['ID']
+            if np.linalg.norm(np.array([curr_x, curr_y]) - np.array([prev_x, prev_y])) <= self.eps:
+                if prev_id == curr_id:
+                    prev_confidence, curr_confidence = prev_crossing['confidence'], crossing['confidence']
+                    if curr_confidence >= prev_confidence:
+                        prev_crossing['ID'] = 1 - prev_id
+                        prev_crossing['confidence'] = crossing['confidence']
+                    else:
+                        crossing['ID'] = 1 - curr_id
+                        crossing['confidence'] = prev_crossing['confidence']
                 return pos
         
         return -1

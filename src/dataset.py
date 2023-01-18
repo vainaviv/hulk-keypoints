@@ -446,7 +446,7 @@ class KeypointsDataset(Dataset):
 
             # getting final keypoints (final_kpts) post-transformation
             kpts_on_image = KeypointsOnImage.from_xy_array(kpts_array, shape=img.shape)
-            img, transformed_kpts = self.call_img_transform(img, kpts=kpts_on_image) #self.img_transform(image=img, keypoints=kpts_on_image)
+            img, transformed_kpts = self.call_img_transform(img, kpts=kpts_on_image, is_real_example=is_real_example) #self.img_transform(image=img, keypoints=kpts_on_image)
             final_kpts = []
             for k in transformed_kpts:
                 final_kpts.append([k.x, k.y])
@@ -472,8 +472,7 @@ class KeypointsDataset(Dataset):
                 img = (img / 255.0).astype(np.float32)
             cable_mask = np.ones(img.shape[:2])
             cable_mask[img[:, :, 1] < 0.35] = 0
-            if self.augment:
-                img = self.call_img_transform(img) #self.img_transform(image=img)
+            img = self.call_img_transform(img)
             if self.sweep:
                 img[:, :, 0] = self.draw_spline(img, condition_pixels[:, 1], condition_pixels[:, 0], label=True) #* cable_mask
             else:
@@ -547,10 +546,10 @@ if __name__ == '__main__':
     os.mkdir(os.path.join(dataset_test_path, 'none'))
 
     # UNDER OVER
-    test_config = UNDER_OVER()
-    test_dataset = KeypointsDataset(['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard2/test'],
+    test_config = UNDER_OVER_RNet34_lr1e5_hard1()
+    test_dataset = KeypointsDataset(['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1/test'],
                                     transform, 
-                                    augment=True, 
+                                    augment=False, 
                                     config=test_config)
     test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
 

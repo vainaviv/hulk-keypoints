@@ -113,17 +113,15 @@ def trace(image, start_points, viz=True, exact_path_len=None, model=None):
         crop, cond_pixels_in_crop, top_left = test_dataset.get_crop_and_cond_pixels(image, condition_pixels, center_around_last=True)
         # print('cond pixels', cond_pixels_in_crop)
         ymin, xmin = np.array(top_left) - test_dataset.crop_width
-
         model_input, _, cable_mask, angle = test_dataset.get_trp_model_input(crop, cond_pixels_in_crop, center_around_last=True, is_real_example=real)
 
         crop_eroded = cv2.erode((cable_mask).astype(np.uint8), np.ones((2, 2)), iterations=1)
         # print("Model input prep time: ", time.time() - tm)
 
-        if viz:
+        if True:
             # cv2.imshow('model input', model_input.detach().cpu().numpy().transpose(1, 2, 0))
             # cv2.waitKey(1)
-            plt.imshow(model_input.detach().cpu().numpy().transpose(1, 2, 0))
-            plt.savefig("model_input.png")
+            plt.imsave(f'./model_inputs/model_input_{iter}.png', model_input.detach().cpu().numpy().transpose(1, 2, 0))
 
         model_output = model(model_input.unsqueeze(0)).detach().cpu().numpy().squeeze()
         model_output *= crop_eroded.squeeze()
@@ -221,7 +219,7 @@ if use_cuda:
 keypoints_models = []
 # for model_ckpt in model_ckpts:
 if expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
-    keypoints = ClassificationModel(num_classes=config.classes, img_height=config.img_height, img_width=config.img_width, channels=3)
+    keypoints = ClassificationModel(num_classes=config.classes, img_height=config.img_height, img_width=config.img_width, resnet_type=config.resnet_type, channels=3)
 elif is_point_pred(expt_type):
     keypoints = KeypointsGauss(1, img_height=config.img_height, img_width=config.img_width, channels=3, resnet_type=config.resnet_type, pretrained=config.pretrained)
 
@@ -255,7 +253,10 @@ if flags.eval_real:
             real = True
 
 real = True
-real_paths  = ['/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test']
+if config.expt_type == ExperimentTypes.TRACE_PREDICTION:
+    real_paths  = ['/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test']
+elif config.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or config.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
+    real_paths = ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_crossing_set2/real_test']
 
 if real:
     test_dataset = KeypointsDataset(real_paths, 
@@ -286,11 +287,12 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
                 file_path = os.path.join(even_more_real_world, file)
                 spline = np.load(file_path, allow_pickle=True).item()['pixels']
                 REAL_WORLD_DICT[file_path] = spline
+        # REAL_WORLD_DICT = {k: v for k, v in REAL_WORLD_DICT.items() if k.endswith('00102.npy')}
         images = list(REAL_WORLD_DICT.keys())
         images.sort()
 
         # filter REAL_WORLD_DICT into only the image I care about
-        REAL_WORLD_DICT = {k: v for k, v in REAL_WORLD_DICT.items() if k.endswith('00104.npy')}
+        # REAL_WORLD_DICT = {k: v for k, v in REAL_WORLD_DICT.items() if k.endswith('00104.npy')}
         # print(REAL_WORLD_DICT)
 
     for i, image in enumerate(images):
@@ -343,7 +345,7 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
         if img.max() > 1:
             img = (img / 255.0).astype(np.float32)
 
-        spline = trace(img, starting_points, exact_path_len=5, model=keypoints_models[0], viz=False)
+        spline = trace(img, starting_points, exact_path_len=80, model=keypoints_models[0], viz=False)
         # plt.imshow(img)
         # for pt in spline:
         #     plt.scatter(pt[1], pt[0], c='r')
@@ -410,8 +412,9 @@ else:
             plt.savefig(save_path)
             plt.clf()
             input_img_np = img_t.detach().cpu().numpy()[0, 1, ...]
-            plt.imshow(input_img_np)
-            plt.savefig(save_path_og)
+            # plt.imshow(input_img_np * 255.0)
+            # plt.savefig(save_path_og)
+            cv2.imwrite(save_path_og, input_img_np * 255.0)
         
         elif is_point_pred(expt_type):
             argmax_yx = np.unravel_index(np.argmax(output.detach().cpu().numpy()[0, 0, ...]), output.detach().cpu().numpy()[0, 0, ...].shape)

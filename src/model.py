@@ -6,7 +6,7 @@ import time
 import sys
 import os
 sys.path.insert(0, 'src')
-from resnet_dilated import Resnet34_8s, Resnet50_8s, Resnet34_Classifier
+from resnet_dilated import Resnet34_8s, Resnet50_8s, Resnet34_Classifier, Resnet50_Classifier
 import segmentation_models_pytorch as smp
 
 class KeypointsGauss(nn.Module):
@@ -35,12 +35,16 @@ class KeypointsGauss(nn.Module):
 		return heatmaps
 
 class ClassificationModel(nn.Module):
-	def __init__(self, num_classes, img_height=480, img_width=640, channels=3):
+	def __init__(self, num_classes, img_height=480, img_width=640, resnet_type = '34', channels=3):
 		super(ClassificationModel, self).__init__()
 		self.img_height = img_height
 		self.img_width = img_width
 		self.num_classes = num_classes
-		self.resnet = Resnet34_Classifier(channels=channels, num_classes=self.num_classes, pretrained=False) #Resnet50_8s(channels=channels, pretrained=True) #Resnet34_8s(channels=channels, pretrained=False)
+		self.resnet = None
+		if resnet_type == '34':
+			self.resnet = Resnet34_Classifier(channels=channels, num_classes=self.num_classes, pretrained=False) #Resnet50_8s(channels=channels, pretrained=True) #Resnet34_8s(channels=channels, pretrained=False)
+		elif resnet_type == '50':
+			self.resnet = Resnet50_Classifier(channels=channels, num_classes=self.num_classes, pretrained=False)
 		self.sigmoid = torch.nn.Sigmoid()
 
 	def forward(self, x):

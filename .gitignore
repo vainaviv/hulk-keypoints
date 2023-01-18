@@ -10,4 +10,6 @@ test_data
 logs
 eval_imgs
 real_data
+trace_test
+test_tkd
 __pycache__

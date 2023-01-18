@@ -876,10 +876,33 @@ class UNDER_OVER_RNet34(BaseConfig):
     pretrained: bool = False
     rot_cond: bool = True
     sharpen: bool = True
-    learning_rate: float = 1.0e-7
+    learning_rate: float = 1.0e-5
 
 @dataclass
-class UNDER_OVER_RNet34_hard1(BaseConfig):
+class UNDER_OVER_RNet50_lr1e5_hard1(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1'])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '50'
+    pretrained: bool = False
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-5
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e5_hard1(BaseConfig):
     expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
     dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1'])
     classes: int = 1
@@ -899,10 +922,56 @@ class UNDER_OVER_RNet34_hard1(BaseConfig):
     pretrained: bool = False
     rot_cond: bool = True
     sharpen: bool = True
+    learning_rate: float = 1.0e-5
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e6_hard1(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1'])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 75
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = False
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-6
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e7_hard1(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1'])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 75
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = False
+    rot_cond: bool = True
+    sharpen: bool = True
     learning_rate: float = 1.0e-7
 
 @dataclass
-class UNDER_OVER_RNet34_medley(BaseConfig):
+class UNDER_OVER_RNet34_lr1e5_medley(BaseConfig):
     expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
     dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard2'])
     dataset_weights: List[float] = field(default_factory=lambda: [0.5, 0.5])
@@ -924,59 +993,13 @@ class UNDER_OVER_RNet34_medley(BaseConfig):
     pretrained: bool = False
     rot_cond: bool = True
     sharpen: bool = True
-    learning_rate: float = 1.0e-7
+    learning_rate: float = 1.0e-5
 
 @dataclass
-class UNDER_OVER_UNet34(BaseConfig):
-    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
-    dataset_dir: str = field(default_factory=lambda: [get_dataset_dir(ExperimentTypes.CLASSIFY_OVER_UNDER)])
-    classes: int = 1
-    img_height: int = 20
-    img_width: int = 20
-    crop_width: int = 10
-    num_keypoints: int = 1
-    gauss_sigma: int = 2
-    epochs: int = 50
-    batch_size: int = 4
-    cond_point_dist_px: int = 20
-    condition_len: int = 5
-    pred_len: int = 0
-    eval_checkpoint_freq: int = 1
-    min_checkpoint_freq: int = 10
-    resnet_type: str = 'UNet34'
-    pretrained: bool = False
-    rot_cond: bool = True
-    sharpen: bool = True
-    learning_rate: float = 1.0e-7
-
-@dataclass
-class UNDER_OVER_UNet34_hard1(BaseConfig):
-    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
-    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1'])
-    classes: int = 1
-    img_height: int = 20
-    img_width: int = 20
-    crop_width: int = 10
-    num_keypoints: int = 1
-    gauss_sigma: int = 2
-    epochs: int = 50
-    batch_size: int = 4
-    cond_point_dist_px: int = 20
-    condition_len: int = 5
-    pred_len: int = 0
-    eval_checkpoint_freq: int = 1
-    min_checkpoint_freq: int = 10
-    resnet_type: str = 'UNet34'
-    pretrained: bool = False
-    rot_cond: bool = True
-    sharpen: bool = True
-    learning_rate: float = 1.0e-7
-
-@dataclass
-class UNDER_OVER_UNet34_medley(BaseConfig):
+class UNDER_OVER_RNet34_lr1e5_medley_03Hard2(BaseConfig):
     expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
     dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard2'])
-    dataset_weights: List[float] = field(default_factory=lambda: [0.5, 0.5])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3])
     dataset_real: List[bool] = field(default_factory=lambda: [False, False])
     classes: int = 1
     img_height: int = 20
@@ -991,16 +1014,18 @@ class UNDER_OVER_UNet34_medley(BaseConfig):
     pred_len: int = 0
     eval_checkpoint_freq: int = 1
     min_checkpoint_freq: int = 10
-    resnet_type: str = 'UNet34'
+    resnet_type: str = '34'
     pretrained: bool = False
     rot_cond: bool = True
     sharpen: bool = True
-    learning_rate: float = 1.0e-7
+    learning_rate: float = 1.0e-5
 
 @dataclass
-class UNDER_OVER_UNet50(BaseConfig):
+class UNDER_OVER_RNet34_lr1e5_medley_04Hard2(BaseConfig):
     expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
-    dataset_dir: str = field(default_factory=lambda: [get_dataset_dir(ExperimentTypes.CLASSIFY_OVER_UNDER)])
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard2'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.6, 0.4])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False])
     classes: int = 1
     img_height: int = 20
     img_width: int = 20
@@ -1014,11 +1039,11 @@ class UNDER_OVER_UNet50(BaseConfig):
     pred_len: int = 0
     eval_checkpoint_freq: int = 1
     min_checkpoint_freq: int = 10
-    resnet_type: str = 'UNet50'
+    resnet_type: str = '34'
     pretrained: bool = False
     rot_cond: bool = True
     sharpen: bool = True
-    learning_rate: float = 1.0e-7
+    learning_rate: float = 1.0e-5
 
 @dataclass
 class UNDER_OVER_NONE(BaseConfig):
@@ -1086,12 +1111,13 @@ TRCR32_CL3_12_UNet34_B64_OS_Medley_01Real_Sharp,
 TRCR32_CL3_12_PL1_MED3_UNet50_B64_OS_RotCond_Hard2_Medley_02Real_Sharp,
 UNDER_OVER_RNet50,
 UNDER_OVER_RNet34,
-UNDER_OVER_UNet34,
-UNDER_OVER_UNet50,
-UNDER_OVER_UNet34_medley,
-UNDER_OVER_UNet34_hard1,
-UNDER_OVER_RNet34_medley,
-UNDER_OVER_RNet34_hard1,
+UNDER_OVER_RNet34_lr1e5_medley,
+UNDER_OVER_RNet50_lr1e5_hard1,
+UNDER_OVER_RNet34_lr1e5_hard1, #original
+UNDER_OVER_RNet34_lr1e6_hard1,
+UNDER_OVER_RNet34_lr1e7_hard1,
+UNDER_OVER_RNet34_lr1e5_medley_03Hard2,
+UNDER_OVER_RNet34_lr1e5_medley_04Hard2,
 UNDER_OVER_NONE]
 
 ALL_EXPERIMENTS_CONFIG = {get_class_name(expt): expt for expt in ALL_EXPERIMENTS_LIST}
