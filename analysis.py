@@ -22,7 +22,7 @@ from annot_real_img import REAL_WORLD_DICT
 import pickle as pkl
 import shutil
 
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 
 def visualize_heatmap_on_image(img, heatmap):
     argmax = list(np.unravel_index(np.argmax(heatmap), heatmap.shape))[::-1]
@@ -100,6 +100,7 @@ print("Using checkpoint: ", checkpoint_file_name)
 print("Loaded config: ", config)
 
 def trace(image, start_points, viz=True, exact_path_len=None, model=None):    
+    viz = True
     num_condition_points = config.condition_len
     if start_points is None or len(start_points) < num_condition_points:
         raise ValueError(f"Need at least {num_condition_points} start points")
@@ -108,7 +109,7 @@ def trace(image, start_points, viz=True, exact_path_len=None, model=None):
 
     for iter in range(exact_path_len):
         condition_pixels = [p for p in path[-num_condition_points:]]
-        
+
         crop, cond_pixels_in_crop, top_left = test_dataset.get_crop_and_cond_pixels(image, condition_pixels, center_around_last=True)
         # print('cond pixels', cond_pixels_in_crop)
         ymin, xmin = np.array(top_left) - test_dataset.crop_width
@@ -119,8 +120,10 @@ def trace(image, start_points, viz=True, exact_path_len=None, model=None):
         # print("Model input prep time: ", time.time() - tm)
 
         if viz:
-            cv2.imshow('model input', model_input.detach().cpu().numpy().transpose(1, 2, 0))
-            cv2.waitKey(1)
+            # cv2.imshow('model input', model_input.detach().cpu().numpy().transpose(1, 2, 0))
+            # cv2.waitKey(1)
+            plt.imshow(model_input.detach().cpu().numpy().transpose(1, 2, 0))
+            plt.savefig("model_input.png")
 
         model_output = model(model_input.unsqueeze(0)).detach().cpu().numpy().squeeze()
         model_output *= crop_eroded.squeeze()
@@ -147,8 +150,12 @@ def trace(image, start_points, viz=True, exact_path_len=None, model=None):
             # plt.imshow(crop)
             # plt.show()
 
-            cv2.imshow('heatmap on crop', visualize_heatmap_on_image(crop, model_output))
-            cv2.waitKey(1)
+            # cv2.imshow('heatmap on crop', visualize_heatmap_on_image(crop, model_output))
+            # cv2.waitKey(1)
+
+            plt.imshow(visualize_heatmap_on_image(crop, model_output))
+            plt.savefig("vis_heatmap.png")
+
             # plt.scatter(global_yx[1], global_yx[0], c='r')
             # plt.imshow(image)
             # plt.show()
@@ -160,8 +167,10 @@ def trace(image, start_points, viz=True, exact_path_len=None, model=None):
         # plt.imsave(f'preds/disp_img_{i}.png', disp_img)
 
         if viz:
-            cv2.imshow("disp_img", disp_img)
-            cv2.waitKey(1)
+            # cv2.imshow("disp_img", disp_img)
+            # cv2.waitKey(1)
+
+            pass
     return path
 
 def visualize_path(img, path, black=False):
@@ -289,7 +298,7 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
         #     continue
         # if int(images[i][-9:-4]) < 100:
         #     continue
-        # print(images[i])
+        print(images[i])
         if image not in REAL_WORLD_DICT:
             continue
         # if i < :
@@ -334,7 +343,7 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
         if img.max() > 1:
             img = (img / 255.0).astype(np.float32)
 
-        spline = trace(img, starting_points, exact_path_len=6, model=keypoints_models[0], viz=False)
+        spline = trace(img, starting_points, exact_path_len=5, model=keypoints_models[0], viz=False)
         # plt.imshow(img)
         # for pt in spline:
         #     plt.scatter(pt[1], pt[0], c='r')
