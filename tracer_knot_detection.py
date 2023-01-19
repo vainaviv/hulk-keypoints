@@ -33,6 +33,8 @@ class TracerKnotDetector():
         self.local_crossing_stream = []
         self.detector = KnotDetector()
         self.knot = None
+        self.last_trace_step_in_knot = None
+        self.under_crossing_after_knot = None
         self.trace_end = None
 
         self.uon_crop_size = 20
@@ -143,7 +145,17 @@ class TracerKnotDetector():
             if crossing['ID'] == 1:
                 cv2.circle(img, (x, y), 3, o_clr, -1)
                 cv2.putText(img, str(ctr), (x, y), cv2.FONT_HERSHEY_PLAIN, 1, o_clr)
+       
+
+        if self.under_crossing_after_knot:
+            x, y = self.under_crossing_after_knot['loc']
+            u_after_clr = (0, 255, 0)
+            cv2.circle(img, (x, y), 3, u_after_clr, -1)
+            cv2.putText(img, "next U", (x, y), cv2.FONT_HERSHEY_PLAIN, 1, u_after_clr )
+
+
         cv2.imwrite(self.output_vis_dir + file_name + '.png', img)
+
 
     def _visualize_tensor(self, tensor, file_name):
         img = tensor.clone().detach()
@@ -198,6 +210,7 @@ class TracerKnotDetector():
         else:
             return pred, prediction_prob
     
+    #returns processed under/over crossing from stream
     def _vote_and_process_under_over_crossing(self):
         # using 1, -1 instead of 1, 0 so the confidence matters for U as well
         x_arr = []
@@ -220,13 +233,59 @@ class TracerKnotDetector():
         weighted_sum = weighted_sum / len(self.local_crossing_stream)
 
         if weighted_sum >= 0:
-            return self.detector.encounter_seg({'loc': (avg_x, avg_y), 'ID': 1, 'confidence': weighted_sum, 'pixels_idx': pixels_idx})
+            return {'loc': (avg_x, avg_y), 'ID': 1, 'confidence': weighted_sum, 'pixels_idx': pixels_idx}
         else:
-            return self.detector.encounter_seg({'loc': (avg_x, avg_y), 'ID': 0, 'confidence': -weighted_sum, 'pixels_idx': pixels_idx})
+            return {'loc': (avg_x, avg_y), 'ID': 0, 'confidence': -weighted_sum, 'pixels_idx': pixels_idx}
+    
+    #adds new crossing to stack and checks if a knot is formed after adding this new crossing
+    def _add_crossing_and_run_knot_detection(self, crossing):
+        return self.detector.encounter_seg(crossing)
     
     def _get_knot_confidence(self):
         return self.knot[-1]['confidence'] * self.knot[0]['confidence']
     
+    #returns the next under crossing after the knot, None if no next undercrossing within the trace
+    def _get_next_under_crossing_after_knot(self):
+        if self.knot is None:
+            raise Exception('No knot found so cannot detect undercrossing after it')
+     
+
+        for model_step in range(self.last_trace_step_in_knot, len(self.pixels)):
+            center_pixel = self._get_pixel_at(model_step)          
+            
+            # generate a 20 x 20 crop around the pixel and get spline pixels
+            uon_data = {}
+            uon_data['crop_img'] = self._crop_img(self.img, center_pixel, self.uon_crop_size)
+            spline_pixels = self._get_spline_pixels(model_step, self.uon_crop_size)
+            #at the very start of the trace
+            if(spline_pixels is None): 
+                continue
+            uon_data['spline_pixels'] = spline_pixels
+
+            # self._visualize(uon_data['crop_img'], f'uon_{model_step}_p.png')
+
+            # get input to UON classifier
+            uon_model_input = self._getuonitem(uon_data)
+            # self._visualize_tensor(uon_model_input, f'uon_{model_step}.png')
+
+            # predict UON on input
+            uon, prob = self._predict_uon(uon_model_input)
+            print("looking for under", model_step, uon, center_pixel, prob)
+
+            # add UON to stream and process stream
+            
+            crossings = self._process_uon(uon, prob, center_pixel, model_step, first_step=False)
+
+            for crossing in crossings:
+                if crossing['ID'] == 0:
+                    self.under_crossing_after_knot = crossing
+                    return self.under_crossing_after_knot
+
+
+
+
+
+        
     def _determine_pinch(self, knot=True):
         if knot:
             idx = self.knot[-1]['pixels_idx']
@@ -378,6 +437,37 @@ class TracerKnotDetector():
         ynew = ynew[y_in[0]]
         self.pixels = np.vstack((ynew.T,xnew.T)).T
 
+    #returns crossing(s) if new one(s) is formed from this uon detection, else None
+
+    def _process_uon(self, uon, prob, center_pixel, model_step, first_step=False):
+        crossings = []
+        if uon != 2:
+                self.local_crossing_stream.append({'center_pixel': center_pixel, 'uon': uon, 'prob': prob, 'pixels_idx': model_step})
+            
+        elif uon == 2 and len(self.local_crossing_stream) > 0:
+            if len(self.local_crossing_stream) == 1 and first_step == False:
+                # single under / over crossing - ignore and proceed
+                self.local_crossing_stream = []
+            else:
+                # two under / over crossings (>2 WIP?)
+                next_crossing_stream = []
+                if len(self.local_crossing_stream) > 4:
+                    crossing_border = (len(self.local_crossing_stream) + 1) // 2
+                    next_crossing_stream = self.local_crossing_stream[crossing_border:]
+                    self.local_crossing_stream = self.local_crossing_stream[:crossing_border]
+                crossing = self._vote_and_process_under_over_crossing()
+                crossings.append(crossing)
+            
+        
+                # process second crossing, if it exists
+                if next_crossing_stream:
+                    self.local_crossing_stream = next_crossing_stream
+                    crossing = self._vote_and_process_under_over_crossing()
+                    crossings.append(crossing)
+               
+                self.local_crossing_stream = []
+        return crossings
+
     def trace_and_detect_knot(self):
         self.pixels, self.trace_end = self.tracer._trace(self.img, self.starting_pixels_for_trace, path_len=200)
         self.interpolate_trace()
@@ -406,35 +496,18 @@ class TracerKnotDetector():
             uon, prob = self._predict_uon(uon_model_input)
             print(model_step, uon, center_pixel, prob)
 
-            if uon != 2:
-                self.local_crossing_stream.append({'center_pixel': center_pixel, 'uon': uon, 'prob': prob, 'pixels_idx': model_step})
+            # add UON to stream and process stream
             
-            elif uon == 2 and len(self.local_crossing_stream) > 0:
-                if len(self.local_crossing_stream) == 1 and first_step == False:
-                    # single under / over crossing - ignore and proceed
-                    self.local_crossing_stream = []
-                else:
-                    # two under / over crossings (>2 WIP?)
-                    next_crossing_stream = []
-                    if len(self.local_crossing_stream) > 4:
-                        crossing_border = (len(self.local_crossing_stream) + 1) // 2
-                        next_crossing_stream = self.local_crossing_stream[crossing_border:]
-                        self.local_crossing_stream = self.local_crossing_stream[:crossing_border]
-                    knot_output = self._vote_and_process_under_over_crossing()
-                    if knot_output: 
-                        # a knot is detected
-                        self.knot = knot_output
-                        return
-                    # process second crossing, if it exists
-                    if next_crossing_stream:
-                        self.local_crossing_stream = next_crossing_stream
-                        knot_output = self._vote_and_process_under_over_crossing()
-                        if knot_output:
-                            # a knot is detected
-                            self.knot = knot_output
-                            return
-                    self.local_crossing_stream = []
-            
+            crossings = self._process_uon(uon, prob, center_pixel, model_step, first_step)
+
+            for crossing in crossings:
+                knot_output = self._add_crossing_and_run_knot_detection(crossing)
+                #check if that new crossing being added to sequence creates a
+                if knot_output:
+                    self.knot = knot_output
+                    return
+            self.last_trace_step_in_knot = model_step
+
             if uon == 2:
                 first_step = False
     
@@ -518,4 +591,7 @@ if __name__ == '__main__':
             print()
             print(tkd.knot)
             print(tkd._get_knot_confidence())
+            under_crossing_after_knot = tkd._get_next_under_crossing_after_knot()
+            if under_crossing_after_knot:
+                print(under_crossing_after_knot)
             tkd._visualize_knot()
