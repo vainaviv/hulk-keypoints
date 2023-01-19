@@ -12,11 +12,12 @@ import matplotlib.pyplot as plt
 
 from knot_detection import KnotDetector
 from src.graspability import Graspability
-from src.dataset import KeypointsDataset
-from src.model import ClassificationModel, KeypointsGauss
+from src.model import ClassificationModel
 from src.prediction import Prediction
 from config import *
 from tracer import Tracer, TraceEnd
+from collections import OrderedDict
+import imgaug.augmenters as iaa
 
 class TracerKnotDetector():
     def __init__(self, parallel=True):
@@ -39,10 +40,10 @@ class TracerKnotDetector():
 
         self.uon_crop_size = 20
         self.uon_config = UNDER_OVER_NONE()
-        self.uon_kpts = KeypointsDataset('',
-                                    transform=transforms.Compose([transforms.ToTensor()]), 
-                                    augment=True, 
-                                    config=self.uon_config)
+        augs = []
+        augs.append(iaa.Resize({"height": self.uon_config.img_height, "width": self.uon_config.img_width}))
+        self.real_img_transform = iaa.Sequential(augs, random_order=False)
+        self.transform = transforms.Compose([transforms.ToTensor()])
         self.uon_model = ClassificationModel(num_classes=self.uon_config.classes, img_height=self.uon_config.img_height, img_width=self.uon_config.img_width, channels=3)
         self.uon_model.load_state_dict(torch.load('/home/mkparu/hulk-keypoints/checkpoints/2023-01-11-02-15-52_UNDER_OVER_NONE_all_crossings_regen_test/model_11_0.12860.pth'))
 
@@ -57,6 +58,83 @@ class TracerKnotDetector():
         # self.pixels = pixels
         self.starting_pixels_for_trace = starting_pixels
 
+    def call_img_transform(self, img):
+        img = img.copy()
+        normalize = False
+        if np.max(img) <= 1.0:
+            normalize = True
+        if normalize:
+            img = (img * 255.0).astype(np.uint8)
+        img = self.real_img_transform(image=img)
+        if normalize:
+            img = (img / 255.0).astype(np.float32)
+        return img
+
+    def rotate_condition(self, img, points, center_around_last=False, index=0):
+        img = img.copy()
+        angle = 0
+        # points = self.deduplicate_points(points)
+        if self.uon_config.rot_cond:
+            if center_around_last:
+                dir_vec = points[-1] - points[0]
+            else:
+                dir_vec = points[-self.pred_len-1] - points[-self.pred_len-2]
+            angle = np.arctan2(dir_vec[1], dir_vec[0]) * 180/np.pi
+            if angle < -90.0:
+                angle += 180
+            elif angle > 90.0:
+                angle -= 180
+            # rotate image specific angle using cv2.rotate
+            M = cv2.getRotationMatrix2D((img.shape[1]/2, img.shape[0]/2), angle, 1)
+            img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
+        return img, angle
+
+    def draw_spline(self, crop, x, y, label=False):
+        if len(x) < 2:
+            raise Exception("if drawing spline, must have 2 points minimum for label")
+        # x = list(OrderedDict.fromkeys(x))
+        # y = list(OrderedDict.fromkeys(y))
+        tmp = OrderedDict()
+        for point in zip(x, y):
+            tmp.setdefault(point[:2], point)
+        mypoints = np.array(list(tmp.values()))
+        x, y = mypoints[:, 0], mypoints[:, 1]
+        k = len(x) - 1 if len(x) < 4 else 3
+        if k == 0:
+            x = np.append(x, np.array([x[0]]))
+            y = np.append(y, np.array([y[0] + 1]))
+            k = 1
+
+        tck, u = interpolate.splprep([x, y], s=0, k=k)
+        xnew, ynew = interpolate.splev(np.linspace(0, 1, 100), tck, der=0)
+        xnew = np.array(xnew, dtype=int)
+        ynew = np.array(ynew, dtype=int)
+
+        x_in = np.where(xnew < crop.shape[0])
+        xnew = xnew[x_in[0]]
+        ynew = ynew[x_in[0]]
+        x_in = np.where(xnew >= 0)
+        xnew = xnew[x_in[0]]
+        ynew = ynew[x_in[0]]
+        y_in = np.where(ynew < crop.shape[1])
+        xnew = xnew[y_in[0]]
+        ynew = ynew[y_in[0]]
+        y_in = np.where(ynew >= 0)
+        xnew = xnew[y_in[0]]
+        ynew = ynew[y_in[0]]
+
+        spline = np.zeros(crop.shape[:2])
+        if label:
+            weights = np.ones(len(xnew))
+        else:
+            weights = np.geomspace(0.5, 1, len(xnew))
+
+        spline[xnew, ynew] = weights
+        spline = np.expand_dims(spline, axis=2)
+        spline = np.tile(spline, 3)
+        spline_dilated = cv2.dilate(spline, np.ones((3,3), np.uint8), iterations=1)
+        return spline_dilated[:, :, 0]
+
     def _getuonitem(self, uon_data):
         uon_img = (uon_data['crop_img'][:, :, :3]).copy()
         condition_pixels = np.array(uon_data['spline_pixels'], dtype=np.float64)
@@ -64,11 +142,10 @@ class TracerKnotDetector():
             uon_img = (uon_img / 255.0).astype(np.float32)
         cable_mask = np.ones(uon_img.shape[:2])
         cable_mask[uon_img[:, :, 1] < 0.35] = 0
-        if self.uon_kpts.augment:
-            uon_img = self.uon_kpts.call_img_transform(uon_img)
-        uon_img[:, :, 0] = self.uon_kpts.draw_spline(uon_img, condition_pixels[:, 1], condition_pixels[:, 0], label=True)
-        uon_img, _= self.uon_kpts.rotate_condition(uon_img, condition_pixels, center_around_last=True)
-        uon_model_input = self.uon_kpts.transform(uon_img.copy())
+        uon_img = self.call_img_transform(uon_img)
+        uon_img[:, :, 0] = self.draw_spline(uon_img, condition_pixels[:, 1], condition_pixels[:, 0], label=True)
+        uon_img, _= self.rotate_condition(uon_img, condition_pixels, center_around_last=True)
+        uon_model_input = self.transform(uon_img.copy())
         return uon_model_input
 
     def _visualize(self, img, file_name):
