@@ -372,7 +372,6 @@ if __name__ == '__main__':
     parallel = flags.parallel
 
     if data_index == '':
-<<<<<<< HEAD
         raise Exception('Please provide the file number (e.g. --data_index 00000) as a command-line argument!')
 
     data_path = f"/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test/{data_index}.npy"
@@ -384,7 +383,7 @@ if __name__ == '__main__':
     tkd._visualize_full()
     tkd._visualize_crossings()
     if tkd.knot:
-=======
+
         data_folder = '/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test'
         tkd = TracerKnotDetector(parallel=parallel)
         for i, f in enumerate(np.sort(os.listdir(data_folder))):
