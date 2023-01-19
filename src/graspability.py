@@ -15,11 +15,8 @@ class Graspability():
             crop = img[point[1]-self.radius:point[1]+self.radius, point[0]-self.radius:point[0]+self.radius, :]
             cv2.imwrite(f'./crops/crop_{self.i}.png', crop)
             self.i += 1
-            crop_mask = (crop[:, :, 0] > 100)
-            if np.sum(crop_mask) <= 110:     
-                return 1
-            else:
-                return 0      
+            crop_mask = (crop[:, :, 0] > 120)    
+            return  np.sum(crop_mask)
 
 if __name__ == '__main__':
     # parse command line flags
