@@ -43,8 +43,8 @@ class Tracer:
         if not is_in_bounds(last_point):
             return np.array([])
         rand_spacing = get_rand_spacing(spacing)
-        start_idx -= (int(backward) * 2 - 1)
-        while start_idx > 0 and start_idx < len(pixels):
+        while len(points) < num_points and start_idx > 0 and start_idx < len(pixels):
+            start_idx -= (int(backward) * 2 - 1)
             cur_spacing = np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point)
             if cur_spacing > rand_spacing and cur_spacing < 2*rand_spacing:
                 last_point = np.array(pixels[start_idx]).squeeze()
@@ -52,10 +52,7 @@ class Tracer:
                 if is_in_bounds(last_point):
                     points.append(last_point)
                 else:
-                    points = points[-num_points:]
-                    return np.array(points)[..., ::-1]
-            start_idx -= (int(backward) * 2 - 1)
-        points = points[-num_points:]
+                    return np.array([])
         return np.array(points)[..., ::-1]
 
     def center_pixels_on_cable(self, image, pixels):
@@ -260,8 +257,9 @@ class Tracer:
             if cur_pixel[0] >= 0 and cur_pixel[1] >= 0 and cur_pixel[1] < img.shape[0] and cur_pixel[0] < img.shape[1]:
                 start_idx = j
                 break
+        print('condition len: ', self.trace_config.condition_len)
         starting_points = self._get_evenly_spaced_points(pixels, self.trace_config.condition_len, start_idx, self.trace_config.cond_point_dist_px, img.shape, backward=False, randomize_spacing=False)
-
+        print("starting points: ", starting_points)
         if len(starting_points) < self.trace_config.condition_len:
             raise Exception("Not enough starting points")
             # return
@@ -303,6 +301,7 @@ if __name__ == '__main__':
             continue
         test_data = np.load(os.path.join(eval_folder, data), allow_pickle=True).item()
         img = test_data['img']
-        start_pixels = test_data['pixels'][:10]
+        start_pixels = test_data['pixels'][:30]
         spline = tracer._trace(img, start_pixels, path_len=200, viz=False, idx=i)
+        raise Exception()
     

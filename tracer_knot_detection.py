@@ -56,7 +56,7 @@ class TracerKnotDetector():
     def _set_data(self, img, starting_pixels):
         self.img = img
         # self.pixels = pixels
-        self.starting_pixels_for_trace = starting_pixels
+        self.starting_pixels_for_trace = self.interpolate_trace(starting_pixels)
 
     def call_img_transform(self, img):
         img = img.copy()
@@ -491,10 +491,10 @@ class TracerKnotDetector():
         print("Graspable cage: ", cage)
         return cage, idx
 
-    def interpolate_trace(self):
-        k = self.pixels.shape[0] - 1 if self.pixels.shape[0] < 4 else 3
-        x = self.pixels[:, 1]
-        y = self.pixels[:, 0]
+    def interpolate_trace(self, pixels):
+        k = pixels.shape[0] - 1 if pixels.shape[0] < 4 else 3
+        x = pixels[:, 1]
+        y = pixels[:, 0]
         tck, u = interpolate.splprep([x, y], s=0, k=k)
         xnew, ynew = interpolate.splev(np.linspace(0, 1, len(x)*2), tck, der=0)
         xnew = np.array(xnew, dtype=int)
@@ -512,7 +512,7 @@ class TracerKnotDetector():
         y_in = np.where(ynew >= 0)
         xnew = xnew[y_in[0]]
         ynew = ynew[y_in[0]]
-        self.pixels = np.vstack((ynew.T,xnew.T)).T
+        return np.vstack((ynew.T,xnew.T)).T
 
     #returns crossing(s) if new one(s) is formed from this uon detection, else None
 
@@ -547,7 +547,7 @@ class TracerKnotDetector():
 
     def trace_and_detect_knot(self):
         self.pixels, self.trace_end = self.tracer._trace(self.img, self.starting_pixels_for_trace, path_len=200)
-        self.interpolate_trace()
+        self.pixels = self.interpolate_trace(self.pixels)
         # go pixel wise 
         first_step = True
        
