@@ -13,7 +13,13 @@ from collections import OrderedDict
 from scipy import interpolate
 import colorsys
 import shutil
+from enum import Enum
 os.environ["CUDA_VISIBLE_DEVICES"]="3"
+
+class TraceEnd(Enum):
+    EDGE = 1
+    ENDPOINT = 2
+    FINISHED = 3
 
 class Tracer:
     def __init__(self) -> None:
@@ -185,7 +191,14 @@ class Tracer:
 
         return self.transform(img.copy()).cuda(), points, cable_mask, angle
 
-    def trace(self, image, start_points, exact_path_len, viz=False, model=None):    
+    def get_dist_cumsum(self, lst):
+        lst_shifted = lst[1:]
+        distances = np.linalg.norm(lst_shifted - lst[:-1], axis=1)
+        # cumulative sum
+        distances_cumsum = np.concatenate(([0], np.cumsum(distances)))
+        return distances_cumsum[-1]
+
+    def trace(self, image, start_points, exact_path_len, endpoints = None, viz=False, model=None):    
         num_condition_points = self.trace_config.condition_len
         if start_points is None or len(start_points) < num_condition_points:
             raise ValueError(f"Need at least {num_condition_points} start points")
@@ -222,8 +235,13 @@ class Tracer:
             path.append(global_yx)
 
             if global_yx[0] > image.shape[0] - self.buffer or global_yx[0] < self.buffer or global_yx[1] > image.shape[1] - self.buffer or global_yx[1] < self.buffer:
-                return path 
+                return path, TraceEnd.EDGE
 
+            if endpoints != None:
+                for endpoint in endpoints:
+                    if (global_yx[0] - endpoint[0]) < self.buffer and (global_yx[1] - endpoint[1]) < self.buffer:
+                        return path, TraceEnd.ENDPOINT
+                    
             disp_img = cv2.circle(disp_img, (global_yx[1], global_yx[0]), 1, (0, 0, 255), 2)
             # add line from previous to current point
             if len(path) > 1:
@@ -233,7 +251,7 @@ class Tracer:
                 # cv2.imshow("disp_img", disp_img)
                 # cv2.waitKey(1)
                 plt.imsave(f'trace_test/disp_img_{iter}.png', disp_img)
-        return path
+        return path, TraceEnd.FINISHED
 
     def _trace(self, img, prev_pixels, path_len=20, viz=False, idx=0):
         pixels = self.center_pixels_on_cable(img, prev_pixels)[..., ::-1]
@@ -249,12 +267,12 @@ class Tracer:
             # return
         if img.max() > 1:
             img = (img / 255.0).astype(np.float32)
-        spline = self.trace(img, starting_points, exact_path_len=path_len, model=self.trace_model, viz=viz)
+        spline, trace_end = self.trace(img, starting_points, exact_path_len=path_len, model=self.trace_model, viz=viz)
         if viz:
             img_cp = (img.copy() * 255.0).astype(np.uint8)
             trace_viz = self.visualize_path(img_cp, spline.copy())
             plt.imsave(f'./trace_test/trace_{idx}.png', trace_viz)
-        return np.array(spline)[...,::-1]
+        return np.array(spline)[...,::-1], trace_end
 
     def visualize_path(self, img, path, black=False):
         def color_for_pct(pct):
