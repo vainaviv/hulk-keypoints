@@ -552,8 +552,8 @@ class TracerKnotDetector():
         first_step = True
        
         for model_step in range(len(self.pixels)):
-            center_pixel = self._get_pixel_at(model_step)          
-            
+            center_pixel = self._get_pixel_at(model_step)
+
             # generate a 20 x 20 crop around the pixel and get spline pixels
             uon_data = {}
             uon_data['crop_img'] = self._crop_img(self.img, center_pixel, self.uon_crop_size)
@@ -625,7 +625,7 @@ if __name__ == '__main__':
     parser.add_argument('--parallel', action='store_true', default=False)
 
     flags = parser.parse_args()
-    data_index = flags.data_index 
+    data_index = flags.data_index
     parallel = flags.parallel
 
     if data_index == '':

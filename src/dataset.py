@@ -123,6 +123,31 @@ def get_gauss(w, h, sigma, U, V):
         return mm_gauss
     return torch.zeros(1, h, w).cuda().double()
 
+def perform_contrast(img):
+    # img = img.copy()
+
+    # show a histogram of brightness values in the image
+    # values = img[:, :, 0].flatten()
+    # plt.hist(values, bins=256, range=(0, 256), fc='k', ec='k')
+    # plt.show()
+    cable_mask = img[:, :, 1] > (120/255.0)
+    pixels_x_normalize, pixels_y_normalize = np.where(cable_mask > 0)
+    if len(pixels_x_normalize) == 0:
+        return img
+    pixel_vals = img[pixels_x_normalize, pixels_y_normalize, :]
+    min_px_val = np.min(pixel_vals)
+    max_px_val = np.max(pixel_vals)
+    # cable_norm = pixels_normalize / np.linalg.norm(pixels_normalize)
+    cable_mask = np.array([cable_mask, cable_mask, cable_mask]).transpose((1,2,0))
+    # background = img * (1 - cable_mask)
+    # print('img mask', img.max(), img.min(), cable_mask.min(), cable_mask.max())
+    # print((img * cable_mask).max(), (img * cable_mask).min())
+    cable = ((img * cable_mask) - min_px_val) / (max_px_val - min_px_val)
+    # cable = cable * 255.0
+    cable *= cable_mask
+    # print('after mmx:', min_px_val, max_px_val, np.min(cable), np.max(cable))
+    return cable #img_contrast
+
 class KeypointsDataset(Dataset):
     def __init__(self, folder, transform, augment=True, sweep=True, seed=1, real_only=False, config=None):
         self.img_height = config.img_height
@@ -144,9 +169,9 @@ class KeypointsDataset(Dataset):
         else:
             noise_avg = 6
         aug_delta = 2 if augment else 0
-        brightness_deta = 5 if augment else 0
+        brightness_delta = 5 if augment else 0
         sim_transform_list.extend([iaa.AdditiveGaussianNoise(scale=(noise_avg - aug_delta, noise_avg + aug_delta)),
-        iaa.WithBrightnessChannels(iaa.Add((brightness_avg - brightness_deta, brightness_avg + brightness_deta)))])
+        iaa.WithBrightnessChannels(iaa.Add((brightness_avg - brightness_delta, brightness_avg + brightness_delta)))])
         
         sim_transform_list.append(iaa.Resize({"height": self.img_height, "width": self.img_width}))
         real_world_transform_list.append(iaa.Resize({"height": self.img_height, "width": self.img_width}))
@@ -470,6 +495,8 @@ class KeypointsDataset(Dataset):
             condition_pixels = np.array(loaded_data['spline_pixels'], dtype=np.float64)
             if img.max() > 1:
                 img = (img / 255.0).astype(np.float32)
+            img = perform_contrast(img)
+            # print('after contrast min max', img.min(), img.max())
             cable_mask = np.ones(img.shape[:2])
             cable_mask[img[:, :, 1] < 0.35] = 0
             img = self.call_img_transform(img)
@@ -546,19 +573,20 @@ if __name__ == '__main__':
     os.mkdir(os.path.join(dataset_test_path, 'none'))
 
     # UNDER OVER
-    test_config = UNDER_OVER_RNet34_lr1e5_hard1()
-    test_dataset = KeypointsDataset(['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1/test'],
-                                    transform, 
+    test_config = UNDER_OVER_RNet34_lr1e5_medley_03Hard2_wReal()
+    test_dataset = KeypointsDataset([os.path.join(d, 'test') for d in test_config.dataset_dir],
+                                    transform,
                                     augment=False, 
                                     config=test_config)
     test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
 
     for i_batch, sample_batched in enumerate(test_data):
-        print(i_batch)
         img, label = sample_batched
         label = int(label.detach().squeeze().cpu().numpy().item())
+        print(i_batch, label)
         img = img.squeeze(0)
         img = (img.cpu().detach().numpy().transpose(1, 2, 0) * 255)
+        print("Saving")
         if label == 0:
             cv2.imwrite(f'./dataset_py_test/under/test-img_{i_batch:05d}.png', img[...,::-1])
         elif label == 1:

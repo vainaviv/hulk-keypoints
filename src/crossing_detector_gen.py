@@ -70,7 +70,6 @@ for file in files:
         pixels[i] = np.array(pixels_dict[i])
 
 
-
     points_3d = np.array(np_data['points_3d'])
 
 

@@ -2,6 +2,7 @@ import numpy as np
 import shutil
 import os
 import cv2
+import matplotlib.pyplot as plt
 
 def draw_spline(spline_pixels, file_name):
     img_with_spline = img.copy()
@@ -14,7 +15,13 @@ def draw_spline(spline_pixels, file_name):
 
 def perform_contrast(img):
     img = img.copy()
-    cable_mask = img[:, :, 0] > 85
+
+    # show a histogram of brightness values in the image
+    values = img[:, :, 0].flatten()
+    # plt.hist(values, bins=256, range=(0, 256), fc='k', ec='k')
+    # plt.show()
+
+    cable_mask = img[:, :, 0] > 120
     pixels_x_normalize, pixels_y_normalize = np.where(cable_mask > 0)
     pixel_vals = img[pixels_x_normalize, pixels_y_normalize, 0]
     min_px_val = np.min(pixel_vals)
@@ -80,9 +87,10 @@ if __name__ == '__main__':
         under_over = data["under_over"]
         # img_with_contrast = add_contrast_brightness(img, contrast = 160)
         img_with_contrast = perform_contrast(img)
+        # resize img to 512x512
+        img = cv2.resize(img, (512, 512))
+        img_with_contrast = cv2.resize(img_with_contrast, (512, 512))
+
         cv2.imwrite(vis_dir + f + '.png', img)
         cv2.imwrite(vis_dir + f + '_with_brightness_contrast' + '.png', img_with_contrast)        
-
-
-
 
