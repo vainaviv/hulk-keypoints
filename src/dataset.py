@@ -157,6 +157,7 @@ class KeypointsDataset(Dataset):
         self.sharpen = config.sharpen
         self.contrast = config.contrast
         self.expand_spline = config.expand_spline
+        self.mark_crossing = config.mark_crossing
 
         real_world_transform_list = augmentation_list if augment else no_augmentation_list
         sim_transform_list = list(real_world_transform_list)
@@ -183,7 +184,7 @@ class KeypointsDataset(Dataset):
         self.augment = augment
         self.condition_len = config.condition_len
         self.crop_width = config.crop_width
-        self.crop_span = self.crop_width*2 + 1
+        self.crop_span = self.crop_width*2
         self.pred_len = config.pred_len
         self.spacing = config.cond_point_dist_px
         self.sweep = sweep
@@ -520,10 +521,10 @@ class KeypointsDataset(Dataset):
                 img[:, :, 0] = self.draw_spline(img, condition_pixels[:, 1], condition_pixels[:, 0], label=True) #* cable_mask
             else:
                 img[:, :, 0] = gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, condition_pixels[:-self.pred_len,0], condition_pixels[:-self.pred_len,1], weights=self.weights)
-            # if self.mark_crossing:
-            #     img[:, :, 1] = gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, condition_pixels[:-self.pred_len,0], condition_pixels[:-self.pred_len,1], weights=self.weights)
-            if is_real_example:
-                img = img[4:-4, 4:-4, :]
+            if self.mark_crossing:
+                img[:, :, 1] = gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, [self.crop_width], [self.crop_width], weights=[1.0])
+            if is_real_example and self.crop_width == 10:
+                img = img[1:, 1:, :]
                 img = cv2.resize(img, (self.img_height, self.img_width))
             img, _= self.rotate_condition(img, condition_pixels, center_around_last=True, index=data_index)
             combined = transform(img.copy()).cuda()
@@ -591,7 +592,7 @@ if __name__ == '__main__':
     os.mkdir(os.path.join(dataset_test_path, 'none'))
 
     # UNDER OVER
-    test_config = UNDER_OVER_RNet34_lr1e5_medley_03Hard2_wReal_recentered_nocontrast()
+    test_config = UNDER_OVER_RNet34_lr1e4_medley_03Hard2_wReal_recentered_mark_crossing_smaller()
     test_dataset = KeypointsDataset([os.path.join(d, 'test') for d in test_config.dataset_dir],
                                     transform,
                                     augment=False, 
