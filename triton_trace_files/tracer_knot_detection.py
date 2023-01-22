@@ -46,7 +46,7 @@ class TracerKnotDetector():
         self.crossing_locs = []
         self.line_segment_to_crossing_loc = OrderedDict()
         self.crossings = []
-        self.num_steps_min_for_crossing = 2
+        self.num_steps_min_for_crossing = 1
         self.detector = KnotDetector()
         self.knot = None
         self.last_trace_step_in_knot = None
@@ -629,7 +629,7 @@ class TracerKnotDetector():
         i = 0
         while i < len(line_segments):
             current_line_seg = line_segments[i]
-            for j in chain(range(max(0, i - self.num_steps_min_for_crossing)), range(i + self.num_steps_min_for_crossing, len(line_segments))):
+            for j in chain(range(max(0, i - self.num_steps_min_for_crossing)), range(i + self.num_steps_min_for_crossing + 1, len(line_segments))):
                 other_line_seg = line_segments[j]
                 if current_line_seg.intersects(other_line_seg):
                     center_point = current_line_seg.intersection(other_line_seg)
