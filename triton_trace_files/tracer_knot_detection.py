@@ -45,7 +45,6 @@ class TracerKnotDetector():
         self.local_crossing_stream = []
         self.crossing_locs = []
         self.line_segment_to_crossing_loc = OrderedDict()
-        self.crossings = []
         self.num_steps_min_for_crossing = 1
         self.detector = KnotDetector()
         self.knot = None
@@ -203,13 +202,13 @@ class TracerKnotDetector():
             file_name += '.png'
         cv2.imwrite(self.output_vis_dir + file_name, img)
 
-    def _visualize_crossing_stack(self):
+    def _visualize_all_crossings(self):
         img = self.img.copy()
-        file_name = f'crossing_stack_post_cancellation_img_{self.vis_idx}'
+        file_name = f'all_crossings_img_{self.vis_idx}'
         # red -> overcrossing, blue -> undercrossing (cv2 uses BGR)
         u_clr = (255, 0, 0)
         o_clr = (0, 0, 255)
-        for ctr, crossing in enumerate(self.detector.crossings_stack):
+        for ctr, crossing in enumerate(self.detector.crossings):
             y, x = crossing['loc']
             if crossing['ID'] == 0:
                 cv2.circle(img, (x, y), 3, u_clr, -1)
@@ -217,18 +216,6 @@ class TracerKnotDetector():
             if crossing['ID'] == 1:
                 cv2.circle(img, (x, y), 3, o_clr, -1)
                 cv2.putText(img, str(ctr), (x - 2, y - 2), cv2.FONT_HERSHEY_PLAIN, 1, o_clr)
-        cv2.imwrite(self.output_vis_dir + file_name + '.png', img)
-
-    def _visualize_all_crossings(self):
-        img = self.img.copy()
-        file_name = f'all_crossings_img_{self.vis_idx}'
-        # red -> overcrossing, blue -> undercrossing (cv2 uses BGR)
-        clr = (0, 0, 0)
-        for ctr, crossing_loc in enumerate(self.crossing_locs):
-            center_pixel, trace_idx = crossing_loc
-            y, x = center_pixel
-            cv2.circle(img, (x, y), 3, clr, -1)
-            cv2.putText(img, str(ctr), (x + 2, y + 2), cv2.FONT_HERSHEY_PLAIN, 1, clr)
         cv2.imwrite(self.output_vis_dir + file_name + '.png', img)
 
     # def _visualize_cage_pinch(self, cages, pinches, idx=0):
@@ -422,8 +409,8 @@ class TracerKnotDetector():
             raise Exception('No knot found so cannot detect undercrossing after it')
     
         next_under = None
-        for crossing in self.detector.crossings_stack:
-            if crossing['pixels_idx'] <= self.knot[0]['pixels_idx']:
+        for crossing in self.detector.crossings:
+            if crossing['pixels_idx'] <= self.knot[-1]['pixels_idx']:
                 continue
             if crossing['ID'] == 0:
                 next_under = crossing
@@ -680,7 +667,7 @@ class TracerKnotDetector():
             uo, prob = self._predict_uo(uo_model_input, file_name = f'uo_{pixels_idx}.png')
 
             # add UON to stream and process stream                
-            crossing = {'loc': center_pixel, 'ID': uo, 'confidence': prob, 'pixels_idx': pixels_idx}
+            crossing = {'loc': center_pixel, 'ID': uo, 'confidence': prob, 'pixels_idx': pixels_idx, 'crossing_idx': i}
             
             # add crossing
             self._add_crossing(crossing)
@@ -749,7 +736,7 @@ class TracerKnotDetector():
             print('Visualizing and dumping.')
             self._visualize(self.img, f'full_img_{self.vis_idx}.png')
             self._visualize_full()
-            self._visualize_crossing_stack()
+            self._visualize_all_crossings()
         if not self.knot:
             print('No knots!')
             done_untangling = True
@@ -810,7 +797,6 @@ if __name__ == '__main__':
                 else:
                     raise e
             tkd._visualize_full()
-            tkd._visualize_crossing_stack()
             tkd._visualize_all_crossings()
             if tkd.knot:
                 print()
@@ -830,7 +816,6 @@ if __name__ == '__main__':
         tkd.perception_pipeline()
         tkd._visualize(test_data['img'], 'full_img.png')
         tkd._visualize_full()
-        tkd._visualize_crossing_stack()
         tkd._visualize_all_crossings()
         if tkd.knot:
             print()
