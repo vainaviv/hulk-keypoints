@@ -11,11 +11,13 @@ class Graspability():
         self.i = 0
 
     def find_pixel_point_graspability(self, point, img):
-            total_points = 4*(self.radius**2)
-            crop = img[point[1]-self.radius:point[1]+self.radius, point[0]-self.radius:point[0]+self.radius, :]
-            cv2.imwrite(f'./crops/crop_{self.i}.png', crop)
+            # total_points = 4*(self.radius**2)
+            crop = img[point[0]-self.radius:point[0]+self.radius, point[1]-self.radius:point[1]+self.radius, :]
+            # cv2.imwrite(f'/home/vainavi/hulk-keypoints/triton_trace_files/crops/crop_{self.i}.png', crop)
             self.i += 1
-            crop_mask = (crop[:, :, 0] > 120)    
+            crop_mask = (crop[:, :, 0] > 100)    
+            viz_mask = np.array([crop_mask, crop_mask, crop_mask]).transpose(1,2,0) * 255.0
+            # cv2.imwrite(f'/home/vainavi/hulk-keypoints/triton_trace_files/crops/crop_mask_{self.i}.png', viz_mask)
             return  np.sum(crop_mask)
 
 if __name__ == '__main__':
