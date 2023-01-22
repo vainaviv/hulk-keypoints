@@ -10,10 +10,12 @@ class KnotDetector:
         self.crossings_stack = []
         self.eps = 10
         self.knot = []
+        self.pos = float('inf')
 
     def _reset(self):
         self.crossings_stack = []
         self.knot = []
+        self.pos = float('inf')
 
     def encounter_seg(self, seg):
         '''
@@ -73,8 +75,10 @@ class KnotDetector:
         if all([intermediate_crossing['ID'] == 0 for intermediate_crossing in self.crossings_stack[pos + 1:-1]]):
             return False
                     
-        if not self.knot:
+        if not self.knot or pos < self.pos:
             self.knot = self.crossings_stack[pos:]
+            self.pos = pos
+            
         return True
 
     def get_crossing_pos(self, crossing) -> int:
