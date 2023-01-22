@@ -80,6 +80,9 @@ class BaseConfig:
     rot_cond: bool = False
     sharpen: bool = False
     learning_rate: float = 1.0e-5
+    contrast: bool = False
+    mark_crossing: bool = False
+    expand_spline: bool = False
 
 @dataclass
 class TRCR80(BaseConfig):
@@ -1045,7 +1048,567 @@ class UNDER_OVER_RNet34_lr1e5_medley_03Hard2_wReal(BaseConfig):
     rot_cond: bool = True
     sharpen: bool = True
     learning_rate: float = 1.0e-5
+    contrast: bool = True
 
+@dataclass
+class UNDER_OVER_RNet34_lr1e5_medley_03Hard2_wReal_recentered(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_10_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_10_recenter', '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered/'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, True])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-5
+    contrast: bool = True
+
+@dataclass
+class UNDER_OVER_RNet34_lr5e5_medley_03Hard2_wReal_recentered_nocontrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_10_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_10_recenter', '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered/'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, True])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 5.0e-5
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e5_medley_03Hard2_wReal_recentered_nocontrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_10_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_10_recenter', '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered/'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, True])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-5
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e4_medley_03Hard2_wReal_recentered_nocontrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_10_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_10_recenter', '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered/'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, True])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-4
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e4_medley_03Hard2_wReal_recentered_mark_center(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_10_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_10_recenter', '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered/'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, True])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-4
+    mark_center: bool = True
+
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e4_medley_03Hard2_wReal_B16_recentered_mark_crossing_smaller(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_10_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_10_recenter', '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered/'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, True])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 1
+    epochs: int = 50
+    batch_size: int = 16
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-4
+    mark_crossing: bool = True
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e4_B8_medley_03Hard2_wReal_recentered_nocontrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_10_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_10_recenter', '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered/'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, True])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 8
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-4
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e4_B16_medley_03Hard2_wReal_recentered_nocontrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_10_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_10_recenter', '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered/'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, True])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 16
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-4
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e4_B32_medley_03Hard2_wReal_recentered_nocontrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_10_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_10_recenter', '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered/'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, True])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 32
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-4
+
+@dataclass
+class UNDER_OVER_RNet34_lr5e4_medley_03Hard2_wReal_recentered_nocontrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_10_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_10_recenter', '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered/'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, True])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 5.0e-4
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e3_medley_03Hard2_wReal_recentered_nocontrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_10_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_10_recenter', '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered/'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, True])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-3
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e5_medley_03Hard2_recentered_nocontrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_10_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_10_recenter'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-5
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e5_medley_02Hard2_recentered_nocontrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_10_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_10_recenter'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.8, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-5
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e5_medley_03Hard2_C16_recentered_nocontrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_16_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_16_recenter'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False])
+    classes: int = 1
+    img_height: int = 32
+    img_width: int = 32
+    crop_width: int = 16
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-5
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e5_medley_wReal_C16_recentered_nocontrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_16_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_16_recenter', '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered_32px'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, True])
+    classes: int = 1
+    img_height: int = 32
+    img_width: int = 32
+    crop_width: int = 16
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-5
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e5_medley_03Hard2_C16_recentered_nocontrast_rescale20(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_16_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_16_recenter'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False])
+    classes: int = 1
+    img_height: int = 20
+    img_width: int = 20
+    crop_width: int = 16
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-5
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e5_medley_05Hard2_C16_recentered_nocontrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_16_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_16_recenter'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.5, 0.5])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False])
+    classes: int = 1
+    img_height: int = 32
+    img_width: int = 32
+    crop_width: int = 16
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-5
+
+@dataclass
+class UNDER_OVER_RNet34_lr1e5_medley_02Hard2_C16_recentered_nocontrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard1_16_recenter', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_hard2_16_recenter'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.8, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False])
+    classes: int = 1
+    img_height: int = 32
+    img_width: int = 32
+    crop_width: int = 16
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 20
+    condition_len: int = 5
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    learning_rate: float = 1.0e-5
+
+@dataclass
+class UNDER_OVER_RNet34_medley_03Hard2_HW96_contrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard2'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False])
+    classes: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    contrast: bool = True
+    learning_rate: float = 1.0e-5
+
+@dataclass
+class UNDER_OVER_RNet34_medley_real_HW96_contrast(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard2/', '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered/'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, True])
+    classes: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    contrast: bool = True
+    learning_rate: float = 1.0e-5
+
+@dataclass
+class UNDER_OVER_RNet34_medley_03Hard2_HW96_contrast_expand_spline(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard2'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False])
+    classes: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    contrast: bool = True
+    learning_rate: float = 1.0e-5
+    expand_spline: bool = True
+
+@dataclass
+class UNDER_OVER_RNet34_medley_real_HW96_contrast_expand_spline(BaseConfig):
+    expt_type: str = ExperimentTypes.CLASSIFY_OVER_UNDER
+    dataset_dir: str = field(default_factory=lambda: ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard1', '/home/vainavi/hulk-keypoints/processed_sim_data/under_over_centered_hard2/', '/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered/'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.7, 0.3, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, True])
+    classes: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    crop_width: int = 10
+    num_keypoints: int = 1
+    gauss_sigma: int = 2
+    epochs: int = 50
+    batch_size: int = 4
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 0
+    eval_checkpoint_freq: int = 1
+    min_checkpoint_freq: int = 10
+    resnet_type: str = '34'
+    pretrained: bool = True
+    rot_cond: bool = True
+    sharpen: bool = True
+    contrast: bool = True
+    learning_rate: float = 1.0e-5
+    expand_spline: bool = True
 
 @dataclass
 class UNDER_OVER_RNet34_lr1e5_RealOnly(BaseConfig):
@@ -1173,6 +1736,28 @@ UNDER_OVER_RNet34_lr1e5_medley_03Hard2,
 UNDER_OVER_RNet34_lr1e5_medley_03Hard2_wReal,
 UNDER_OVER_RNet34_lr1e5_RealOnly,
 UNDER_OVER_RNet34_lr1e5_medley_04Hard2,
+UNDER_OVER_RNet34_medley_03Hard2_HW96_contrast,
+UNDER_OVER_RNet34_medley_03Hard2_HW96_contrast_expand_spline,
+UNDER_OVER_RNet34_medley_real_HW96_contrast,
+UNDER_OVER_RNet34_medley_real_HW96_contrast_expand_spline,
+UNDER_OVER_RNet34_lr1e5_medley_03Hard2_wReal_recentered,
+UNDER_OVER_RNet34_lr1e5_medley_03Hard2_wReal_recentered_nocontrast,
+UNDER_OVER_RNet34_lr1e5_medley_03Hard2_recentered_nocontrast,
+UNDER_OVER_RNet34_lr1e5_medley_02Hard2_recentered_nocontrast,
+UNDER_OVER_RNet34_lr1e5_medley_03Hard2_C16_recentered_nocontrast,
+UNDER_OVER_RNet34_lr1e5_medley_05Hard2_C16_recentered_nocontrast,
+UNDER_OVER_RNet34_lr1e5_medley_02Hard2_C16_recentered_nocontrast,
+UNDER_OVER_RNet34_lr1e5_medley_03Hard2_C16_recentered_nocontrast_rescale20,
+UNDER_OVER_RNet34_lr1e5_medley_wReal_C16_recentered_nocontrast,
+UNDER_OVER_RNet34_lr1e4_medley_03Hard2_wReal_recentered_nocontrast,
+UNDER_OVER_RNet34_lr1e3_medley_03Hard2_wReal_recentered_nocontrast,
+UNDER_OVER_RNet34_lr5e4_medley_03Hard2_wReal_recentered_nocontrast,
+UNDER_OVER_RNet34_lr5e5_medley_03Hard2_wReal_recentered_nocontrast,
+UNDER_OVER_RNet34_lr1e4_B32_medley_03Hard2_wReal_recentered_nocontrast,
+UNDER_OVER_RNet34_lr1e4_B16_medley_03Hard2_wReal_recentered_nocontrast,
+UNDER_OVER_RNet34_lr1e4_B8_medley_03Hard2_wReal_recentered_nocontrast,
+UNDER_OVER_RNet34_lr1e4_medley_03Hard2_wReal_recentered_mark_center,
+UNDER_OVER_RNet34_lr1e4_medley_03Hard2_wReal_B16_recentered_mark_crossing_smaller,
 UNDER_OVER_NONE]
 
 ALL_EXPERIMENTS_CONFIG = {get_class_name(expt): expt for expt in ALL_EXPERIMENTS_LIST}

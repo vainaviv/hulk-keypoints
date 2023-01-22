@@ -255,7 +255,10 @@ real = True
 if config.expt_type == ExperimentTypes.TRACE_PREDICTION:
     real_paths  = ['/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test']
 elif config.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or config.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
-    real_paths = ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_crossing_set2/real_test']
+    if config.crop_width == 10:
+        real_paths = ['/home/vainavi/hulk-keypoints/processed_sim_data/under_over_crossing_set2/real_test']
+    elif config.crop_width == 16:
+        real_paths = ['/home/kaushiks/hulk-keypoints/processed_sim_data/under_over_REAL_centered_32px/test']
 
 if real:
     test_dataset = KeypointsDataset(real_paths, 
@@ -299,7 +302,6 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
         #     continue
         # if int(images[i][-9:-4]) < 100:
         #     continue
-        print(images[i])
         if image not in REAL_WORLD_DICT:
             continue
         # if i < :
@@ -357,8 +359,9 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
 else:
     preds = []
     gts = []
-    hits = 0
     total = 0
+    class_thresholds = np.linspace(0.0, 1.0, 21)
+    hits = [0 for _ in range(len(class_thresholds))]
     for i, f in enumerate(test_dataset):
         print(i)
         f = list(f)
@@ -398,16 +401,17 @@ else:
             plt.imshow(img_t[0].detach().cpu().numpy().transpose(1, 2, 0))
             save_path = os.path.join(failure_folder_name, f'output_img_{i}.png')
             save_path_og = os.path.join(failure_folder_name, f'output_img_{i}_og.png')
-            if pred < 0.5:
-                pred_rounded = 0
-            elif pred >= 0.5 and pred < 1.5:
-                pred_rounded = 1
-            else:
-                pred_rounded = 2
-            if pred_rounded == int(gt):
-                hits += 1
-                save_path = os.path.join(success_folder_name, f'output_img_{i}.png')
-                save_path_og = os.path.join(success_folder_name, f'output_img_{i}_og.png')
+            for k, thresh in enumerate(class_thresholds):
+                if pred < thresh:
+                    pred_rounded = 0
+                elif pred >= thresh and pred < (1 + thresh):
+                    pred_rounded = 1
+                else:
+                    pred_rounded = 2
+                if pred_rounded == int(gt):
+                    hits[k] += 1
+                    save_path = os.path.join(success_folder_name, f'output_img_{i}.png')
+                    save_path_og = os.path.join(success_folder_name, f'output_img_{i}_og.png')
             plt.savefig(save_path)
             plt.clf()
             input_img_np = img_t.detach().cpu().numpy()[0, 1, ...]
@@ -449,6 +453,8 @@ else:
         fpr, tpr, thresholds = metrics.roc_curve(gts, preds, pos_label=1)
         auc = metrics.auc(fpr, tpr)
         print("Classification AUC:", auc)
-        print("Classification Accuracy:", hits/total)
+        for i, hit in enumerate(hits):
+            thresh = class_thresholds[i]
+            print(f"Classification Accuracy for {thresh}:", hit/total)
     elif is_point_pred(expt_type):
         print("Mean within threshold accuracy:", hits/total)

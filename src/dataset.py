@@ -155,6 +155,9 @@ class KeypointsDataset(Dataset):
         self.gauss_sigma = config.gauss_sigma
         self.transform = transform
         self.sharpen = config.sharpen
+        self.contrast = config.contrast
+        self.expand_spline = config.expand_spline
+        self.mark_crossing = config.mark_crossing
 
         real_world_transform_list = augmentation_list if augment else no_augmentation_list
         sim_transform_list = list(real_world_transform_list)
@@ -181,7 +184,7 @@ class KeypointsDataset(Dataset):
         self.augment = augment
         self.condition_len = config.condition_len
         self.crop_width = config.crop_width
-        self.crop_span = self.crop_width*2 + 1
+        self.crop_span = self.crop_width*2
         self.pred_len = config.pred_len
         self.spacing = config.cond_point_dist_px
         self.sweep = sweep
@@ -373,7 +376,10 @@ class KeypointsDataset(Dataset):
         spline[xnew, ynew] = weights
         spline = np.expand_dims(spline, axis=2)
         spline = np.tile(spline, 3)
-        spline_dilated = cv2.dilate(spline, np.ones((3,3), np.uint8), iterations=1)
+        if self.expand_spline:
+            spline_dilated = cv2.dilate(spline, np.ones((9,9), np.uint8), iterations=1)
+        else:
+            spline_dilated = cv2.dilate(spline, np.ones((3,3), np.uint8), iterations=1)
         return spline_dilated[:, :, 0]
 
     def call_img_transform(self, img, kpts=None, is_real_example=False):
@@ -492,21 +498,34 @@ class KeypointsDataset(Dataset):
         
         elif self.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER or self.expt_type == ExperimentTypes.CLASSIFY_OVER_UNDER_NONE:
             img = (loaded_data['crop_img'][:, :, :3]).copy()
-            condition_pixels = np.array(loaded_data['spline_pixels'], dtype=np.float64)
             if img.max() > 1:
                 img = (img / 255.0).astype(np.float32)
-            img = perform_contrast(img)
+
+            condition_pixels = np.array(loaded_data['spline_pixels'], dtype=np.float64)
+
+            kpts = KeypointsOnImage.from_xy_array(condition_pixels, shape=img.shape)
+            img, kpts = self.call_img_transform(img=img, kpts=kpts, is_real_example=is_real_example)
+            condition_pixels = []
+            for k in kpts:
+                condition_pixels.append([k.x,k.y])
+            condition_pixels = np.array(condition_pixels)
+
+            if img.max() > 1:
+                img = (img / 255.0).astype(np.float32)
+            if self.contrast:
+                img = perform_contrast(img)
             # print('after contrast min max', img.min(), img.max())
             cable_mask = np.ones(img.shape[:2])
             cable_mask[img[:, :, 1] < 0.35] = 0
-            img = self.call_img_transform(img)
             if self.sweep:
                 img[:, :, 0] = self.draw_spline(img, condition_pixels[:, 1], condition_pixels[:, 0], label=True) #* cable_mask
             else:
                 img[:, :, 0] = gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, condition_pixels[:-self.pred_len,0], condition_pixels[:-self.pred_len,1], weights=self.weights)
-            if is_real_example:
+            if self.mark_crossing:
+                img[:, :, 1] = gauss_2d_batch_efficient_np(self.crop_span, self.crop_span, self.gauss_sigma, [self.crop_width], [self.crop_width], weights=[1.0])
+            if is_real_example and self.crop_width == 10:
                 img = img[1:, 1:, :]
-                img = cv2.resize(img, (2*self.crop_width, 2*self.crop_width))
+                img = cv2.resize(img, (self.img_height, self.img_width))
             img, _= self.rotate_condition(img, condition_pixels, center_around_last=True, index=data_index)
             combined = transform(img.copy()).cuda()
             label = torch.as_tensor(loaded_data['under_over']).double().cuda()
@@ -573,7 +592,7 @@ if __name__ == '__main__':
     os.mkdir(os.path.join(dataset_test_path, 'none'))
 
     # UNDER OVER
-    test_config = UNDER_OVER_RNet34_lr1e5_medley_03Hard2_wReal()
+    test_config = UNDER_OVER_RNet34_lr1e4_medley_03Hard2_wReal_recentered_mark_crossing_smaller()
     test_dataset = KeypointsDataset([os.path.join(d, 'test') for d in test_config.dataset_dir],
                                     transform,
                                     augment=False, 
@@ -586,7 +605,6 @@ if __name__ == '__main__':
         print(i_batch, label)
         img = img.squeeze(0)
         img = (img.cpu().detach().numpy().transpose(1, 2, 0) * 255)
-        print("Saving")
         if label == 0:
             cv2.imwrite(f'./dataset_py_test/under/test-img_{i_batch:05d}.png', img[...,::-1])
         elif label == 1:

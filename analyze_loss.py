@@ -16,7 +16,7 @@ import os
 # plt.savefig("losses.png")
 
 # npy file-based method
-checkpoint_path = '/home/vainavi/hulk-keypoints/checkpoints/2023-01-16-18-17-41_UNDER_OVER_RNet34_lr1e5_hard1'
+checkpoint_path = '/home/vainavi/hulk-keypoints/checkpoints/2023-01-21-02-17-47_UNDER_OVER_RNet34_lr1e5_medley_03Hard2_wReal_recentered_nocontrast'
 files_to_inspect = [checkpoint_path + '/test_losses.npy', 
                     checkpoint_path + '/train_losses.npy']
 losses = [np.load(file_to_inspect) for file_to_inspect in files_to_inspect]
