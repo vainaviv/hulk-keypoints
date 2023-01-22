@@ -73,7 +73,8 @@ class KnotDetector:
         if all([intermediate_crossing['ID'] == 0 for intermediate_crossing in self.crossings_stack[pos + 1:-1]]):
             return False
                     
-        self.knot = self.crossings_stack[pos:]
+        if not self.knot:
+            self.knot = self.crossings_stack[pos:]
         return True
 
     def get_crossing_pos(self, crossing) -> int:
@@ -95,6 +96,7 @@ class KnotDetector:
             prev_id = prev_crossing['ID']
             if np.linalg.norm(np.array([curr_x, curr_y]) - np.array([prev_x, prev_y])) <= self.eps:
                 if prev_id == curr_id:
+                    print("HERE: ", prev_x, prev_y, prev_id)
                     prev_confidence, curr_confidence = prev_crossing['confidence'], crossing['confidence']
                     if curr_confidence >= prev_confidence:
                         prev_crossing['ID'] = 1 - prev_id
