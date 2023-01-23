@@ -14,16 +14,12 @@ import colorsys
 import shutil
 from enum import Enum
 
-### For triton4
-# from untangling.tracer_knot_detect.src.model import ClassificationModel, KeypointsGauss
-# from untangling.tracer_knot_detect.config import *
-###
+# from untangling.tracer_knot_detect.src.model import ClassificationModel, KeypointsGauss # Uncomment for triton4
+# from untangling.tracer_knot_detect.config import * # Uncomment for triton4
 
-### For bajcy
-sys.path.insert(0, '..')
-from src.model import ClassificationModel, KeypointsGauss
+sys.path.insert(0, '..') # Uncomment for bajcsy
+from src.model import ClassificationModel, KeypointsGauss # Uncomment for bajcsy
 from config import *
-###
 
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
@@ -37,12 +33,13 @@ class Tracer:
     def __init__(self) -> None:
         self.trace_config = TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreReal_Sharp()
         self.trace_model =  KeypointsGauss(1, img_height=self.trace_config.img_height, img_width=self.trace_config.img_width, channels=3, resnet_type=self.trace_config.resnet_type, pretrained=self.trace_config.pretrained).cuda()
-        # self.trace_model.load_state_dict(torch.load('/home/justin/yumi/cable-untangling/untangling/tracer_knot_detect/models/tracer/model_36_0.00707.pth')) #triton4
-        self.trace_model.load_state_dict(torch.load('/home/vainavi/hulk-keypoints/checkpoints/2023-01-13-20-41-47_TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreReal_Sharp/model_36_0.00707.pth')) #bajcy
+        # self.trace_model.load_state_dict(torch.load('/home/justin/yumi/cable-untangling/untangling/tracer_knot_detect/models/tracer/model_36_0.00707.pth')) # Uncomment for triton4
+        self.trace_model.load_state_dict(torch.load('/home/vainavi/hulk-keypoints/checkpoints/2023-01-13-20-41-47_TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreReal_Sharp/model_36_0.00707.pth')) # Uncomment for bajcsy
         augs = []
         augs.append(iaa.Resize({"height": self.trace_config.img_height, "width": self.trace_config.img_width}))
         self.real_img_transform = iaa.Sequential(augs, random_order=False)
         self.transform = transforms.Compose([transforms.ToTensor()])
+        # TODO: fix
         self.x_buffer = 30
         self.y_buffer = 50
 
@@ -260,8 +257,7 @@ class Tracer:
             global_yx = np.array([argmax_yx[0] + ymin, argmax_yx[1] + xmin]).astype(int)
             path.append(global_yx)
 
-            if global_yx[1] > image.shape[0] - self.buffer or global_yx[1] < self.buffer or global_yx[0] > image.shape[1] - self.buffer or global_yx[0] < self.buffer: # Uncomment for bajcsy
-            # if global_yx[0] > (image.shape[0] - self.y_buffer) or global_yx[0] < self.y_buffer or global_yx[1] > (image.shape[1] - self.x_buffer) or global_yx[1] < self.x_buffer: # Uncomment for triton
+            if global_yx[0] > (image.shape[0] - self.y_buffer) or global_yx[0] < self.y_buffer or global_yx[1] > (image.shape[1] - self.x_buffer) or global_yx[1] < self.x_buffer: # Uncomment for triton
                 return path, TraceEnd.EDGE
 
             if endpoints != None:
@@ -279,12 +275,13 @@ class Tracer:
                 # cv2.waitKey(1)
                 plt.imsave(f'trace_test/disp_img_{iter}.png', disp_img)
                 
+            # TODO: fix
             if len(path) > 20:
                 p = np.array(path)
                 diff = np.linalg.norm(p[-20:-10] - p[-10:])
-                print(diff)
                 if diff < 50:
                     return path[:-10], TraceEnd.RETRACE
+
         return path, TraceEnd.FINISHED
 
     def trace(self, img, prev_pixels, endpoints=None, path_len=20, viz=False, idx=0):

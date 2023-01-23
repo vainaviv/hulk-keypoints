@@ -9,7 +9,7 @@ class KnotDetector:
     def __init__(self) -> None:
         self.crossings_stack = []
         self.crossings = []
-        self.eps = 10
+        self.eps = 0
         self.knot = []
         self.start_idx = float('inf')
         
@@ -29,16 +29,16 @@ class KnotDetector:
             prev_crossing = self.crossings[prev_idx]
             prev_x, prev_y = prev_crossing['loc']
             prev_id = prev_crossing['ID']
-            if np.linalg.norm(np.array([curr_x, curr_y]) - np.array([prev_x, prev_y])) <= self.eps:
-                if prev_id == curr_id:
-                    print("Crossing correction at: ", prev_x, prev_y, ". Originally: ", prev_id)
-                    prev_confidence = prev_crossing['confidence']
-                    if curr_confidence >= prev_confidence:
-                        prev_crossing['ID'] = 1 - prev_id
-                        prev_crossing['confidence'] = seg['confidence']
-                    else:
-                        seg['ID'] = 1 - curr_id
-                        seg['confidence'] = prev_crossing['confidence']
+            if np.linalg.norm(np.array([curr_x, curr_y]) - np.array([prev_x, prev_y])) <= self.eps and prev_id == curr_id:
+                print("Crossing correction at: " + str(prev_x) + ", " + str(prev_y) + ". Originally: " + str(prev_id))
+                prev_confidence = prev_crossing['confidence']
+                if curr_confidence >= prev_confidence:
+                    prev_crossing['ID'] = 1 - prev_id
+                    prev_crossing['confidence'] = seg['confidence']
+                else:
+                    seg['ID'] = 1 - curr_id
+                    seg['confidence'] = prev_crossing['confidence']
+                break
 
     def encounter_seg(self, seg):
         '''
@@ -130,8 +130,8 @@ class KnotDetector:
             prev_id = prev_crossing['ID']
             prev_crossing_idx = prev_crossing['crossing_idx']
             if np.linalg.norm(np.array([curr_x, curr_y]) - np.array([prev_x, prev_y])) <= self.eps:
-                if prev_id == curr_id:
-                    raise Exception('Crossing not corrected!')
+                # if prev_id == curr_id:
+                #     raise Exception('Crossing not corrected!')
                 return pos
         
         return -1
