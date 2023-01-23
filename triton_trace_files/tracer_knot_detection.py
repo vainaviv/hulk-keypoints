@@ -707,15 +707,12 @@ class TracerKnotDetector():
             uo_model_input = self._getuoitem(uo_data)
 
             # predict UON on input
-            uo, prob = self._predict_uo(uo_model_input, file_name = f'uo_{pixels_idx}.png')
+            # uo, prob = self._predict_uo(uo_model_input, file_name = f'uo_{pixels_idx}.png')
+            uo, prob = self._predict_uo(uo_model_input)
 
             # add UON to stream and process stream                
             crossing = {'loc': center_pixel, 'ID': uo, 'confidence': prob, 'pixels_idx': pixels_idx}
 
-            if self.knot and uo == 0:
-                self.under_crossing_after_knot = crossing
-                return
-            
             # add crossing
             self._add_crossing(crossing)
 
@@ -785,12 +782,13 @@ class TracerKnotDetector():
             print('Visualizing and dumping.')
             self._visualize(self.img, f'full_img_{self.vis_idx}.png')
             self._visualize_full()
-            self._visualize_knot()
+            if self.knot:
+                self._visualize_knot()
         if not self.knot:
             print('No knots!')
             done_untangling = True
-            pinch = self._determine_pinch(knot=False)
-            cage, cage_idx = self._determine_cage(knot=False)
+            pinches, pinch = self._determine_pinch(knot=False)
+            cages, cage, cage_idx = self._determine_cage(knot=False)
             knot_confidence = None
         else:
             done_untangling = False

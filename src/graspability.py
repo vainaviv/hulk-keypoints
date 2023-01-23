@@ -16,7 +16,7 @@ class Graspability():
             # cv2.imwrite(f'/home/vainavi/hulk-keypoints/triton_trace_files/crops/crop_{self.i}.png', crop)
             self.i += 1
             crop_mask = (crop[:, :, 0] > 100)    
-            viz_mask = np.array([crop_mask, crop_mask, crop_mask]).transpose(1,2,0) * 255.0
+            # viz_mask = np.array([crop_mask, crop_mask, crop_mask]).transpose(1,2,0) * 255.0
             # cv2.imwrite(f'/home/vainavi/hulk-keypoints/triton_trace_files/crops/crop_mask_{self.i}.png', viz_mask)
             return  np.sum(crop_mask)
 
