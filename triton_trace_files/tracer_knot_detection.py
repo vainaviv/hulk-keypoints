@@ -172,7 +172,7 @@ class TracerKnotDetector():
         spline_dilated = cv2.dilate(spline, np.ones((3, 3), np.uint8), iterations=1)
         return spline_dilated[:, :, 0]
     
-    def gauss_2d_batch_efficient_np(self, width, height, U, V, weights, normalize=False):
+    def _gauss_2d_batch_efficient_np(self, width, height, U, V, weights, normalize=False):
         crop_size = 3 * self.gauss_sigma
         ret = np.zeros((height + 2 * crop_size, width + 2 * crop_size + 1))
         X, Y = np.meshgrid(np.arange(-crop_size, crop_size + 1), np.arange(-crop_size, crop_size + 1))
@@ -204,7 +204,7 @@ class TracerKnotDetector():
         uon_model_input = self._getuonitem(uon_data)
         img = uon_model_input.clone().detach()
         img = img.squeeze(0).numpy().transpose((1, 2, 0))
-        img[:, :, 1] = self.gauss_2d_batch_efficient_np(self.crop_size, self.crop_size, [self.crop_width], [self.crop_width], weights=[1.0])
+        img[:, :, 1] = self._gauss_2d_batch_efficient_np(self.crop_size, self.crop_size, [self.crop_width], [self.crop_width], weights=[1.0])
         uo_model_input = self.transform(img.copy())
         return uo_model_input
 
@@ -345,7 +345,7 @@ class TracerKnotDetector():
             uo_model_input = uon_model_input
             img = uo_model_input.clone().detach()
             img = img.squeeze(0).numpy().transpose((1, 2, 0))
-            img[:, :, 1] = self.gauss_2d_batch_efficient_np(self.crop_size, self.crop_size, [self.crop_width], [self.crop_width], weights=[1.0])
+            img[:, :, 1] = self._gauss_2d_batch_efficient_np(self.crop_size, self.crop_size, [self.crop_width], [self.crop_width], weights=[1.0])
             uo_model_input = self.transform(img.copy())
             if file_name is not None:
                 self._visualize_tensor(uo_model_input, file_name)
@@ -359,10 +359,6 @@ class TracerKnotDetector():
             return pred, prediction_prob
 
     def _predict_uo(self, uo_model_input, file_name=None):
-        img = uo_model_input.clone().detach()
-        img = img.squeeze(0).numpy().transpose((1, 2, 0))
-        img[:, :, 1] = self.gauss_2d_batch_efficient_np(self.crop_size, self.crop_size, [self.crop_width], [self.crop_width], weights=[1.0])
-        uo_model_input = self.transform(img.copy())
         if file_name is not None:
             self._visualize_tensor(uo_model_input, file_name)
         predictor = Prediction(self.uo_model, self.uo_config.num_keypoints, self.uo_config.img_height, self.uo_config.img_width, parallelize=self.parallel)
@@ -420,7 +416,7 @@ class TracerKnotDetector():
         if self.knot is None:
             raise Exception('No knot found so cannot detect undercrossing inside it')
     
-        for crossing in self.detector.crossings_stack:
+        for crossing in self.detector.crossings:
             if crossing['pixels_idx'] <= self.knot[0]['pixels_idx']:
                 continue
             if crossing['ID'] == 0:
@@ -432,7 +428,7 @@ class TracerKnotDetector():
         if self.knot is None:
             raise Exception('No knot found so cannot detect undercrossing after it')
 
-        for crossing in self.detector.crossings_stack:
+        for crossing in self.detector.crossings:
             if crossing['pixels_idx'] <= self.knot[-1]['pixels_idx']:
                 continue
             if crossing['ID'] == 0:
@@ -544,7 +540,7 @@ class TracerKnotDetector():
                 return None, None, None
 
         next_under = None
-        if knot:
+        if knot and self.under_crossing_before_knot:
             next_under = self.under_crossing_before_knot['pixels_idx']
         else:
             for crossing in self.detector.crossings_stack:
@@ -674,9 +670,9 @@ class TracerKnotDetector():
         return crossing_locs
 
     def trace_and_detect_knot(self):
-        import pdb; pdb.set_trace()
-        self.pixels, self.trace_end = self.tracer.trace(self.img, self.starting_pixels_for_trace, viz=True, path_len=500)
-        # self.pixels = self.interpolate_trace(self.pixels)
+        # import pdb; pdb.set_trace()
+        self.pixels, self.trace_end = self.tracer.trace(self.img, self.starting_pixels_for_trace, viz=True, path_len=200)
+        self.pixels = self.interpolate_trace(self.pixels) # Uncomment for bajcsy (Check?)
         self.crossing_locs = self._get_crossing_locs()
 
         for i, crossing_loc in enumerate(self.crossing_locs):
@@ -853,9 +849,6 @@ if __name__ == '__main__':
                 print()
                 print(tkd.knot)
                 print(tkd._get_knot_confidence())
-                tkd.under_crossing_after_knot = tkd._get_prev_under_crossing_after_knot()
-                if tkd.under_crossing_after_knot:
-                    print(tkd.under_crossing_after_knot)
                 tkd._visualize_knot()
     else:
         data_path = f'/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test/{data_index}.npy'
@@ -872,7 +865,4 @@ if __name__ == '__main__':
             print()
             print(tkd.knot)
             print(tkd._get_knot_confidence())
-            tkd.under_crossing_after_knot = tkd._get_prev_under_crossing_after_knot()
-            if tkd.under_crossing_after_knot:
-                print(tkd.under_crossing_after_knot)
             tkd._visualize_knot()

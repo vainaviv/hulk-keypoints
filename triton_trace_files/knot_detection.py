@@ -9,7 +9,7 @@ class KnotDetector:
     def __init__(self) -> None:
         self.crossings_stack = []
         self.crossings = []
-        self.eps = 10
+        self.eps = 0
         self.knot = []
         self.start_idx = float('inf')
         
@@ -31,7 +31,7 @@ class KnotDetector:
             prev_id = prev_crossing['ID']
             if np.linalg.norm(np.array([curr_x, curr_y]) - np.array([prev_x, prev_y])) <= self.eps:
                 if prev_id == curr_id:
-                    print("Crossing correction at: ", prev_x, prev_y, ". Originally: ", prev_id)
+                    print("Crossing correction at: " + str(prev_x) + ", " + str(prev_y) + ". Originally: " + str(prev_id))
                     prev_confidence = prev_crossing['confidence']
                     if curr_confidence >= prev_confidence:
                         prev_crossing['ID'] = 1 - prev_id

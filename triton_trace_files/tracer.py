@@ -260,13 +260,14 @@ class Tracer:
             global_yx = np.array([argmax_yx[0] + ymin, argmax_yx[1] + xmin]).astype(int)
             path.append(global_yx)
 
-            if global_yx[1] > image.shape[0] - self.buffer or global_yx[1] < self.buffer or global_yx[0] > image.shape[1] - self.buffer or global_yx[0] < self.buffer: # Uncomment for bajcsy
+            if global_yx[1] > (image.shape[0] - self.y_buffer) or global_yx[1] < self.y_buffer or global_yx[0] > (image.shape[1] - self.x_buffer) or global_yx[0] < self.x_buffer: # Uncomment for bajcsy
             # if global_yx[0] > (image.shape[0] - self.y_buffer) or global_yx[0] < self.y_buffer or global_yx[1] > (image.shape[1] - self.x_buffer) or global_yx[1] < self.x_buffer: # Uncomment for triton
                 return path, TraceEnd.EDGE
 
             if endpoints != None:
                 for endpoint in endpoints:
-                    if (global_yx[0] - endpoint[0]) < self.y_buffer and (global_yx[1] - endpoint[1]) < self.x_buffer:
+                    if (global_yx[1] - endpoint[0]) < self.y_buffer and (global_yx[0] - endpoint[1]) < self.x_buffer: # Uncomment for bajcsy
+                    # if (global_yx[0] - endpoint[0]) < self.y_buffer and (global_yx[1] - endpoint[1]) < self.x_buffer: # Uncomment for triton4
                         return path, TraceEnd.ENDPOINT
                     
             disp_img = cv2.circle(disp_img, (global_yx[1], global_yx[0]), 1, (0, 0, 255), 2)
@@ -282,7 +283,7 @@ class Tracer:
             if len(path) > 20:
                 p = np.array(path)
                 diff = np.linalg.norm(p[-20:-10] - p[-10:])
-                print(diff)
+                # print(diff)
                 if diff < 50:
                     return path[:-10], TraceEnd.RETRACE
         return path, TraceEnd.FINISHED
