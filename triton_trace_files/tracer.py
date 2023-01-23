@@ -224,7 +224,7 @@ class Tracer:
         distances_cumsum = np.concatenate(([0], np.cumsum(distances)))
         return distances_cumsum[-1] / 1000
 
-    def _trace(self, image, start_points, exact_path_len, endpoints = None, viz=False, model=None):    
+    def _trace(self, image, start_points, exact_path_len, endpoints=None, viz=False, model=None):    
         num_condition_points = self.trace_config.condition_len
         if start_points is None or len(start_points) < num_condition_points:
             raise ValueError(f"Need at least {num_condition_points} start points")
@@ -266,7 +266,7 @@ class Tracer:
 
             if endpoints != None:
                 for endpoint in endpoints:
-                    if (global_yx[0] - endpoint[0]) < self.y_buffer and (global_yx[1] - endpoint[1]) < self.x_buffer:
+                    if (global_yx[0] - endpoint[0]) < self.y_buffer and (global_yx[1] - endpoint[1]) < self.x_buffer and len(path) > 170:
                         return path, TraceEnd.ENDPOINT
                     
             disp_img = cv2.circle(disp_img, (global_yx[1], global_yx[0]), 1, (0, 0, 255), 2)
@@ -287,7 +287,7 @@ class Tracer:
                     return path[:-10], TraceEnd.RETRACE
         return path, TraceEnd.FINISHED
 
-    def trace(self, img, prev_pixels, path_len=20, viz=False, idx=0):
+    def trace(self, img, prev_pixels, endpoints=None, path_len=20, viz=False, idx=0):
         # print('prev pixels before centering, before evenly spaced points', prev_pixels)
         # import pdb; pdb.set_trace()
 
@@ -311,7 +311,7 @@ class Tracer:
             plt.scatter(*pt[::-1])
         plt.show()
 
-        spline, trace_end = self._trace(img, starting_points, exact_path_len=path_len, model=self.trace_model, viz=False)
+        spline, trace_end = self._trace(img, starting_points, exact_path_len=path_len, endpoints=endpoints, model=self.trace_model, viz=False)
         if viz:
             img_cp = (img.copy() * 255.0).astype(np.uint8)
             trace_viz = self.visualize_path(img_cp, spline.copy())

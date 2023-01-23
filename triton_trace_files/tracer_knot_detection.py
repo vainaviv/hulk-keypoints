@@ -673,9 +673,9 @@ class TracerKnotDetector():
 
         return crossing_locs
 
-    def trace_and_detect_knot(self):
+    def trace_and_detect_knot(self, endpoints=None):
         import pdb; pdb.set_trace()
-        self.pixels, self.trace_end = self.tracer.trace(self.img, self.starting_pixels_for_trace, viz=True, path_len=500)
+        self.pixels, self.trace_end = self.tracer.trace(self.img, self.starting_pixels_for_trace, endpoints=endpoints, viz=True, path_len=500)
         # self.pixels = self.interpolate_trace(self.pixels)
         self.crossing_locs = self._get_crossing_locs()
 
@@ -775,9 +775,9 @@ class TracerKnotDetector():
         #     if uon == 2:
         #         first_step = False
     
-    def perception_pipeline(self, idx=0, viz=False):
+    def perception_pipeline(self, endpoints=None, idx=0, viz=False):
         self.vis_idx += 1
-        self.trace_and_detect_knot()
+        self.trace_and_detect_knot(endpoints=endpoints)
         if viz:
             print('Visualizing and dumping.')
             self._visualize(self.img, f'full_img_{self.vis_idx}.png')
