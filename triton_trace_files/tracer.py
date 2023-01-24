@@ -42,6 +42,7 @@ class Tracer:
         # TODO: fix
         self.x_buffer = 30
         self.y_buffer = 50
+        self.ep_buffer = 15
 
     def _get_evenly_spaced_points(self, pixels, num_points, start_idx, spacing, img_size, backward=True, randomize_spacing=True):
         pixels = np.squeeze(pixels)
@@ -260,10 +261,13 @@ class Tracer:
             if global_yx[0] > (image.shape[0] - self.y_buffer) or global_yx[0] < self.y_buffer or global_yx[1] > (image.shape[1] - self.x_buffer) or global_yx[1] < self.x_buffer: # Uncomment for triton
                 return path, TraceEnd.EDGE
 
-            if endpoints != None:
+            if endpoints is not None:
                 for endpoint in endpoints:
-                    if (global_yx[0] - endpoint[0]) < self.y_buffer and (global_yx[1] - endpoint[1]) < self.x_buffer and len(path) > 170:
-                        return path, TraceEnd.ENDPOINT
+                    pix_dist = self.get_dist_cumsum(np.array(path))
+                    if (abs(global_yx[0] - endpoint[0])) < self.ep_buffer and (abs(global_yx[1] - endpoint[1])) < self.ep_buffer:
+                        print(pix_dist)
+                        if pix_dist > 2.5:
+                            return path, TraceEnd.ENDPOINT
                     
             disp_img = cv2.circle(disp_img, (global_yx[1], global_yx[0]), 1, (0, 0, 255), 2)
             # add line from previous to current point
@@ -275,12 +279,13 @@ class Tracer:
                 # cv2.waitKey(1)
                 plt.imsave(f'trace_test/disp_img_{iter}.png', disp_img)
                 
-            # TODO: fix
-            if len(path) > 20:
+            if len(path) > 10:
                 p = np.array(path)
-                diff = np.linalg.norm(p[-20:-10] - p[-10:])
-                if diff < 50:
-                    return path[:-10], TraceEnd.RETRACE
+                for i in range(0, len(path)-20):
+                    diff = np.linalg.norm(p[i:i+10] - p[-10:])
+                    diffrev = np.linalg.norm(p[i:i+10] - p[-10:][::-1])
+                    if diff < 10 or diffrev < 30:
+                        return path[:-10], TraceEnd.RETRACE
 
         return path, TraceEnd.FINISHED
 
