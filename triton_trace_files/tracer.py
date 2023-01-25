@@ -14,10 +14,11 @@ import colorsys
 import shutil
 from enum import Enum
 
-# from untangling.tracer_knot_detect.src.model import ClassificationModel, KeypointsGauss
-# from untangling.tracer_knot_detect.config import *
-sys.path.insert(0, '..')
-from src.model import ClassificationModel, KeypointsGauss
+# from untangling.tracer_knot_detect.src.model import ClassificationModel, KeypointsGauss # Uncomment for triton4
+# from untangling.tracer_knot_detect.config import * # Uncomment for triton4
+
+sys.path.insert(0, '..') # Uncomment for bajcsy
+from src.model import ClassificationModel, KeypointsGauss # Uncomment for bajcsy
 from config import *
 
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
@@ -26,18 +27,22 @@ class TraceEnd(Enum):
     EDGE = 1
     ENDPOINT = 2
     FINISHED = 3
+    RETRACE = 4
 
 class Tracer:
     def __init__(self) -> None:
         self.trace_config = TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreReal_Sharp()
         self.trace_model =  KeypointsGauss(1, img_height=self.trace_config.img_height, img_width=self.trace_config.img_width, channels=3, resnet_type=self.trace_config.resnet_type, pretrained=self.trace_config.pretrained).cuda()
-        # self.trace_model.load_state_dict(torch.load('/home/justin/yumi/cable-untangling/untangling/tracer_knot_detect/models/tracer/model_36_0.00707.pth'))
-        self.trace_model.load_state_dict(torch.load('/home/vainavi/hulk-keypoints/checkpoints/2023-01-13-20-41-47_TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreReal_Sharp/model_36_0.00707.pth'))
+        # self.trace_model.load_state_dict(torch.load('/home/justin/yumi/cable-untangling/untangling/tracer_knot_detect/models/tracer/model_36_0.00707.pth')) # Uncomment for triton4
+        self.trace_model.load_state_dict(torch.load('/home/vainavi/hulk-keypoints/checkpoints/2023-01-13-20-41-47_TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreReal_Sharp/model_36_0.00707.pth')) # Uncomment for bajcsy
         augs = []
         augs.append(iaa.Resize({"height": self.trace_config.img_height, "width": self.trace_config.img_width}))
         self.real_img_transform = iaa.Sequential(augs, random_order=False)
         self.transform = transforms.Compose([transforms.ToTensor()])
-        self.buffer = 5
+        # TODO: fix
+        self.x_buffer = 30
+        self.y_buffer = 50
+        self.ep_buffer = 15
 
     def _get_evenly_spaced_points(self, pixels, num_points, start_idx, spacing, img_size, backward=True, randomize_spacing=True):
         pixels = np.squeeze(pixels)
@@ -217,7 +222,7 @@ class Tracer:
         distances_cumsum = np.concatenate(([0], np.cumsum(distances)))
         return distances_cumsum[-1] / 1000
 
-    def _trace(self, image, start_points, exact_path_len, endpoints = None, viz=False, model=None):    
+    def _trace(self, image, start_points, exact_path_len, endpoints=None, viz=False, model=None):    
         num_condition_points = self.trace_config.condition_len
         if start_points is None or len(start_points) < num_condition_points:
             raise ValueError(f"Need at least {num_condition_points} start points")
@@ -253,14 +258,16 @@ class Tracer:
             global_yx = np.array([argmax_yx[0] + ymin, argmax_yx[1] + xmin]).astype(int)
             path.append(global_yx)
 
-            if global_yx[1] > image.shape[0] - self.buffer or global_yx[1] < self.buffer or global_yx[0] > image.shape[1] - self.buffer or global_yx[0] < self.buffer: # Uncomment for bajcsy (?)
-            # if global_yx[0] > image.shape[0] - self.buffer or global_yx[0] < self.buffer or global_yx[1] > image.shape[1] - self.buffer or global_yx[1] < self.buffer: # Uncomment for triton (?)
+            if global_yx[0] > (image.shape[0] - self.y_buffer) or global_yx[0] < self.y_buffer or global_yx[1] > (image.shape[1] - self.x_buffer) or global_yx[1] < self.x_buffer: # Uncomment for triton
                 return path, TraceEnd.EDGE
 
-            if endpoints != None:
+            if endpoints is not None:
                 for endpoint in endpoints:
-                    if (global_yx[0] - endpoint[0]) < self.buffer and (global_yx[1] - endpoint[1]) < self.buffer:
-                        return path, TraceEnd.ENDPOINT
+                    pix_dist = self.get_dist_cumsum(np.array(path))
+                    if (abs(global_yx[0] - endpoint[0])) < self.ep_buffer and (abs(global_yx[1] - endpoint[1])) < self.ep_buffer:
+                        print(pix_dist)
+                        if pix_dist > 2.5:
+                            return path, TraceEnd.ENDPOINT
                     
             disp_img = cv2.circle(disp_img, (global_yx[1], global_yx[0]), 1, (0, 0, 255), 2)
             # add line from previous to current point
@@ -271,9 +278,18 @@ class Tracer:
                 # cv2.imshow("disp_img", disp_img)
                 # cv2.waitKey(1)
                 plt.imsave(f'trace_test/disp_img_{iter}.png', disp_img)
+                
+            if len(path) > 10:
+                p = np.array(path)
+                for i in range(0, len(path)-20):
+                    diff = np.linalg.norm(p[i:i+10] - p[-10:])
+                    diffrev = np.linalg.norm(p[i:i+10] - p[-10:][::-1])
+                    if diff < 10 or diffrev < 30:
+                        return path[:-10], TraceEnd.RETRACE
+
         return path, TraceEnd.FINISHED
 
-    def trace(self, img, prev_pixels, path_len=20, viz=False, idx=0):
+    def trace(self, img, prev_pixels, endpoints=None, path_len=20, viz=False, idx=0):
         # print('prev pixels before centering, before evenly spaced points', prev_pixels)
         # import pdb; pdb.set_trace()
 
@@ -297,7 +313,7 @@ class Tracer:
             plt.scatter(*pt[::-1])
         plt.show()
 
-        spline, trace_end = self._trace(img, starting_points, exact_path_len=path_len, model=self.trace_model, viz=False)
+        spline, trace_end = self._trace(img, starting_points, exact_path_len=path_len, endpoints=endpoints, model=self.trace_model, viz=False)
         if viz:
             img_cp = (img.copy() * 255.0).astype(np.uint8)
             trace_viz = self.visualize_path(img_cp, spline.copy())

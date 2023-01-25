@@ -8,12 +8,37 @@ import matplotlib.pyplot as plt
 class KnotDetector:
     def __init__(self) -> None:
         self.crossings_stack = []
-        self.eps = 10
+        self.crossings = []
+        self.eps = 0
         self.knot = []
-
+        self.start_idx = float('inf')
+        
     def _reset(self):
         self.crossings_stack = []
+        self.crossings = []
         self.knot = []
+        self.start_idx = float('inf')
+
+    def _correct_crossings(self):
+        seg = self.crossings[-1]
+        curr_x, curr_y = seg['loc']
+        curr_id = seg['ID']
+        curr_confidence = seg['confidence']
+
+        for prev_idx in range(len(self.crossings) - 1):
+            prev_crossing = self.crossings[prev_idx]
+            prev_x, prev_y = prev_crossing['loc']
+            prev_id = prev_crossing['ID']
+            if np.linalg.norm(np.array([curr_x, curr_y]) - np.array([prev_x, prev_y])) <= self.eps and prev_id == curr_id:
+                print("Crossing correction at: " + str(prev_x) + ", " + str(prev_y) + ". Originally: " + str(prev_id))
+                prev_confidence = prev_crossing['confidence']
+                if curr_confidence >= prev_confidence:
+                    prev_crossing['ID'] = 1 - prev_id
+                    prev_crossing['confidence'] = seg['confidence']
+                else:
+                    seg['ID'] = 1 - curr_id
+                    seg['confidence'] = prev_crossing['confidence']
+                break
 
     def encounter_seg(self, seg):
         '''
@@ -27,6 +52,9 @@ class KnotDetector:
 
         if seg['ID'] == 2:
             return
+        
+        self.crossings.append(seg)
+        self._correct_crossings()
 
         if not self.crossings_stack:
             curr_x, curr_y = seg['loc']
@@ -55,8 +83,8 @@ class KnotDetector:
         Only accounts for trivial loops.
         '''
         # no knot encountered if < 3 crossings have been seen (?)
-        if len(self.crossings_stack) < 3:
-            return False
+        # if len(self.crossings_stack) < 3:
+        #     return False
             
         crossing = self.crossings_stack[-1]
         pos = self.get_crossing_pos(crossing)
@@ -73,8 +101,13 @@ class KnotDetector:
         if all([intermediate_crossing['ID'] == 0 for intermediate_crossing in self.crossings_stack[pos + 1:-1]]):
             return False
                     
-        if not self.knot:
-            self.knot = self.crossings_stack[pos:]
+        start_idx = self.crossings_stack[pos]['crossing_idx']
+        if not self.knot or start_idx < self.start_idx:
+            end_idx = self.crossings_stack[-1]['crossing_idx']
+            self.knot = self.crossings[start_idx:end_idx + 1]
+            self.start_idx = start_idx
+            self.crossings_stack = self.crossings_stack[:pos]
+
         return True
 
     def get_crossing_pos(self, crossing) -> int:
@@ -84,6 +117,7 @@ class KnotDetector:
         '''
         curr_x, curr_y = crossing['loc']
         curr_id = crossing['ID']
+        curr_crossing_idx = crossing['crossing_idx']
 
         # print(crossing)
         # print(self.crossings_stack)
@@ -94,16 +128,10 @@ class KnotDetector:
             prev_crossing = self.crossings_stack[pos]
             prev_x, prev_y = prev_crossing['loc']
             prev_id = prev_crossing['ID']
+            prev_crossing_idx = prev_crossing['crossing_idx']
             if np.linalg.norm(np.array([curr_x, curr_y]) - np.array([prev_x, prev_y])) <= self.eps:
-                if prev_id == curr_id:
-                    print("HERE: ", prev_x, prev_y, prev_id)
-                    prev_confidence, curr_confidence = prev_crossing['confidence'], crossing['confidence']
-                    if curr_confidence >= prev_confidence:
-                        prev_crossing['ID'] = 1 - prev_id
-                        prev_crossing['confidence'] = crossing['confidence']
-                    else:
-                        crossing['ID'] = 1 - curr_id
-                        crossing['confidence'] = prev_crossing['confidence']
+                # if prev_id == curr_id:
+                #     raise Exception('Crossing not corrected!')
                 return pos
         
         return -1

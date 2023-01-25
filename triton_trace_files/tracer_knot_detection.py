@@ -45,12 +45,12 @@ class TracerKnotDetector():
         self.local_crossing_stream = []
         self.crossing_locs = []
         self.line_segment_to_crossing_loc = OrderedDict()
-        self.crossings = []
-        self.num_steps_min_for_crossing = 2
+        self.num_steps_min_for_crossing = 1
         self.detector = KnotDetector()
         self.knot = None
         self.last_trace_step_in_knot = None
         self.under_crossing_after_knot = None
+        self.under_crossing_before_knot = None
         self.trace_end = None
         self.gauss_sigma = 1
         self.threshold = 0.275
@@ -77,6 +77,16 @@ class TracerKnotDetector():
     def _set_data(self, img, starting_pixels):
         self.detector._reset()
         self.img = img
+        self.local_crossing_stream = []
+        self.crossing_locs = []
+        self.crossings = []
+        self.pixels = []
+        self.starting_pixels_for_trace = None
+        self.knot = None
+        self.last_trace_step_in_knot = None
+        self.under_crossing_after_knot = None
+        self.under_crossing_before_knot = None
+        self.trace_end = None
         # self.pixels = pixels
         # print('before calling interpolate', starting_pixels)
         self.starting_pixels_for_trace = self.interpolate_trace(starting_pixels)
@@ -162,7 +172,7 @@ class TracerKnotDetector():
         spline_dilated = cv2.dilate(spline, np.ones((3, 3), np.uint8), iterations=1)
         return spline_dilated[:, :, 0]
     
-    def gauss_2d_batch_efficient_np(self, width, height, U, V, weights, normalize=False):
+    def _gauss_2d_batch_efficient_np(self, width, height, U, V, weights, normalize=False):
         crop_size = 3 * self.gauss_sigma
         ret = np.zeros((height + 2 * crop_size, width + 2 * crop_size + 1))
         X, Y = np.meshgrid(np.arange(-crop_size, crop_size + 1), np.arange(-crop_size, crop_size + 1))
@@ -194,7 +204,7 @@ class TracerKnotDetector():
         uon_model_input = self._getuonitem(uon_data)
         img = uon_model_input.clone().detach()
         img = img.squeeze(0).numpy().transpose((1, 2, 0))
-        img[:, :, 1] = self.gauss_2d_batch_efficient_np(self.crop_size, self.crop_size, [self.crop_width], [self.crop_width], weights=[1.0])
+        img[:, :, 1] = self._gauss_2d_batch_efficient_np(self.crop_size, self.crop_size, [self.crop_width], [self.crop_width], weights=[1.0])
         uo_model_input = self.transform(img.copy())
         return uo_model_input
 
@@ -203,13 +213,13 @@ class TracerKnotDetector():
             file_name += '.png'
         cv2.imwrite(self.output_vis_dir + file_name, img)
 
-    def _visualize_crossing_stack(self):
+    def _visualize_all_crossings(self):
         img = self.img.copy()
-        file_name = f'crossing_stack_post_cancellation_img_{self.vis_idx}'
+        file_name = f'all_crossings_img_{self.vis_idx}'
         # red -> overcrossing, blue -> undercrossing (cv2 uses BGR)
         u_clr = (255, 0, 0)
         o_clr = (0, 0, 255)
-        for ctr, crossing in enumerate(self.detector.crossings_stack):
+        for ctr, crossing in enumerate(self.detector.crossings):
             y, x = crossing['loc']
             if crossing['ID'] == 0:
                 cv2.circle(img, (x, y), 3, u_clr, -1)
@@ -219,48 +229,37 @@ class TracerKnotDetector():
                 cv2.putText(img, str(ctr), (x - 2, y - 2), cv2.FONT_HERSHEY_PLAIN, 1, o_clr)
         cv2.imwrite(self.output_vis_dir + file_name + '.png', img)
 
-    def _visualize_all_crossings(self):
+    def _visualize_all_cages_pinches(self, cages, pinches, idx=0):
         img = self.img.copy()
-        file_name = f'all_crossings_img_{self.vis_idx}'
-        # red -> overcrossing, blue -> undercrossing (cv2 uses BGR)
-        clr = (0, 0, 0)
-        for ctr, crossing_loc in enumerate(self.crossing_locs):
-            center_pixel, trace_idx = crossing_loc
-            y, x = center_pixel
-            cv2.circle(img, (x, y), 3, clr, -1)
-            cv2.putText(img, str(ctr), (x + 2, y + 2), cv2.FONT_HERSHEY_PLAIN, 1, clr)
-        cv2.imwrite(self.output_vis_dir + file_name + '.png', img)
-
-    # def _visualize_cage_pinch(self, cages, pinches, idx=0):
-    #     img = self.img.copy()
-    #     cage_clr = (255,0,0)
-    #     pinch_clr = (0,0,255)
-    #     for key in cages:
-    #         cage = self._get_pixel_at(key)
-    #         cv2.circle(img, cage, 3, cage_clr, -1)
-    #     cv2.putText(img, 'cage', (cage[0]+2, cage[1]+2), cv2.FONT_HERSHEY_PLAIN, 1, cage_clr)
+        cage_clr = (255, 0, 0)
+        pinch_clr = (0, 0, 255)
+        for key in cages:
+            cage = self._get_pixel_at(key)[::-1]
+            cv2.circle(img, cage, 3, cage_clr, -1)
+        cv2.putText(img, 'cage', (cage[0]+2, cage[1]+2), cv2.FONT_HERSHEY_PLAIN, 1, cage_clr)
         
-    #     for key in pinches:
-    #         pinch = self._get_pixel_at(key)
-    #         cv2.circle(img, pinch, 3, pinch_clr, -1)
-    #     cv2.putText(img, 'pinch', (pinch[0]+2, pinch[1]+2), cv2.FONT_HERSHEY_PLAIN, 1, pinch_clr)
-    #     file_name = f'viz_cage_pinch_{idx}.png'
-    #     path = os.path.join(self.output_vis_dir, file_name)
-    #     cv2.imwrite(path , img)
+        for key in pinches:
+            pinch = self._get_pixel_at(key)[::-1]
+            cv2.circle(img, pinch, 3, pinch_clr, -1)
+        cv2.putText(img, 'pinch', (pinch[0] + 2, pinch[1] + 2), cv2.FONT_HERSHEY_PLAIN, 1, pinch_clr)
+        file_name = f'cages_pinches_{self.vis_idx}.png'
+        path = os.path.join(self.output_vis_dir, file_name)
+        cv2.imwrite(path , img)
 
     def _visualize_cage_pinch(self, cage, pinch, idx=0):
         img = self.img.copy()
         cage = cage.copy()[::-1]
         pinch = pinch.copy()[::-1]
-        cage_clr = (255,0,0)
-        pinch_clr = (0,0,255)
+        cage_clr = (255, 0, 0)
+        pinch_clr = (0, 0, 255)
         cv2.circle(img, cage, 3, cage_clr, -1)
-        cv2.putText(img, 'cage', (cage[0]+2, cage[1]+2), cv2.FONT_HERSHEY_PLAIN, 1, cage_clr)
+        cv2.putText(img, 'cage', (cage[0] + 2, cage[1] + 2), cv2.FONT_HERSHEY_PLAIN, 1, cage_clr)
         cv2.circle(img, pinch, 3, pinch_clr, -1)
-        cv2.putText(img, 'pinch', (pinch[0]+2, pinch[1]+2), cv2.FONT_HERSHEY_PLAIN, 1, pinch_clr)
-        file_name = f'viz_cage_pinch_{idx}.png'
+        cv2.putText(img, 'pinch', (pinch[0] + 2, pinch[1] + 2), cv2.FONT_HERSHEY_PLAIN, 1, pinch_clr)
+        file_name = f'cage_pinch_graspable_{self.vis_idx}.png'
         path = os.path.join(self.output_vis_dir, file_name)
         cv2.imwrite(path , img)
+    
 
     def _visualize_full(self):
         img = self.img.copy()
@@ -296,7 +295,7 @@ class TracerKnotDetector():
     def _visualize_tensor(self, tensor, file_name):
         img = tensor.clone().detach()
         img = img.squeeze(0)
-        img = img.cpu().detach().numpy().transpose(1, 2, 0) * 255
+        img = img.cpu().detach().numpy().transpose(1, 2, 0).copy() * 255
         cv2.imwrite(self.output_vis_dir + file_name, img[..., ::-1])
 
     def _crop_img(self, img, center_pixel, crop_size):
@@ -346,7 +345,7 @@ class TracerKnotDetector():
             uo_model_input = uon_model_input
             img = uo_model_input.clone().detach()
             img = img.squeeze(0).numpy().transpose((1, 2, 0))
-            img[:, :, 1] = self.gauss_2d_batch_efficient_np(self.crop_size, self.crop_size, [self.crop_width], [self.crop_width], weights=[1.0])
+            img[:, :, 1] = self._gauss_2d_batch_efficient_np(self.crop_size, self.crop_size, [self.crop_width], [self.crop_width], weights=[1.0])
             uo_model_input = self.transform(img.copy())
             if file_name is not None:
                 self._visualize_tensor(uo_model_input, file_name)
@@ -360,10 +359,6 @@ class TracerKnotDetector():
             return pred, prediction_prob
 
     def _predict_uo(self, uo_model_input, file_name=None):
-        img = uo_model_input.clone().detach()
-        img = img.squeeze(0).numpy().transpose((1, 2, 0))
-        img[:, :, 1] = self.gauss_2d_batch_efficient_np(self.crop_size, self.crop_size, [self.crop_width], [self.crop_width], weights=[1.0])
-        uo_model_input = self.transform(img.copy())
         if file_name is not None:
             self._visualize_tensor(uo_model_input, file_name)
         predictor = Prediction(self.uo_model, self.uo_config.num_keypoints, self.uo_config.img_height, self.uo_config.img_width, parallelize=self.parallel)
@@ -415,22 +410,31 @@ class TracerKnotDetector():
     
     def _get_knot_confidence(self):
         return self.knot[-1]['confidence'] * self.knot[0]['confidence']
-    
-    # return the next under crossing after the knot, None if no next undercrossing within the trace
-    def _get_next_under_crossing_after_knot(self):
+
+    # return the first undercrossing (after undercrossing at start of knot), None if no next undercrossing within the trace
+    def _get_prev_under_crossing_after_knot(self):
         if self.knot is None:
-            raise Exception('No knot found so cannot detect undercrossing after it')
+            raise Exception('No knot found so cannot detect undercrossing inside it')
     
-        next_under = None
-        for crossing in self.detector.crossings_stack:
+        for crossing in self.detector.crossings:
             if crossing['pixels_idx'] <= self.knot[0]['pixels_idx']:
                 continue
             if crossing['ID'] == 0:
-                next_under = crossing
+                self.under_crossing_before_knot = crossing
+                break
+    
+    # return the first undercrossing (after end of knot), None if no next undercrossing within the trace
+    def _get_next_under_crossing_after_knot(self):
+        if self.knot is None:
+            raise Exception('No knot found so cannot detect undercrossing after it')
+
+        for crossing in self.detector.crossings:
+            if crossing['pixels_idx'] <= self.knot[-1]['pixels_idx']:
+                continue
+            if crossing['ID'] == 0:
+                self.under_crossing_after_knot = crossing
                 break
         
-        return next_under
-
     def _determine_pinch(self, knot=True):
         if knot:
             idx = self.knot[-1]['pixels_idx']
@@ -448,26 +452,29 @@ class TracerKnotDetector():
                         idx = crossing['pixels_idx']
                         break
             if idx == float('inf'):
-                return None
+                return None, None, None
 
         pinch = self._get_pixel_at(idx)
 
-        next_under = None
+        prev_under = None
         if knot:
+            # prev_under = self.under_crossing_before_knot #should be an index in trace
+            # print("Knot prev under: ", prev_under)
+            # prev_under = prev_under['pixels_idx']
             for i in range(-2, -len(self.knot), -1):
                 if self.knot[i]['ID'] == 0:
-                    next_under = self.knot[i]['pixels_idx']
+                    prev_under = self.knot[i]['pixels_idx']
                     break
         else:
             for crossing in self.detector.crossings_stack:
                 if crossing['pixels_idx'] <= idx:
                     continue
                 if crossing['ID'] == 0:
-                    next_under = crossing['pixels_idx']
+                    prev_under = crossing['pixels_idx']
                     break
 
-        if next_under == None:
-            return None
+        if prev_under == None:
+            return None, None, None
 
         pinch_idx = idx
         hit_under = False
@@ -477,20 +484,26 @@ class TracerKnotDetector():
             graspability = self.graspability.find_pixel_point_graspability(pinch, self.img)
             points_explored[idx] = graspability
             idx -= 1
-            hit_under = idx <= next_under
+            hit_under = idx <= prev_under
 
         hit_under = False
-        idx = pinch_idx + 1
+        idx = pinch_idx - 1
         next_under = None
-        if knot:
-            for crossing in self.detector.crossings_stack:
-                if crossing['pixels_idx'] <= idx:
-                    continue
-                if crossing['ID'] == 0:
-                    next_under = crossing['pixels_idx']
-                    break
+        if knot and self.under_crossing_after_knot:
+            next_under = self.under_crossing_after_knot['pixels_idx']
+            print("Got pinch next under: ", next_under)
+            # for i in range(-2, -len(self.knot), -1):
+            #     if self.knot[i]['ID'] == 0:
+            #         prev_under = self.knot[i]['pixels_idx']
+            #         break
+            # for crossing in self.detector.crossings_stack:
+            #     if crossing['pixels_idx'] <= idx:
+            #         continue
+            #     if crossing['ID'] == 0:
+            #         next_under = crossing['pixels_idx']
+            #         break
         else:
-            return None
+            next_under = None
 
         if next_under == None:
             hit_under = True
@@ -505,15 +518,24 @@ class TracerKnotDetector():
         min_graspability = float('inf')
         min_grasp_idx = -1
         for key in points_explored:
+            # print("pinch graspabilities: ", points_explored[key])
             if points_explored[key] < min_graspability:
                 min_graspability = points_explored[key]
                 min_grasp_idx = key
 
+        min_grasp_idx = prev_under if min_graspability > 100 else min_grasp_idx
+        print("min graspability: ", min_graspability)
+        while min_graspability > 100:
+            min_grasp_idx -= 1
+            pinch = self._get_pixel_at(min_grasp_idx)
+            min_graspability = self.graspability.find_pixel_point_graspability(pinch, self.img)
+            print("min_graspability: ", min_graspability)
+
         pinch = self._get_pixel_at(min_grasp_idx)
         print('Graspable pinch:', pinch)
-        return pinch
+        return points_explored, pinch, min_grasp_idx
 
-    def _determine_cage(self, knot=True):
+    def _determine_cage(self, pinch_idx, knot=True):
         # go back until you're at the trace part that corresponds to overcrossing
         if knot:
             idx = self.knot[0]['pixels_idx'] + 1
@@ -524,18 +546,21 @@ class TracerKnotDetector():
                     idx = crossing['pixels_idx'] + 1
                     break
             if idx == float('inf'):
-                return None, None
+                return None, None, None
 
         next_under = None
-        for crossing in self.detector.crossings_stack:
-            if crossing['pixels_idx'] <= idx:
-                continue
-            if crossing['ID'] == 0:
-                next_under = crossing['pixels_idx']
-                break
+        if knot and self.under_crossing_before_knot:
+            next_under = self.under_crossing_before_knot['pixels_idx']
+        else:
+            for crossing in self.detector.crossings_stack:
+                if crossing['pixels_idx'] <= idx:
+                    continue
+                if crossing['ID'] == 0:
+                    next_under = crossing['pixels_idx']
+                    break
 
         if next_under == None:
-            return None, None
+            return None, None, None
     
         hit_under = False
         points_explored = {}
@@ -547,16 +572,37 @@ class TracerKnotDetector():
             idx += 1
             hit_under = idx >= next_under
 
+        # far_from_crossing = {}
+        # for key in points_explored:
+        #     if key not in self.detector.crossings:
+        #         far_from_crossing[key] = points_explored[key]
+
         min_graspability = float('inf')
         min_grasp_idx = -1
         for key in points_explored:
+            # print("cage graspabilities: ", points_explored[key])
             if points_explored[key] < min_graspability:
                 min_graspability = points_explored[key]
                 min_grasp_idx = key
 
+        min_grasp_idx = next_under if min_graspability > 100 else min_grasp_idx
+        cage = self._get_pixel_at(min_grasp_idx)
+        if pinch_idx is not None:
+            start = np.min([min_grasp_idx, pinch_idx])
+            end = np.max([min_grasp_idx, pinch_idx])
+            dist = self.tracer.get_dist_cumsum(self.pixels[start:end])
+        while min_graspability > 100 and ((pinch_idx is not None and dist > 0.04) or pinch_idx is None):
+            min_grasp_idx += 1
+            cage = self._get_pixel_at(min_grasp_idx)
+            min_graspability = self.graspability.find_pixel_point_graspability(cage, self.img)
+            if pinch_idx is not None:
+                start = np.min([min_grasp_idx, pinch_idx])
+                end = np.max([min_grasp_idx, pinch_idx])
+                dist = self.tracer.get_dist_cumsum(self.pixels[start:end])
+
         cage = self._get_pixel_at(min_grasp_idx)
         print('Graspable cage: ', cage)
-        return cage, idx
+        return points_explored, cage, min_grasp_idx
 
     def interpolate_trace(self, pixels):
         k = pixels.shape[0] - 1 if pixels.shape[0] < 4 else 3
@@ -618,7 +664,7 @@ class TracerKnotDetector():
 
         return crossings
 
-    def _get_crossing_locs(self):
+    def _get_crossing_locs(self, viz=False):
         line_segments = []
 
         for i in range(len(self.pixels) - 1):
@@ -629,7 +675,7 @@ class TracerKnotDetector():
         i = 0
         while i < len(line_segments):
             current_line_seg = line_segments[i]
-            for j in chain(range(max(0, i - self.num_steps_min_for_crossing)), range(i + self.num_steps_min_for_crossing, len(line_segments))):
+            for j in chain(range(max(0, i - self.num_steps_min_for_crossing)), range(i + self.num_steps_min_for_crossing + 1, len(line_segments))):
                 other_line_seg = line_segments[j]
                 if current_line_seg.intersects(other_line_seg):
                     center_point = current_line_seg.intersection(other_line_seg)
@@ -639,14 +685,23 @@ class TracerKnotDetector():
                         i += self.num_steps_min_for_crossing
                         break
             i += 1
+        
+        if viz:
+            img = self.img.copy()
+            clr = (255, 0, 0)
+            ctr = 0
+            for crossing_loc in crossing_locs:
+                y, x = crossing_loc[0]
+                cv2.circle(img, (x, y), 3, clr, -1)
+                cv2.putText(img, str(ctr), (x + 2, y + 2), cv2.FONT_HERSHEY_PLAIN, 1, clr)
+                ctr += 1
+            cv2.imwrite(self.output_vis_dir + 'all_crossings' + '.png', img)
 
         return crossing_locs
 
-    def trace_and_detect_knot(self):
+    def trace_and_detect_knot(self, endpoints=None):
         # import pdb; pdb.set_trace()
-        # for debugging, remove later
-        img_deb = self.img.copy()
-        self.pixels, self.trace_end = self.tracer.trace(self.img, self.starting_pixels_for_trace, viz=True, path_len=100)
+        self.pixels, self.trace_end = self.tracer.trace(self.img, self.starting_pixels_for_trace, endpoints=endpoints, viz=True, path_len=500)
         self.pixels = self.interpolate_trace(self.pixels)
         self.crossing_locs = self._get_crossing_locs()
 
@@ -663,6 +718,8 @@ class TracerKnotDetector():
                     print('FOUND KNOT')
                     self.knot = knot_output
                     self.last_trace_step_in_knot = self.knot[-1]['pixels_idx']
+                    self._get_prev_under_crossing_after_knot()
+                    self._get_next_under_crossing_after_knot()
                 return
             
             uo_data['crop_img'] = crop
@@ -677,10 +734,11 @@ class TracerKnotDetector():
             uo_model_input = self._getuoitem(uo_data)
 
             # predict UON on input
-            uo, prob = self._predict_uo(uo_model_input, file_name = f'uo_{pixels_idx}.png')
+            # uo, prob = self._predict_uo(uo_model_input, file_name = f'uo_{pixels_idx}.png')
+            uo, prob = self._predict_uo(uo_model_input)
 
             # add UON to stream and process stream                
-            crossing = {'loc': center_pixel, 'ID': uo, 'confidence': prob, 'pixels_idx': pixels_idx}
+            crossing = {'loc': center_pixel, 'ID': uo, 'confidence': prob, 'pixels_idx': pixels_idx, 'crossing_idx': i}
             
             # add crossing
             self._add_crossing(crossing)
@@ -691,8 +749,10 @@ class TracerKnotDetector():
             print('FOUND KNOT')
             self.knot = knot_output
             self.last_trace_step_in_knot = self.knot[-1]['pixels_idx']
+            self._get_prev_under_crossing_after_knot()
+            self._get_next_under_crossing_after_knot()
             return
-
+            
         # first_step = True
         # for model_step in range(len(self.pixels)):
         #     center_pixel = self._get_pixel_at(model_step)
@@ -742,29 +802,34 @@ class TracerKnotDetector():
         #     if uon == 2:
         #         first_step = False
     
-    def perception_pipeline(self, idx=0, viz=False):
+    def perception_pipeline(self, endpoints=None, idx=0, viz=False):
         self.vis_idx += 1
-        self.trace_and_detect_knot()
+        self.trace_and_detect_knot(endpoints=endpoints)
         if viz:
             print('Visualizing and dumping.')
             self._visualize(self.img, f'full_img_{self.vis_idx}.png')
             self._visualize_full()
-            self._visualize_crossing_stack()
+            if self.knot:
+                self._visualize_knot()
+            self._visualize_all_crossings()
         if not self.knot:
             print('No knots!')
             done_untangling = True
-            pinch = self._determine_pinch(knot=False)
-            cage, cage_idx = self._determine_cage(knot=False)
+            pinches, pinch, pinch_idx = self._determine_pinch(knot=False)
+            cages, cage, cage_idx = self._determine_cage(pinch_idx, knot=False)
             knot_confidence = None
         else:
             done_untangling = False
-            pinch = self._determine_pinch()
-            cage, cage_idx = self._determine_cage()
+            pinches, pinch, pinch_idx = self._determine_pinch()
+            cages, cage, cage_idx = self._determine_cage(pinch_idx)
             knot_confidence = self._get_knot_confidence()
         pinch_viz = [0,0] if pinch is None else pinch
         cage_viz = [0,0] if cage is None else cage
+        pinches = {0:0} if pinches is None else pinches
+        cages = {0:0} if cages is None else cages
         if viz:
             self._visualize_cage_pinch(cage_viz, pinch_viz, idx=idx)
+            self._visualize_all_cages_pinches(cages, pinches, idx=idx)
         pull_apart_dist = self.tracer.get_dist_cumsum(self.pixels[:cage_idx])
         reveal_point = None
         if self.trace_end == TraceEnd.EDGE:
@@ -803,22 +868,18 @@ if __name__ == '__main__':
             print(data_path)
             print()
             try:
-                tkd.perception_pipeline(idx=i)
+                tkd.perception_pipeline(viz=True, idx=i)
             except Exception as e:
                 if 'Not enough starting points' in str(e):
                     continue
                 else:
                     raise e
             tkd._visualize_full()
-            tkd._visualize_crossing_stack()
             tkd._visualize_all_crossings()
             if tkd.knot:
                 print()
                 print(tkd.knot)
                 print(tkd._get_knot_confidence())
-                tkd.under_crossing_after_knot = tkd._get_next_under_crossing_after_knot()
-                if tkd.under_crossing_after_knot:
-                    print(tkd.under_crossing_after_knot)
                 tkd._visualize_knot()
     else:
         data_path = f'/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer/test/{data_index}.npy'
@@ -827,16 +888,12 @@ if __name__ == '__main__':
         tkd._set_data(test_data['img'], np.flip(test_data['pixels'][:10], axis=1))
         print(data_path)
         print()
-        tkd.perception_pipeline()
+        tkd.perception_pipeline(viz=True)
         tkd._visualize(test_data['img'], 'full_img.png')
         tkd._visualize_full()
-        tkd._visualize_crossing_stack()
         tkd._visualize_all_crossings()
         if tkd.knot:
             print()
             print(tkd.knot)
             print(tkd._get_knot_confidence())
-            tkd.under_crossing_after_knot = tkd._get_next_under_crossing_after_knot()
-            if tkd.under_crossing_after_knot:
-                print(tkd.under_crossing_after_knot)
             tkd._visualize_knot()

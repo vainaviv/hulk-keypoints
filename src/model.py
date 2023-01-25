@@ -5,8 +5,8 @@ import torch.nn.functional as F
 import time
 import sys
 import os
-sys.path.insert(0, 'src')
-from resnet_dilated import Resnet34_8s, Resnet50_8s, Resnet34_Classifier, Resnet50_Classifier
+sys.path.insert(0, '..') # Uncomment for bajcsy (Check?)
+from src.resnet_dilated import Resnet34_8s, Resnet50_8s, Resnet34_Classifier, Resnet50_Classifier
 import segmentation_models_pytorch as smp
 
 class KeypointsGauss(nn.Module):
