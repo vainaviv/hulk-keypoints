@@ -74,8 +74,8 @@ class KnotDetector:
         self.crossings_stack.append(prev_crossing)
         self.crossings_stack.append(seg)
 
-        if self.is_knot_encountered():
-            return self.knot
+        # if self.is_knot_encountered():
+        #     return self.knot
 
     def is_knot_encountered(self) -> bool:
         '''
