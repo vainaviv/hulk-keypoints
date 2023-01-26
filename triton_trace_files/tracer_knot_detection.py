@@ -395,18 +395,18 @@ class TracerKnotDetector():
         else:
             return {'loc': (avg_x, avg_y), 'ID': 0, 'confidence': -weighted_sum, 'pixels_idx': pixels_idx}
     
-    # add new crossing to stack and check if a knot is formed after adding this new crossing
-    def _add_crossing_and_run_knot_detection(self, crossing):
-        return self.detector.encounter_seg(crossing)
-
      # add new crossing to stack
     def _add_crossing(self, crossing):
-        self.detector.encounter_seg(crossing)
+        self.detector.encounter_crossing(crossing)
+        return
+
+    def _correct_all_crossings(self):
+        self.detector.correct_all_crossings()
         return
 
     # check if a knot is formed (with existing stack)
-    def _run_knot_detection(self):
-        return self.detector.knot
+    def _find_knot_from_corrected_crossings(self):
+        return self.detector.find_knot_from_corrected_crossings()
     
     def _get_knot_confidence(self):
         return self.knot[-1]['confidence'] * self.knot[0]['confidence']
@@ -700,6 +700,14 @@ class TracerKnotDetector():
         return crossing_locs
 
     def trace_and_detect_knot(self, endpoints=None):
+        # Flow (for debugging):
+        # 1. Get trace -> 
+        # 2. Find all crossing locations -> 
+        # 3. Classify crossings at those locations ->
+        # 4. Run crossing correction on all crossings -> 
+        # 5. Add crossings one-by-one to stack ->
+        # 6. Run knot detection and return knot at earliest start index along trace (earliest knot)
+
         # import pdb; pdb.set_trace()
         self.pixels, self.trace_end = self.tracer.trace(self.img, self.starting_pixels_for_trace, endpoints=endpoints, viz=True, path_len=500)
         self.pixels = self.interpolate_trace(self.pixels)
@@ -712,7 +720,8 @@ class TracerKnotDetector():
             
             if crop is None:
                 print('HIT IMAGE EDGE')
-                knot_output = self._run_knot_detection()
+                self._correct_all_crossings()
+                knot_output = self._find_knot_from_corrected_crossings()
                 # check if that new crossing being added to sequence creates a knot
                 if knot_output:
                     print('FOUND KNOT')
@@ -743,7 +752,8 @@ class TracerKnotDetector():
             # add crossing
             self._add_crossing(crossing)
 
-        knot_output = self._run_knot_detection()
+        self._correct_all_crossings()
+        knot_output = self._find_knot_from_corrected_crossings()
         # check if a knot is found
         if knot_output:
             print('FOUND KNOT')
