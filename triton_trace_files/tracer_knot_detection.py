@@ -260,7 +260,6 @@ class TracerKnotDetector():
         path = os.path.join(self.output_vis_dir, file_name)
         cv2.imwrite(path , img)
     
-
     def _visualize_full(self):
         img = self.img.copy()
         file_name = f'full_img_{self.vis_idx}'
@@ -434,7 +433,7 @@ class TracerKnotDetector():
             if crossing['ID'] == 0:
                 self.under_crossing_after_knot = crossing
                 break
-        
+
     def _determine_pinch(self, knot=True):
         if knot:
             idx = self.knot[-1]['pixels_idx']
@@ -458,10 +457,7 @@ class TracerKnotDetector():
 
         prev_under = None
         if knot:
-            # prev_under = self.under_crossing_before_knot #should be an index in trace
-            # print("Knot prev under: ", prev_under)
-            # prev_under = prev_under['pixels_idx']
-            for i in range(-2, -len(self.knot), -1):
+            for i in range(-2, -len(self.knot)-1, -1):
                 if self.knot[i]['ID'] == 0:
                     prev_under = self.knot[i]['pixels_idx']
                     break
@@ -472,7 +468,6 @@ class TracerKnotDetector():
                 if crossing['ID'] == 0:
                     prev_under = crossing['pixels_idx']
                     break
-
         if prev_under == None:
             return None, None, None
 
@@ -482,6 +477,8 @@ class TracerKnotDetector():
         while not hit_under: 
             pinch = self._get_pixel_at(idx)
             graspability = self.graspability.find_pixel_point_graspability(pinch, self.img)
+            if graspability <= 120:
+                break
             points_explored[idx] = graspability
             idx -= 1
             hit_under = idx <= prev_under
@@ -491,17 +488,6 @@ class TracerKnotDetector():
         next_under = None
         if knot and self.under_crossing_after_knot:
             next_under = self.under_crossing_after_knot['pixels_idx']
-            print("Got pinch next under: ", next_under)
-            # for i in range(-2, -len(self.knot), -1):
-            #     if self.knot[i]['ID'] == 0:
-            #         prev_under = self.knot[i]['pixels_idx']
-            #         break
-            # for crossing in self.detector.crossings_stack:
-            #     if crossing['pixels_idx'] <= idx:
-            #         continue
-            #     if crossing['ID'] == 0:
-            #         next_under = crossing['pixels_idx']
-            #         break
         else:
             next_under = None
 
@@ -512,6 +498,8 @@ class TracerKnotDetector():
             pinch = self._get_pixel_at(idx)
             graspability = self.graspability.find_pixel_point_graspability(pinch, self.img)
             points_explored[idx] = graspability
+            if graspability <= 120:
+                break
             idx += 1
             hit_under = idx >= next_under
 
@@ -523,13 +511,12 @@ class TracerKnotDetector():
                 min_graspability = points_explored[key]
                 min_grasp_idx = key
 
-        min_grasp_idx = prev_under if min_graspability > 100 else min_grasp_idx
-        print("min graspability: ", min_graspability)
-        while min_graspability > 100:
+        print("PINCH GRASPABILITY: ", min_graspability)
+        min_grasp_idx = prev_under if min_graspability > 120 else min_grasp_idx
+        while min_graspability > 120:
             min_grasp_idx -= 1
             pinch = self._get_pixel_at(min_grasp_idx)
             min_graspability = self.graspability.find_pixel_point_graspability(pinch, self.img)
-            print("min_graspability: ", min_graspability)
 
         pinch = self._get_pixel_at(min_grasp_idx)
         print('Graspable pinch:', pinch)
@@ -561,44 +548,59 @@ class TracerKnotDetector():
 
         if next_under == None:
             return None, None, None
+
+        if pinch_idx is not None:
+            pinch = self._get_pixel_at(pinch_idx)
     
         hit_under = False
         points_explored = {}
         # then trace from there forward and stop once you're at the next undercrossing
         while not hit_under:
             cage = self._get_pixel_at(idx)
+            if pinch_idx is not None:
+                # start = np.min([idx, pinch_idx])
+                # end = np.max([idx, pinch_idx])
+                dist = np.linalg.norm(cage - pinch) #self.tracer.get_dist_cumsum(self.pixels[start:end])
+                if dist < self.dist_buffer:
+                    idx += 1
+                    hit_under = idx >= next_under
+                    continue
             graspability = self.graspability.find_pixel_point_graspability(cage, self.img)
+            if graspability <= 120:
+                break
             points_explored[idx] = graspability
             idx += 1
             hit_under = idx >= next_under
 
-        # far_from_crossing = {}
-        # for key in points_explored:
-        #     if key not in self.detector.crossings:
-        #         far_from_crossing[key] = points_explored[key]
-
         min_graspability = float('inf')
         min_grasp_idx = -1
+        for key in points_explored:
+            if points_explored[key] < min_graspability:
+                min_graspability = points_explored[key]
+                min_grasp_idx = key
+
+        min_grasp_idx = idx if min_graspability > 120 else min_grasp_idx
+        cage = self._get_pixel_at(min_grasp_idx)
+        if pinch_idx is not None:
+            dist = np.linalg.norm(cage - pinch)
+        min_grasp_idx_cp = min_grasp_idx
+        while min_grasp_idx_cp < (len(self.pixels)-1) and (min_graspability > 120 or ((pinch_idx is not None and dist < self.dist_buffer) or pinch_idx is None)):
+            min_grasp_idx_cp += 1
+            cage = self._get_pixel_at(min_grasp_idx_cp)
+            min_graspability = self.graspability.find_pixel_point_graspability(cage, self.img)
+            if pinch_idx is not None:
+                dist = np.linalg.norm(cage - pinch)
+                if dist < self.dist_buffer:
+                    continue
+            points_explored[min_grasp_idx_cp] = min_graspability
+        # if pinch_idx is not None and dist >= self.dist_buffer:
+        #     min_grasp_idx = min_grasp_idx_cp
+
         for key in points_explored:
             # print("cage graspabilities: ", points_explored[key])
             if points_explored[key] < min_graspability:
                 min_graspability = points_explored[key]
                 min_grasp_idx = key
-
-        min_grasp_idx = next_under if min_graspability > 100 else min_grasp_idx
-        cage = self._get_pixel_at(min_grasp_idx)
-        if pinch_idx is not None:
-            start = np.min([min_grasp_idx, pinch_idx])
-            end = np.max([min_grasp_idx, pinch_idx])
-            dist = self.tracer.get_dist_cumsum(self.pixels[start:end])
-        while min_graspability > 100 and ((pinch_idx is not None and dist > 0.04) or pinch_idx is None):
-            min_grasp_idx += 1
-            cage = self._get_pixel_at(min_grasp_idx)
-            min_graspability = self.graspability.find_pixel_point_graspability(cage, self.img)
-            if pinch_idx is not None:
-                start = np.min([min_grasp_idx, pinch_idx])
-                end = np.max([min_grasp_idx, pinch_idx])
-                dist = self.tracer.get_dist_cumsum(self.pixels[start:end])
 
         cage = self._get_pixel_at(min_grasp_idx)
         print('Graspable cage: ', cage)
@@ -840,7 +842,7 @@ class TracerKnotDetector():
         if viz:
             self._visualize_cage_pinch(cage_viz, pinch_viz, idx=idx)
             self._visualize_all_cages_pinches(cages, pinches, idx=idx)
-        pull_apart_dist = self.tracer.get_dist_cumsum(self.pixels[:cage_idx])
+        pull_apart_dist = self.tracer.get_dist_cumsum(self.pixels[:pinch_idx])
         reveal_point = None
         if self.trace_end == TraceEnd.EDGE:
             reveal_point = self.pixels[-1]
@@ -850,10 +852,12 @@ class TracerKnotDetector():
         output['pinch'] = pinch
         output['cage'] = cage
         output['knot_confidence'] = knot_confidence
-        output['pull_apart_dist'] = pull_apart_dist
-        output['done_untangling'] = done_untangling
+        output['pull_apart_dist'] = pull_apart_dist/2
+        output['done_untangling'] = done_untangling and (self.trace_end == TraceEnd.ENDPOINT or self.trace_end == TraceEnd.FINISHED)
         output['trace_end'] = self.trace_end
         output['reveal_point'] = reveal_point
+        output['trace_incomplete'] = not ((self.trace_end == TraceEnd.EDGE) or not self.tracer._is_uncovered_area_touching_before_idx(self.img, self.pixels, cage_idx, endpoints)) #TODO(@Kaushik): change to true as needed
+        print(output)
         return output
             
 if __name__ == '__main__':
