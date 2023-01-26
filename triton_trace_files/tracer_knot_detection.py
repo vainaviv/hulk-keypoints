@@ -54,6 +54,7 @@ class TracerKnotDetector():
         self.trace_end = None
         self.gauss_sigma = 1
         self.threshold = 0.275
+        self.dist_buffer = 30
 
         self.crop_size = 20
         self.crop_width = self.crop_size // 2
@@ -476,10 +477,11 @@ class TracerKnotDetector():
         points_explored = {}
         while not hit_under: 
             pinch = self._get_pixel_at(idx)
-            graspability = self.graspability.find_pixel_point_graspability(pinch, self.img)
+            graspability = self.graspability.find_pixel_point_graspability(pinch, self.detector.crossings, self.img)
+            # print('first loop', graspability)
+            points_explored[idx] = graspability
             if graspability <= 120:
                 break
-            points_explored[idx] = graspability
             idx -= 1
             hit_under = idx <= prev_under
 
@@ -496,7 +498,8 @@ class TracerKnotDetector():
 
         while not hit_under:
             pinch = self._get_pixel_at(idx)
-            graspability = self.graspability.find_pixel_point_graspability(pinch, self.img)
+            graspability = self.graspability.find_pixel_point_graspability(pinch, self.detector.crossings, self.img)
+            # print('second loop', graspability)
             points_explored[idx] = graspability
             if graspability <= 120:
                 break
@@ -516,8 +519,8 @@ class TracerKnotDetector():
         while min_graspability > 120:
             min_grasp_idx -= 1
             pinch = self._get_pixel_at(min_grasp_idx)
-            min_graspability = self.graspability.find_pixel_point_graspability(pinch, self.img)
-
+            min_graspability = self.graspability.find_pixel_point_graspability(pinch,
+                                                                               self.detector.crossings, self.img)
         pinch = self._get_pixel_at(min_grasp_idx)
         print('Graspable pinch:', pinch)
         return points_explored, pinch, min_grasp_idx
@@ -565,7 +568,7 @@ class TracerKnotDetector():
                     idx += 1
                     hit_under = idx >= next_under
                     continue
-            graspability = self.graspability.find_pixel_point_graspability(cage, self.img)
+            graspability = self.graspability.find_pixel_point_graspability(cage, self.detector.crossings, self.img)
             if graspability <= 120:
                 break
             points_explored[idx] = graspability
@@ -587,7 +590,7 @@ class TracerKnotDetector():
         while min_grasp_idx_cp < (len(self.pixels)-1) and (min_graspability > 120 or ((pinch_idx is not None and dist < self.dist_buffer) or pinch_idx is None)):
             min_grasp_idx_cp += 1
             cage = self._get_pixel_at(min_grasp_idx_cp)
-            min_graspability = self.graspability.find_pixel_point_graspability(cage, self.img)
+            min_graspability = self.graspability.find_pixel_point_graspability(cage, self.detector.crossings, self.img)
             if pinch_idx is not None:
                 dist = np.linalg.norm(cage - pinch)
                 if dist < self.dist_buffer:
@@ -596,6 +599,8 @@ class TracerKnotDetector():
         # if pinch_idx is not None and dist >= self.dist_buffer:
         #     min_grasp_idx = min_grasp_idx_cp
 
+        min_graspability = float('inf')
+        min_grasp_idx = -1
         for key in points_explored:
             # print("cage graspabilities: ", points_explored[key])
             if points_explored[key] < min_graspability:
