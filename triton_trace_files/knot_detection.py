@@ -57,12 +57,15 @@ class KnotDetector:
         self.crossings.append(crossing)
 
     def add_crossing_to_stack(self, crossing):
+        '''
+        Runs cancellation and optionally adds crossing to stack.
+        '''
         if not self.crossings_stack:
             curr_x, curr_y = crossing['loc']
             self.crossings_stack.append(crossing)
             return
         
-        # simplify if same crossing is immediately re-encountered (over -> under or under -> over)
+        # R1: simplify if same crossing is immediately re-encountered (over -> under or under -> over)
         # TODO: check popping
         prev_crossing = self.crossings_stack.pop()
         prev_x, prev_y = prev_crossing['loc']
@@ -71,6 +74,16 @@ class KnotDetector:
 
         if np.linalg.norm(np.array([curr_x, curr_y]) - np.array([prev_x, prev_y])) <= self.eps:
             return
+
+        # R2: simplify if UU/OO is encountered later as OO/UU (at the same locations, in no order) 
+        if curr_id == prev_id:
+            curr_pos = self.get_crossing_pos(crossing, len(self.crossings_stack))
+            prev_pos = self.get_crossing_pos(prev_crossing, len(self.crossings_stack))
+
+            if curr_pos != -1 and prev_pos != -1 and abs(curr_pos - prev_pos) == 1:
+                min_pos = min(curr_pos, prev_pos)
+                self.crossings_stack = self.crossings_stack[:min_pos] + self.crossings_stack[min_pos + 1:]
+                return
 
         self.crossings_stack.append(prev_crossing)
         self.crossings_stack.append(crossing)
@@ -86,7 +99,7 @@ class KnotDetector:
         #     return False
             
         crossing = self.crossings_stack[-1]
-        pos = self.get_crossing_pos(crossing)
+        pos = self.get_crossing_pos(crossing, len(self.crossings_stack) - 1)
         # no knot encountered if crossing hasn't been seen before
         if pos == -1:
             return
@@ -109,9 +122,9 @@ class KnotDetector:
             self.start_idx = start_idx
             self.crossings_stack = self.crossings_stack[:pos]
 
-    def get_crossing_pos(self, crossing) -> int:
+    def get_crossing_pos(self, crossing, end_stack_idx) -> int:
         '''
-        Returns the index of previous sighting on the stack.
+        Returns the index of previous sighting on the stack (before end_stack_idx).
         If crossing has not been seen previously, returns -1.
         '''
         curr_x, curr_y = crossing['loc']
@@ -123,7 +136,7 @@ class KnotDetector:
         # print()
 
         # only look at crossings prior to most recently added crossing
-        for pos in range(len(self.crossings_stack) - 1):
+        for pos in range(end_stack_idx):
             prev_crossing = self.crossings_stack[pos]
             prev_x, prev_y = prev_crossing['loc']
             prev_id = prev_crossing['ID']
@@ -134,6 +147,9 @@ class KnotDetector:
         return -1        
 
     def find_knot_from_corrected_crossings(self):
+        '''
+        Returns knot, if it exists.
+        '''
         for crossing in self.crossings:
             self.add_crossing_to_stack(crossing)
         return self.knot
@@ -147,45 +163,67 @@ class KnotDetector:
         # plt.imshow(smooth)
         # plt.savefig('smooth.png')
 
-# def test_knot_detector_basic(detector):
-#     crossings = [
-#         {'loc': (0, 0), 'ID': 0}, # U at P0
-#         {'loc': (10, 9), 'ID': 0}, # U at P1
-#         {'loc': (20, 21), 'ID': 0}, # U at P2
-#         {'loc': (30, 29), 'ID': 1}, # O at P3
-#         {'loc': (100, 100), 'ID': 2}, # NC
-#         {'loc': (40, 39), 'ID': 0}, # U at P4
-#         {'loc': (21, 20), 'ID': 1}, # O at P2
-#         {'loc': (29, 30), 'ID': 0}, # U at P3
-#         {'loc': (41, 40), 'ID': 1}, # O at P4
-#         {'loc': (9, 10), 'ID': 1} # O at P1
-#     ]
+def test_knot_detector_basic_r2(detector):
+    detector.crossings = [
+        {'loc': (0, 0), 'ID': 0}, # U at P0
+        {'loc': (10, 10), 'ID': 0}, # U at P1
+        {'loc': (0, 0), 'ID': 1}, # O at P0
+        {'loc': (10, 10), 'ID': 1}, # O at P1
+    ]
 
-#     assert detector.detect_knot(crossings) == [{'loc': (20, 21), 'ID': 0}, {'loc': (30, 29), 'ID': 1}, {'loc': (40, 39), 'ID': 0}, {'loc': (21, 20), 'ID': 1}]
+    for i in range(len(detector.crossings)):
+        detector.crossings[i]['crossing_idx'] = i
+        detector.crossings[i]['pixels_idx'] = i
+        detector.crossings[i]['confidence'] = 1
 
-# # make sure O...U is not counted as a knot - same as other input with swapped U and O
-# def test_knot_detector_edge_case(detector):
-#     crossings = [
-#         {'loc': (0, 0), 'ID': 1}, # O at P0
-#         {'loc': (10, 9), 'ID': 1}, # O at P1
-#         {'loc': (20, 21), 'ID': 1}, # O at P2
-#         {'loc': (30, 29), 'ID': 0}, # U at P3
-#         {'loc': (100, 100), 'ID': 2}, # NC
-#         {'loc': (40, 39), 'ID': 1}, # O at P4
-#         {'loc': (21, 20), 'ID': 0}, # U at P2
-#         {'loc': (29, 30), 'ID': 1}, # O at P3
-#         {'loc': (41, 40), 'ID': 0}, # U at P4
-#         {'loc': (9, 10), 'ID': 0} # U at P1
-#     ]
-#     assert detector.detect_knot(crossings) == [{'loc': (30, 29), 'ID': 0}, {'loc': (40, 39), 'ID': 1}, {'loc': (21, 20), 'ID': 0}, {'loc': (29, 30), 'ID': 1}]
+    assert detector.find_knot_from_corrected_crossings() == []
+
+def test_knot_detector_basic_r1r2(detector):
+    detector.crossings = [
+        {'loc': (0, 0), 'ID': 0}, # U at P0
+        {'loc': (10, 10), 'ID': 0}, # U at P1
+        {'loc': (20, 20), 'ID': 0}, # U at P2
+        {'loc': (20, 20), 'ID': 1}, # O at P2
+        {'loc': (0, 0), 'ID': 1}, # O at P0
+        {'loc': (10, 10), 'ID': 1}, # O at P1
+    ]
+
+    for i in range(len(detector.crossings)):
+        detector.crossings[i]['crossing_idx'] = i
+        detector.crossings[i]['pixels_idx'] = i
+        detector.crossings[i]['confidence'] = 1
+
+    assert detector.find_knot_from_corrected_crossings() == []
+
+def test_knot_detector_double_overhand(detector):
+    # DEF ABC ABC DEF
+    detector.crossings = [
+        {'loc': (0, 0), 'ID': 0}, # U at D
+        {'loc': (10, 10), 'ID': 1}, # O at E
+        {'loc': (20, 20), 'ID': 0}, # U at F
+
+        {'loc': (30, 30), 'ID': 0}, # U at A
+        {'loc': (40, 40), 'ID': 1}, # O at B
+        {'loc': (50, 50), 'ID': 0}, # U at C
+
+        {'loc': (30, 30), 'ID': 1}, # O at A
+        {'loc': (40, 40), 'ID': 0}, # U at B
+        {'loc': (50, 50), 'ID': 1}, # O at C
+
+        {'loc': (0, 0), 'ID': 1}, # O at D
+        {'loc': (10, 10), 'ID': 0}, # U at E
+        {'loc': (20, 20), 'ID': 1}, # O at F
+    ]
+
+    for i in range(len(detector.crossings)):
+        detector.crossings[i]['crossing_idx'] = i
+        detector.crossings[i]['pixels_idx'] = i
+        detector.crossings[i]['confidence'] = 1
+
+    assert detector.find_knot_from_corrected_crossings() == detector.crossings[:10]
 
 if __name__ == '__main__':
-    pass
-    
-    # TODO: Update test cases to match updated code structure
-
-    # detector = KnotDetector()
-    # test_knot_detector_basic(detector)
-
-    # detector2 = KnotDetector()
-    # test_knot_detector_edge_case(detector2)
+    detector = KnotDetector()
+    test_knot_detector_basic_r2(detector)
+    test_knot_detector_basic_r1r2(detector)
+    test_knot_detector_double_overhand(detector)
