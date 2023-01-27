@@ -76,7 +76,7 @@ class TracerKnotDetector():
         self.tracer = Tracer()
 
     def _set_data(self, img, starting_pixels):
-        self.detector._reset()
+        self.detector.reset()
         self.img = img
         self.local_crossing_stream = []
         self.crossing_locs = []
@@ -400,13 +400,9 @@ class TracerKnotDetector():
         self.detector.encounter_crossing(crossing)
         return
 
-    def _correct_all_crossings(self):
-        self.detector.correct_all_crossings()
-        return
-
     # check if a knot is formed (with existing stack)
-    def _find_knot_from_corrected_crossings(self):
-        return self.detector.find_knot_from_corrected_crossings()
+    def _find_knot(self):
+        return self.detector.find_knot()
     
     def _get_knot_confidence(self):
         return self.knot[-1]['confidence'] * self.knot[0]['confidence']
@@ -519,8 +515,7 @@ class TracerKnotDetector():
         while min_graspability > 120:
             min_grasp_idx -= 1
             pinch = self._get_pixel_at(min_grasp_idx)
-            min_graspability = self.graspability.find_pixel_point_graspability(pinch,
-                                                                               self.detector.crossings, self.img)
+            min_graspability = self.graspability.find_pixel_point_graspability(pinch, self.detector.crossings, self.img)
         pinch = self._get_pixel_at(min_grasp_idx)
         print('Graspable pinch:', pinch)
         return points_explored, pinch, min_grasp_idx
@@ -708,15 +703,15 @@ class TracerKnotDetector():
 
     def trace_and_detect_knot(self, endpoints=None):
         # Flow (for debugging):
-        # 1. Get trace -> 
-        # 2. Find all crossing locations -> 
-        # 3. Classify crossings at those locations ->
-        # 4. Run crossing correction on all crossings -> 
-        # 5. Add crossings one-by-one to stack ->
-        # 6. Run knot detection and return knot at earliest start index along trace (earliest knot)
+        # Get trace -> 
+        # Find all crossing locations -> 
+        # Classify crossings at those locations ->
+        # Run crossing correction on all crossings -> 
+        # Run crossing cancellation on all crossings (to convergence, optionally) ->
+        # Run knot detection and return knot at earliest start index along trace (earliest knot)
 
         # import pdb; pdb.set_trace()
-        self.pixels, self.trace_end = self.tracer.trace(self.img, self.starting_pixels_for_trace, endpoints=endpoints, viz=True, path_len=500)
+        self.pixels, self.trace_end = self.tracer.trace(self.img, self.starting_pixels_for_trace, endpoints=endpoints, viz=True, path_len=100)
         self.pixels = self.interpolate_trace(self.pixels)
         self.crossing_locs = self._get_crossing_locs()
 
@@ -727,8 +722,7 @@ class TracerKnotDetector():
             
             if crop is None:
                 print('HIT IMAGE EDGE')
-                self._correct_all_crossings()
-                knot_output = self._find_knot_from_corrected_crossings()
+                knot_output = self._find_knot()
                 # check if that new crossing being added to sequence creates a knot
                 if knot_output:
                     print('FOUND KNOT')
@@ -759,8 +753,7 @@ class TracerKnotDetector():
             # add crossing
             self._add_crossing(crossing)
 
-        self._correct_all_crossings()
-        knot_output = self._find_knot_from_corrected_crossings()
+        knot_output = self._find_knot()
         # check if a knot is found
         if knot_output:
             print('FOUND KNOT')
@@ -908,7 +901,6 @@ if __name__ == '__main__':
         print(data_path)
         print()
         tkd.perception_pipeline(viz=True)
-        tkd._visualize(test_data['img'], 'full_img.png')
         tkd._visualize_full()
         tkd._visualize_all_crossings()
         if tkd.knot:
