@@ -7,18 +7,26 @@ import argparse
 
 class Graspability():
     def __init__(self):
-        self.radius = 8 #TODO: tune
+        self.radius = 10 #TODO: tune
         self.i = 0
 
-    def find_pixel_point_graspability(self, point, img):
+    def find_pixel_point_graspability(self, point, crossings, img):
             # total_points = 4*(self.radius**2)
             crop = img[point[0]-self.radius:point[0]+self.radius, point[1]-self.radius:point[1]+self.radius, :]
-            cv2.imwrite(f'/home/vainavi/hulk-keypoints/triton_trace_files/crops/crop_{self.i}.png', crop)
+            # cv2.imwrite(f'/home/vainavi/hulk-keypoints/triton_trace_files/crops/crop_{self.i}.png', crop)
             self.i += 1
             crop_mask = (crop[:, :, 0] > 100)    
             viz_mask = np.array([crop_mask, crop_mask, crop_mask]).transpose(1,2,0) * 255.0
-            cv2.imwrite(f'/home/vainavi/hulk-keypoints/triton_trace_files/crops/crop_mask_{self.i}.png', viz_mask)
-            return  np.sum(crop_mask)
+            # cv2.imwrite(f'/home/vainavi/hulk-keypoints/triton_trace_files/crops/crop_mask_{self.i}.png', viz_mask)
+            penalty = 0
+            all_crossing_locs = []
+            for crossing in crossings:
+                all_crossing_locs.append(crossing['loc'])
+            all_crossing_locs = np.array(all_crossing_locs)
+            # if near a crossing, penalize
+            if np.min(np.linalg.norm(point[None, :] - all_crossing_locs, axis=-1)) < 15:
+                penalty = 100
+            return  np.sum(crop_mask) + penalty
 
 if __name__ == '__main__':
     # parse command line flags

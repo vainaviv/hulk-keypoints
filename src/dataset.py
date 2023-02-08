@@ -191,7 +191,7 @@ class KeypointsDataset(Dataset):
         self.seed = seed
         self.oversample = config.oversample
         self.oversample_rate = config.oversample_rate
-        self.rot_cond = config.rot_cond
+        self.rot_cond = False #config.rot_cond
         self.dataset_real = config.dataset_real if not real_only else [True for _ in range(len(folder))]
 
         self.data = []
@@ -592,7 +592,7 @@ if __name__ == '__main__':
     os.mkdir(os.path.join(dataset_test_path, 'none'))
 
     # UNDER OVER
-    test_config = UNDER_OVER_RNet34_lr1e4_medley_03Hard2_wReal_recentered_mark_crossing_smaller()
+    test_config = TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreReal_Sharp()
     test_dataset = KeypointsDataset([os.path.join(d, 'test') for d in test_config.dataset_dir],
                                     transform,
                                     augment=False, 
@@ -600,17 +600,20 @@ if __name__ == '__main__':
     test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
 
     for i_batch, sample_batched in enumerate(test_data):
-        img, label = sample_batched
-        label = int(label.detach().squeeze().cpu().numpy().item())
-        print(i_batch, label)
+        img, gauss = sample_batched
+        gauss = gauss.squeeze(0)
         img = img.squeeze(0)
-        img = (img.cpu().detach().numpy().transpose(1, 2, 0) * 255)
-        if label == 0:
-            cv2.imwrite(f'./dataset_py_test/under/test-img_{i_batch:05d}.png', img[...,::-1])
-        elif label == 1:
-            cv2.imwrite(f'./dataset_py_test/over/test-img_{i_batch:05d}.png', img[...,::-1])
-        else:
-            cv2.imwrite(f'./dataset_py_test/none/test-img_{i_batch:05d}.png', img[...,::-1])
+        vis_gauss(img, gauss, i_batch)
+        # label = int(label.detach().squeeze().cpu().numpy().item())
+        # print(i_batch, label)
+        # img = img.squeeze(0)
+        # img = (img.cpu().detach().numpy().transpose(1, 2, 0) * 255)
+        # if label == 0:
+        #     cv2.imwrite(f'./dataset_py_test/under/test-img_{i_batch:05d}.png', img[...,::-1])
+        # elif label == 1:
+        #     cv2.imwrite(f'./dataset_py_test/over/test-img_{i_batch:05d}.png', img[...,::-1])
+        # else:
+        #     cv2.imwrite(f'./dataset_py_test/none/test-img_{i_batch:05d}.png', img[...,::-1])
 
 
     # TRACE PREDICTION

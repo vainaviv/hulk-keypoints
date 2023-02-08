@@ -711,7 +711,7 @@ class TracerKnotDetector():
         # Run knot detection and return knot at earliest start index along trace (earliest knot)
 
         # import pdb; pdb.set_trace()
-        self.pixels, self.trace_end = self.tracer.trace(self.img, self.starting_pixels_for_trace, endpoints=endpoints, viz=True, path_len=100)
+        self.pixels, self.trace_end = self.tracer.trace(self.img, self.starting_pixels_for_trace, endpoints=endpoints, viz=True, path_len=500)
         self.pixels = self.interpolate_trace(self.pixels)
         self.crossing_locs = self._get_crossing_locs()
 
@@ -851,7 +851,7 @@ class TracerKnotDetector():
         output['cage'] = cage
         output['knot_confidence'] = knot_confidence
         output['pull_apart_dist'] = pull_apart_dist/2
-        output['done_untangling'] = done_untangling and (self.trace_end == TraceEnd.ENDPOINT or self.trace_end == TraceEnd.FINISHED)
+        output['done_untangling'] = done_untangling #and (self.trace_end == TraceEnd.ENDPOINT or self.trace_end == TraceEnd.FINISHED)
         output['trace_end'] = self.trace_end
         output['reveal_point'] = reveal_point
         output['trace_incomplete'] = not ((self.trace_end == TraceEnd.EDGE) or not self.tracer._is_uncovered_area_touching_before_idx(self.img, self.pixels, cage_idx, endpoints)) #TODO(@Kaushik): change to true as needed
