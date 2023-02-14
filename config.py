@@ -83,6 +83,7 @@ class BaseConfig:
     contrast: bool = False
     mark_crossing: bool = False
     expand_spline: bool = False
+    lots_noise: bool = False
 
 @dataclass
 class TRCR80(BaseConfig):
@@ -702,6 +703,66 @@ class TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreReal_Sharp(BaseConfig):
     sharpen: bool = True
 
 @dataclass
+class TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_Varied_Sharp(BaseConfig):
+    crop_width: int = 32
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1', '/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_varied_1', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_varied_2'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.3, 0.15, 0.35, 0.2, 0.4, 0.4])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True, False, False])
+    oversample: bool = True
+    oversample_rate: float = 0.95
+    rot_cond: bool = True
+    epochs: int = 125
+    sharpen: bool = True
+    lots_noise: bool = True
+
+@dataclass
+class TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_Varied_Sharp_Mod(BaseConfig):
+    crop_width: int = 32
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1', '/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_varied_1', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_varied_2'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.3, 0.15, 0.35, 0.2, 0.2, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True, False, False])
+    oversample: bool = True
+    oversample_rate: float = 0.95
+    rot_cond: bool = True
+    epochs: int = 125
+    sharpen: bool = True
+    lots_noise: bool = True
+
+@dataclass
+class TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_Varied_Sharp_Mod_2(BaseConfig):
+    crop_width: int = 32
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1', '/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_varied_1', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_varied_2'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.3, 0.15, 0.35, 0.2, 0.2, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True, False, False])
+    oversample: bool = True
+    oversample_rate: float = 0.95
+    rot_cond: bool = True
+    epochs: int = 125
+    sharpen: bool = True
+    lots_noise: bool = False
+
+@dataclass
 class TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreRealFxdDense_Sharp(BaseConfig):
     crop_width: int = 32
     cond_point_dist_px: int = 12
@@ -735,6 +796,120 @@ class TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreRealFxdDenseMoreWeight_Sharp(Bas
     dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True])
     oversample: bool = True
     oversample_rate: float = 0.95
+    rot_cond: bool = True
+    epochs: int = 125
+    sharpen: bool = True
+
+@dataclass
+class TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreRealFxdDenseMod1(BaseConfig):
+    crop_width: int = 32
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_big_densefixed'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.2, 0.25, 0.35, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True])
+    oversample: bool = True
+    oversample_rate: float = 0.97
+    rot_cond: bool = True
+    epochs: int = 500
+    sharpen: bool = True
+
+@dataclass
+class TRCR30_CL3_10_UNet34_B64_OS_MedleyFix_MoreRealFxdDenseMod2(BaseConfig):
+    crop_width: int = 30
+    cond_point_dist_px: int = 10
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_big_densefixed'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.2, 0.25, 0.35, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True])
+    oversample: bool = True
+    oversample_rate: float = 0.97
+    rot_cond: bool = True
+    epochs: int = 500
+    sharpen: bool = True
+
+@dataclass
+class TRCR30_CL3_8_UNet34_B64_OS_MedleyFix_MoreRealFxdDenseMod3(BaseConfig):
+    crop_width: int = 30
+    cond_point_dist_px: int = 8
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_big_densefixed'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.2, 0.25, 0.35, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True])
+    oversample: bool = True
+    oversample_rate: float = 0.97
+    rot_cond: bool = True
+    epochs: int = 500
+    sharpen: bool = True
+
+@dataclass
+class TRCR30_CL3_10_UNet34_B64_OS_MedleyFix_MoreRealFxdDenseMod4(BaseConfig):
+    crop_width: int = 30
+    cond_point_dist_px: int = 10
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_big_densefixed'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.1, 0.35, 0.35, 0.10])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True])
+    oversample: bool = True
+    oversample_rate: float = 0.97
+    rot_cond: bool = True
+    epochs: int = 500
+    sharpen: bool = True
+
+@dataclass
+class TRCR28_CL3_8_UNet34_B64_OS_MedleyFix_MoreRealFxdDenseMod5(BaseConfig):
+    crop_width: int = 28
+    cond_point_dist_px: int = 8
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_big_densefixed'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.2, 0.25, 0.35, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True])
+    oversample: bool = True
+    oversample_rate: float = 0.97
+    rot_cond: bool = True
+    epochs: int = 125
+    sharpen: bool = True
+
+@dataclass
+class TRCR28_CL4_8_UNet34_B64_OS_MedleyFix_MoreRealFxdDenseMod6(BaseConfig):
+    crop_width: int = 28
+    cond_point_dist_px: int = 8
+    condition_len: int = 4
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_real_big_densefixed'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.2, 0.25, 0.35, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True])
+    oversample: bool = True
+    oversample_rate: float = 0.97
     rot_cond: bool = True
     epochs: int = 125
     sharpen: bool = True
@@ -1717,8 +1892,17 @@ TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_Medley_MoreReal_Sharp,
 TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_RealOnly_Sharp,
 TRCR32_CL3_12_PL1_MED3_UNet50_B64_OS_RotCond_Hard2_Medley_MoreReal_Sharp,
 TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreReal_Sharp,
+TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_Varied_Sharp,
+TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_Varied_Sharp_Mod,
+TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_Varied_Sharp_Mod_2,
 TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreRealFxdDense_Sharp,
 TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreRealFxdDenseMoreWeight_Sharp,
+TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreRealFxdDenseMod1,
+TRCR30_CL3_10_UNet34_B64_OS_MedleyFix_MoreRealFxdDenseMod2,
+TRCR30_CL3_8_UNet34_B64_OS_MedleyFix_MoreRealFxdDenseMod3,
+TRCR30_CL3_10_UNet34_B64_OS_MedleyFix_MoreRealFxdDenseMod4,
+TRCR28_CL3_8_UNet34_B64_OS_MedleyFix_MoreRealFxdDenseMod5,
+TRCR28_CL4_8_UNet34_B64_OS_MedleyFix_MoreRealFxdDenseMod6,
 TRCR32_CL3_12_PL1_MED3_UNet101_B64_OS_RotCond_Hard2_Medley_MoreReal_Sharp,
 TRCR32_CL3_8_PL1_MED3_UNet50_B64_OS_RotCond_Medley_MoreReal_Sharp, 
 TRCR28_CL3_8_PL1_MED3_UNet50_B64_OS_RotCond_Medley_MoreReal_Sharp, 
