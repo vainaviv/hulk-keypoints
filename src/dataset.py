@@ -149,7 +149,7 @@ def perform_contrast(img):
     return cable #img_contrast
 
 class KeypointsDataset(Dataset):
-    def __init__(self, folder, transform, augment=True, sweep=True, seed=1, real_only=False, config=None):
+    def __init__(self, folder, transform, augment=True, sweep=True, seed=1, real_only=False, config=None, keep_counters=True):
         self.img_height = config.img_height
         self.img_width = config.img_width
         self.gauss_sigma = config.gauss_sigma
@@ -158,6 +158,8 @@ class KeypointsDataset(Dataset):
         self.contrast = config.contrast
         self.expand_spline = config.expand_spline
         self.mark_crossing = config.mark_crossing
+        self.keep_counters = keep_counters
+        self.lots_noise = config.lots_noise
 
         real_world_transform_list = augmentation_list if augment else no_augmentation_list
         sim_transform_list = list(real_world_transform_list)
@@ -173,6 +175,11 @@ class KeypointsDataset(Dataset):
             noise_avg = 6
         aug_delta = 2 if augment else 0
         brightness_delta = 5 if augment else 0
+        if self.lots_noise:
+            noise_avg = 12
+            aug_delta = 4
+            brightness_delta = 10
+
         sim_transform_list.extend([iaa.AdditiveGaussianNoise(scale=(noise_avg - aug_delta, noise_avg + aug_delta)),
         iaa.WithBrightnessChannels(iaa.Add((brightness_avg - brightness_delta, brightness_avg + brightness_delta)))])
         
@@ -219,6 +226,8 @@ class KeypointsDataset(Dataset):
             else:
                 raise FileNotFoundError(f'Folder {folder} does not exist')
         self.folder_sizes = np.array(self.folder_sizes)
+
+        self.data_counters = np.zeros(len(self.data))
 
     def _get_evenly_spaced_points(self, pixels, num_points, start_idx, spacing, img_size, backward=True, randomize_spacing=True):
         def is_in_bounds(pixel):
@@ -424,7 +433,11 @@ class KeypointsDataset(Dataset):
             iters = 0
             while True:
                 if self.oversample and len(dense_points) > 0 and np.random.random() < self.oversample_rate:
-                    start_idx = np.random.choice(dense_points)
+                    self.data_counters[data_index] += 1
+                    if np.random.random() < 0.9 and self.keep_counters:
+                        start_idx = dense_points[int(self.data_counters[data_index]) % int(len(dense_points))]
+                    else:
+                        start_idx = np.random.choice(dense_points)
                 else:
                     start_idx = np.random.randint(0, len(pixels) - (self.condition_len + self.pred_len))
                 condition_pixels = self._get_evenly_spaced_points(pixels, self.condition_len + self.pred_len, start_idx, self.spacing, img.shape, backward=True)
@@ -592,43 +605,40 @@ if __name__ == '__main__':
     os.mkdir(os.path.join(dataset_test_path, 'none'))
 
     # UNDER OVER
-    test_config = TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreReal_Sharp()
-    test_dataset = KeypointsDataset([os.path.join(d, 'test') for d in test_config.dataset_dir],
+    # test_config = UNDER_OVER_RNet34_lr1e4_medley_03Hard2_wReal_recentered_mark_crossing_smaller()
+    # test_dataset = KeypointsDataset([os.path.join(d, 'test') for d in test_config.dataset_dir],
+    #                                 transform,
+    #                                 augment=False, 
+    #                                 config=test_config)
+    # test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
+
+    # for i_batch, sample_batched in enumerate(test_data):
+    #     img, label = sample_batched
+    #     label = int(label.detach().squeeze().cpu().numpy().item())
+    #     print(i_batch, label)
+    #     img = img.squeeze(0)
+    #     img = (img.cpu().detach().numpy().transpose(1, 2, 0) * 255)
+    #     if label == 0:
+    #         cv2.imwrite(f'./dataset_py_test/under/test-img_{i_batch:05d}.png', img[...,::-1])
+    #     elif label == 1:
+    #         cv2.imwrite(f'./dataset_py_test/over/test-img_{i_batch:05d}.png', img[...,::-1])
+    #     else:
+    #         cv2.imwrite(f'./dataset_py_test/none/test-img_{i_batch:05d}.png', img[...,::-1])
+
+
+    # TRACE PREDICTION
+    test_config = TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_Varied_Sharp() #TRCR32_CL3_12_PL1_RotCond_Sharp_Hard2_WReal()
+    test_dataset2 = KeypointsDataset([os.path.join(dir, 'test') for dir in test_config.dataset_dir],
                                     transform,
                                     augment=False, 
                                     config=test_config)
-    test_data = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
-
+    test_data = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
     for i_batch, sample_batched in enumerate(test_data):
+        print(i_batch)
         img, gauss = sample_batched
         gauss = gauss.squeeze(0)
         img = img.squeeze(0)
         vis_gauss(img, gauss, i_batch)
-        # label = int(label.detach().squeeze().cpu().numpy().item())
-        # print(i_batch, label)
-        # img = img.squeeze(0)
-        # img = (img.cpu().detach().numpy().transpose(1, 2, 0) * 255)
-        # if label == 0:
-        #     cv2.imwrite(f'./dataset_py_test/under/test-img_{i_batch:05d}.png', img[...,::-1])
-        # elif label == 1:
-        #     cv2.imwrite(f'./dataset_py_test/over/test-img_{i_batch:05d}.png', img[...,::-1])
-        # else:
-        #     cv2.imwrite(f'./dataset_py_test/none/test-img_{i_batch:05d}.png', img[...,::-1])
-
-
-    # TRACE PREDICTION
-    # test_config = TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2_Medley_MoreReal_Sharp() #TRCR32_CL3_12_PL1_RotCond_Sharp_Hard2_WReal()
-    # test_dataset2 = KeypointsDataset([os.path.join(dir, 'test') for dir in test_config.dataset_dir],
-    #                                 transform,
-    #                                 augment=False, 
-    #                                 config=test_config)
-    # test_data = DataLoader(test_dataset2, batch_size=1, shuffle=True, num_workers=1)
-    # for i_batch, sample_batched in enumerate(test_data):
-    #     print(i_batch)
-    #     img, gauss = sample_batched
-    #     gauss = gauss.squeeze(0)
-    #     img = img.squeeze(0)
-    #     vis_gauss(img, gauss, i_batch)
 
 
     # # TRACE PREDICTION

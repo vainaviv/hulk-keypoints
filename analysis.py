@@ -99,8 +99,7 @@ expt_type = config.expt_type
 print("Using checkpoint: ", checkpoint_file_name)
 print("Loaded config: ", config)
 
-def trace(image, start_points, viz=True, exact_path_len=None, model=None):    
-    viz = True
+def trace(image, start_points, viz=True, exact_path_len=None, model=None):
     num_condition_points = config.condition_len
     if start_points is None or len(start_points) < num_condition_points:
         raise ValueError(f"Need at least {num_condition_points} start points")
@@ -117,6 +116,11 @@ def trace(image, start_points, viz=True, exact_path_len=None, model=None):
 
         crop_eroded = cv2.erode((cable_mask).astype(np.uint8), np.ones((2, 2)), iterations=1)
         # print("Model input prep time: ", time.time() - tm)
+
+        # if viz:
+        #     # cv2.imshow('model input', model_input.detach().cpu().numpy().transpose(1, 2, 0))
+        #     # cv2.waitKey(1)
+        #     plt.imsave(f'./model_inputs/model_input_{iter}.png', model_input.detach().cpu().numpy().transpose(1, 2, 0))
 
         model_output = model(model_input.unsqueeze(0)).detach().cpu().numpy().squeeze()
         model_output *= crop_eroded.squeeze()
@@ -146,9 +150,10 @@ def trace(image, start_points, viz=True, exact_path_len=None, model=None):
             # cv2.imshow('heatmap on crop', visualize_heatmap_on_image(crop, model_output))
             # cv2.waitKey(1)
 
-            plt.imshow(visualize_heatmap_on_image(crop, model_output))
-            plt.savefig("vis_heatmap.png")
+            # plt.imshow(visualize_heatmap_on_image(crop, model_output))
+            # plt.imsave(f'{output_folder_name}/output_heatmap_{iter}.png', visualize_heatmap_on_image(crop, model_output))
 
+            pass 
             # plt.scatter(global_yx[1], global_yx[0], c='r')
             # plt.imshow(image)
             # plt.show()
@@ -261,12 +266,14 @@ if real:
                                     transform,
                                     augment=False,
                                     real_only=True,
-                                    config=config)
+                                    config=config,
+                                    keep_counters=False)
 else:
     test_dataset = KeypointsDataset(['%s/test'%dir for dir in config.dataset_dir],
                                     transform, 
                                     augment=False, 
-                                    config=config)
+                                    config=config,
+                                    keep_counters=False)
 
 if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
     if not real_world_trace:
@@ -290,18 +297,12 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
         images.sort()
 
         # filter REAL_WORLD_DICT into only the image I care about
-        # REAL_WORLD_DICT = {k: v for k, v in REAL_WORLD_DICT.items() if k.endswith('00104.npy')}
+        # REAL_WORLD_DICT = {k: v for k, v in REAL_WORLD_DICT.items() if k.endswith('00109.npy')}
         # print(REAL_WORLD_DICT)
 
     for i, image in enumerate(images):
-        # if images[i] == '/home/vainavi/hulk-keypoints/eval_imgs/00004.png':
-        #     continue
-        # if int(images[i][-9:-4]) < 100:
-        #     continue
         if image not in REAL_WORLD_DICT:
             continue
-        # if i < :
-        #     continue
         # print(os.path.join(image_folder, image))
         if not real_world_trace:
             loaded_img = np.load(os.path.join(image_folder, image), allow_pickle=True).item()
@@ -342,7 +343,7 @@ if expt_type == ExperimentTypes.TRACE_PREDICTION and trace_if_trp:
         if img.max() > 1:
             img = (img / 255.0).astype(np.float32)
 
-        spline = trace(img, starting_points, exact_path_len=80, model=keypoints_models[0], viz=False)
+        spline = trace(img, starting_points, exact_path_len=80, model=keypoints_models[0], viz=True)
         # plt.imshow(img)
         # for pt in spline:
         #     plt.scatter(pt[1], pt[0], c='r')
@@ -357,7 +358,7 @@ else:
     gts = []
     total = 0
     class_thresholds = np.linspace(0.0, 1.0, 21)
-    hits = [0 for _ in range(len(class_thresholds))]
+    hits = [0 for _ in range(len(class_thresholds))] if not is_point_pred(expt_type) else 0
     for i, f in enumerate(test_dataset):
         print(i)
         f = list(f)
@@ -426,6 +427,8 @@ else:
 
             vis_image = visualize_heatmap_on_image(img_t[0].squeeze().detach().cpu().numpy().transpose(1,2,0), output_heatmap)
             vis_image = cv2.circle(vis_image, (output_yx[1], output_yx[0]), 1, (0, 255, 255), -1)
+
+            # plt.imsave(f'{output_folder_name}/output_heatmap_{i}.png', vis_image)
             
             # output_image = (output_image * 255.0).astype(np.uint8)
             overlay = output_image
