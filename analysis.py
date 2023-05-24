@@ -118,11 +118,6 @@ def trace(image, start_points, viz=True, exact_path_len=None, model=None):
         crop_eroded = cv2.erode((cable_mask).astype(np.uint8), np.ones((2, 2)), iterations=1)
         # print("Model input prep time: ", time.time() - tm)
 
-        if True:
-            # cv2.imshow('model input', model_input.detach().cpu().numpy().transpose(1, 2, 0))
-            # cv2.waitKey(1)
-            plt.imsave(f'./model_inputs/model_input_{iter}.png', model_input.detach().cpu().numpy().transpose(1, 2, 0))
-
         model_output = model(model_input.unsqueeze(0)).detach().cpu().numpy().squeeze()
         model_output *= crop_eroded.squeeze()
         model_output = cv2.resize(model_output, (crop.shape[1], crop.shape[0]))

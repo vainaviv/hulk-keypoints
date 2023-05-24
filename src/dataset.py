@@ -191,7 +191,7 @@ class KeypointsDataset(Dataset):
         self.seed = seed
         self.oversample = config.oversample
         self.oversample_rate = config.oversample_rate
-        self.rot_cond = False #config.rot_cond
+        self.rot_cond = config.rot_cond
         self.dataset_real = config.dataset_real if not real_only else [True for _ in range(len(folder))]
 
         self.data = []
