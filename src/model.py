@@ -28,6 +28,8 @@ class KeypointsGauss(nn.Module):
 			self.resnet = smp.Unet(encoder_name='resnet50', encoder_weights='imagenet' if pretrained else None, in_channels=3, classes=self.num_outputs)
 		elif resnet_type == 'UNet101':
 			self.resnet = smp.Unet(encoder_name='resnet101', encoder_weights='imagenet' if pretrained else None, in_channels=3, classes=self.num_outputs)
+		elif resnet_type == 'UNet152':
+			self.resnet = smp.Unet(encoder_name='resnet152', encoder_weights='imagenet' if pretrained else None, in_channels=3, classes=self.num_outputs)
 		self.sigmoid = torch.nn.Sigmoid()
 	def forward(self, x):
 		output = self.resnet(x) 

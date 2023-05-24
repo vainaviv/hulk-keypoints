@@ -14,7 +14,7 @@ from src.dataset import KeypointsDataset, transform
 import matplotlib.pyplot as plt
 import argparse
 
-os.environ["CUDA_VISIBLE_DEVICES"]="6"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 # parse command line flags
 parser = argparse.ArgumentParser()
@@ -67,7 +67,10 @@ def fit(train_data, test_data, model, epochs, optimizer, checkpoint_path = ''):
         start_time = time.time()
         train_loss = 0.0
         num_iters = len(train_data) / config.batch_size
+        prev_time = time.time()
         for i_batch, sample_batched in enumerate(train_data):
+            # print('step time', time.time() - start_time)
+            start_time = time.time()
             optimizer.zero_grad()
             loss = forward(sample_batched, model)
             loss.backward()
@@ -75,6 +78,7 @@ def fit(train_data, test_data, model, epochs, optimizer, checkpoint_path = ''):
             train_loss += loss.item()
             print('[%d, %5d] loss: %.3f' % (epoch + 1, i_batch + 1, loss.item()), end='') #,f"\t epoch est. time. left {((time.time() - start_time) * (num_iters) / (i_batch + 1)) * (epochs - epoch)}", end='')
             print('\r', end='')
+            # print("inside loop time: ", time.time() - start_time)
         print('train loss:', train_loss / (i_batch + 1))
         train_epochs.append(epoch)
         train_losses.append(train_loss / (i_batch + 1))

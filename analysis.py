@@ -229,6 +229,7 @@ if use_cuda:
         keypoints = keypoints.cuda()
 
 keypoints.load_state_dict(torch.load(checkpoint_file_name))
+keypoints.eval()
 
 predictions = []
 

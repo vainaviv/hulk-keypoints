@@ -174,7 +174,7 @@ class KeypointsDataset(Dataset):
         else:
             noise_avg = 6
         aug_delta = 2 if augment else 0
-        brightness_delta = 5 if augment else 0
+        brightness_delta = 10 if augment else 0
         if self.lots_noise:
             noise_avg = 12
             aug_delta = 4
@@ -229,22 +229,24 @@ class KeypointsDataset(Dataset):
 
         self.data_counters = np.zeros(len(self.data))
 
-    def _get_evenly_spaced_points(self, pixels, num_points, start_idx, spacing, img_size, backward=True, randomize_spacing=True):
+    def _get_evenly_spaced_points(self, pixels, num_points, start_idx, spacing, img_size, backward=True, randomize_spacing=True, scale=1.0):
         def is_in_bounds(pixel):
             return pixel[0] >= 0 and pixel[0] < img_size[0] and pixel[1] >= 0 and pixel[1] < img_size[1]
         def get_rand_spacing(spacing):
             return spacing * np.random.uniform(0.8, 1.2) if randomize_spacing else spacing
+        def get_scaled_pixel(idx):
+            return (np.array(pixels[idx]).squeeze() * scale).astype(np.int32)
         # get evenly spaced points
-        last_point = np.array(pixels[start_idx]).squeeze()
+        last_point = get_scaled_pixel(start_idx)
         points = [last_point]
         if not is_in_bounds(last_point):
             return np.array([])
         rand_spacing = get_rand_spacing(spacing)
         while len(points) < num_points and start_idx > 0 and start_idx < len(pixels):
             start_idx -= (int(backward) * 2 - 1)
-            cur_spacing = np.linalg.norm(np.array(pixels[start_idx]).squeeze() - last_point)
+            cur_spacing = np.linalg.norm(get_scaled_pixel(start_idx) - last_point)
             if cur_spacing > rand_spacing and cur_spacing < 2*rand_spacing:
-                last_point = np.array(pixels[start_idx]).squeeze()
+                last_point = get_scaled_pixel(start_idx)
                 rand_spacing = get_rand_spacing(spacing)
                 if is_in_bounds(last_point):
                     points.append(last_point)
@@ -406,6 +408,7 @@ class KeypointsDataset(Dataset):
 
     def __getitem__(self, data_index):
         # ignore data_index and get random data
+        start_time = time.time()
         if data_index >= self.__len__():
             raise IndexError()
         folder_to_sample = np.random.choice(np.arange(len(self.folder_sizes)), p=self.folder_weights)
@@ -416,13 +419,14 @@ class KeypointsDataset(Dataset):
 
         loaded_data = np.load(self.data[data_index], allow_pickle=True).item()
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
+            # print("here3", time.time() - start_time)
             img = loaded_data['img'][:, :, :3]
 
-            if not is_real_example:
-                delta = 0.8 #np.random.uniform(low=0.8, high=1.0)
-                img = cv2.resize(img, (int(img.shape[0]*delta), int(img.shape[1]*delta)))
-                for idx in loaded_data['pixels'].keys():
-                    loaded_data['pixels'][idx] = [(int(loaded_data['pixels'][idx][0][0]*delta), int(loaded_data['pixels'][idx][0][1]*delta))]
+            delta = 1.0
+            # if not is_real_example:
+            #     delta = 0.8 #np.random.uniform(low=0.8, high=1.0)
+            #     img = cv2.resize(img, (int(img.shape[0]*delta), int(img.shape[1]*delta)))
+            #     # resizing of the pixels happens a bit later
                 
             if img.max() > 1:
                 img = (img / 255.0).astype(np.float32)
@@ -431,6 +435,7 @@ class KeypointsDataset(Dataset):
             cable_mask[img[:, :, 1] <= 0.3] = 0.0
             dense_points = loaded_data['dense_points']
             iters = 0
+            # print("here2", time.time() - start_time)
             while True:
                 if self.oversample and len(dense_points) > 0 and np.random.random() < self.oversample_rate:
                     self.data_counters[data_index] += 1
@@ -440,7 +445,7 @@ class KeypointsDataset(Dataset):
                         start_idx = np.random.choice(dense_points)
                 else:
                     start_idx = np.random.randint(0, len(pixels) - (self.condition_len + self.pred_len))
-                condition_pixels = self._get_evenly_spaced_points(pixels, self.condition_len + self.pred_len, start_idx, self.spacing, img.shape, backward=True)
+                condition_pixels = self._get_evenly_spaced_points(pixels, self.condition_len + self.pred_len, start_idx, self.spacing, img.shape, backward=True, scale=delta)
                 if len(condition_pixels) == self.condition_len + self.pred_len:
                     break
                 if iters > 10:
@@ -544,6 +549,7 @@ class KeypointsDataset(Dataset):
             label = torch.as_tensor(loaded_data['under_over']).double().cuda()
 
         if self.expt_type == ExperimentTypes.TRACE_PREDICTION:
+            # print("here1", time.time() - start_time)
             combined, points, cable_mask, _ = self.get_trp_model_input(img, cond_pix_array, is_real_example=is_real_example)
 
             if self.pred_len == 1:
@@ -589,6 +595,7 @@ class KeypointsDataset(Dataset):
                 end_U, end_V = torch.from_numpy(np.array([end_U, end_V], dtype=np.int32)).cuda()
                 label = 1.0 * get_gauss(self.img_width, self.img_height, self.gauss_sigma, end_U, end_V)
 
+        # print("Time to load data: ", time.time() - start_time)
         return combined, label
     
     def __len__(self):
