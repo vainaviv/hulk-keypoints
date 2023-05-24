@@ -1876,6 +1876,83 @@ class UNDER_OVER_NONE(BaseConfig):
     pretrained: bool = False
     rot_cond: bool = True
 
+
+@dataclass
+class CORL_TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreReal_Sharp_LargerBatchSize(BaseConfig):
+    crop_width: int = 32
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1', '/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.3, 0.35, 0.35, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True])
+    oversample: bool = True
+    oversample_rate: float = 0.98
+    rot_cond: bool = True
+    epochs: int = 20
+    sharpen: bool = True
+
+@dataclass
+class CORL_Preshrunk_TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreReal_Sharp_LargerBatchSize(BaseConfig):
+    crop_width: int = 32
+    cond_point_dist_px: int = 12
+    condition_len: int = 3
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet34'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2_shrunk_0.8', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3_shrunk_0.8', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1_shrunk_0.8', '/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.3, 0.35, 0.35, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True])
+    oversample: bool = True
+    oversample_rate: float = 0.98
+    rot_cond: bool = True
+    epochs: int = 20
+    sharpen: bool = True
+
+@dataclass
+class CORL_Preshrunk_TRCR42_CL4_12_UNet101_B64_OS_MedleyFix_MoreReal_Sharp_LargerBatchSize(BaseConfig):
+    crop_width: int = 42
+    cond_point_dist_px: int = 12
+    condition_len: int = 4
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet101'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2_shrunk_0.8', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3_shrunk_0.8', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1_shrunk_0.8', '/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.3, 0.35, 0.35, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True])
+    oversample: bool = True
+    oversample_rate: float = 0.98
+    rot_cond: bool = True
+    epochs: int = 100
+    sharpen: bool = True
+
+@dataclass
+class CORL_Preshrunk_TRCR46_CL4_12_UNet152_B64_OS_MedleyFix_MoreReal_Sharp_LargerBatchSize(BaseConfig):
+    crop_width: int = 46
+    cond_point_dist_px: int = 12
+    condition_len: int = 4
+    pred_len: int = 1
+    img_height: int = 96
+    img_width: int = 96
+    resnet_type: str = 'UNet152'
+    batch_size: int = 64
+    dataset_dir: List[str] = field(default_factory=lambda: ['/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_2_shrunk_0.8', '/home/kaushiks/hulk-keypoints/processed_sim_data/annotations_hard_knots_3_shrunk_0.8', '/home/kaushiks/hulk-keypoints/processed_sim_data/trace_dataset_hard_adjacent_1_shrunk_0.8', '/home/vainavi/hulk-keypoints/real_data/real_data_for_tracer'])
+    dataset_weights: List[float] = field(default_factory=lambda: [0.3, 0.35, 0.35, 0.2])
+    dataset_real: List[bool] = field(default_factory=lambda: [False, False, False, True])
+    oversample: bool = True
+    oversample_rate: float = 0.98
+    rot_cond: bool = True
+    epochs: int = 100
+    sharpen: bool = True
+
 def get_class_name(cls):
     return cls.__name__
 
@@ -1896,7 +1973,7 @@ TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond,
 TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond, 
 TRCR40_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond_Hard2, 
 TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond_Hard2, 
-TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2, 
+TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Hard2,
 TRCR40_CL3_15_PL1_MED3_UNet34_B64_OS_RotCond_Adj1, 
 TRCR36_CL3_14_PL1_MED3_UNet34_B64_OS_RotCond_Adj1, 
 TRCR32_CL3_12_PL1_MED3_UNet34_B64_OS_RotCond_Adj1,
@@ -1961,6 +2038,10 @@ UNDER_OVER_RNet34_lr1e4_B16_medley_03Hard2_wReal_recentered_nocontrast,
 UNDER_OVER_RNet34_lr1e4_B8_medley_03Hard2_wReal_recentered_nocontrast,
 UNDER_OVER_RNet34_lr1e4_medley_03Hard2_wReal_recentered_mark_center,
 UNDER_OVER_RNet34_lr1e4_medley_03Hard2_wReal_B16_recentered_mark_crossing_smaller,
-UNDER_OVER_NONE]
+UNDER_OVER_NONE,
+CORL_TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreReal_Sharp_LargerBatchSize,
+CORL_Preshrunk_TRCR32_CL3_12_UNet34_B64_OS_MedleyFix_MoreReal_Sharp_LargerBatchSize,
+CORL_Preshrunk_TRCR42_CL4_12_UNet101_B64_OS_MedleyFix_MoreReal_Sharp_LargerBatchSize,
+CORL_Preshrunk_TRCR46_CL4_12_UNet152_B64_OS_MedleyFix_MoreReal_Sharp_LargerBatchSize]
 
 ALL_EXPERIMENTS_CONFIG = {get_class_name(expt): expt for expt in ALL_EXPERIMENTS_LIST}
